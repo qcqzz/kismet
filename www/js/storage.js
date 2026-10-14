@@ -26,6 +26,19 @@ function loadAllData() {
 
   settings = Object.assign({}, DEFAULT_SETTINGS, savedSettings || {});
 
+  // 主页数据
+  homeProfile = Object.assign({}, DEFAULT_HOME, Storage.get('homeProfile') || {});
+  anniversaries = Array.isArray(Storage.get('anniversaries')) ? Storage.get('anniversaries') : [];
+  musicTracks = Array.isArray(Storage.get('musicTracks')) && Storage.get('musicTracks').length
+    ? Storage.get('musicTracks')
+    : DEFAULT_TRACKS.map(function (t) { return Object.assign({}, t); });
+  var savedPhotos = Storage.get('photoWall');
+  photoWall = Array.isArray(savedPhotos) && savedPhotos.length === 6
+    ? savedPhotos
+    : [null, null, null, null, null, null];
+  weatherNow = Storage.get('weatherNow');
+  dailyCardIndex = Storage.get('dailyCardIndex') || 0;
+
   contacts = Array.isArray(savedContacts) && savedContacts.length
     ? savedContacts
     : BUILTIN_CONTACTS.map(function (c) { return Object.assign({ unread: 0, lastTime: 0 }, c); });
@@ -63,5 +76,12 @@ function saveData() {
     Storage.set('customPokes', customPokes);
     var custom = replyPool.filter(function (r) { return BUILTIN_REPLIES.indexOf(r) === -1; });
     Storage.set('customReplies', custom);
+    // 主页数据
+    Storage.set('homeProfile', homeProfile);
+    Storage.set('anniversaries', anniversaries);
+    Storage.set('musicTracks', musicTracks);
+    Storage.set('photoWall', photoWall);
+    Storage.set('weatherNow', weatherNow);
+    Storage.set('dailyCardIndex', dailyCardIndex);
   }, 300);
 }

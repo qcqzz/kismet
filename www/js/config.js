@@ -15,7 +15,39 @@ var DEFAULT_SETTINGS = {
   partnerRecallEnabled: true,  // 对方撤回（3% 概率）
   pokeEnabled: true,           // 拍一拍（3% 概率）
   statusChangeEnabled: true,   // 状态自动变化
-  bubbleTheme: 'wechat'        // wechat=微信绿 / mono=纯黑白
+  bubbleTheme: 'wechat',       // wechat=微信绿 / mono=纯黑白
+  weatherCity: ''              // 天气城市（Open-Meteo 自动查）
+};
+
+// 主页个人信息卡默认值
+var DEFAULT_HOME = {
+  name: '我',
+  avatar: '🐧',
+  location: '',
+  expression: '(*^^*)'
+};
+
+// 默认音乐条（两条，仿参照图；音频文件存在 IndexedDB）
+var DEFAULT_TRACKS = [
+  { id: 'trk_1', name: '歌曲一', lyric: '点右侧 ⋯ 可改名、换歌词、上传音频', hasAudio: false },
+  { id: 'trk_2', name: '歌曲二', lyric: '上传音频后点 ▶ 真实播放', hasAudio: false }
+];
+
+// WMO 天气代码 → 中文（Open-Meteo current.weather_code）
+var WEATHER_CODES = {
+  0: '晴', 1: '大部晴朗', 2: '多云', 3: '阴',
+  45: '有雾', 48: '雾凇',
+  51: '毛毛雨', 53: '毛毛雨', 55: '密毛毛雨', 56: '冻毛毛雨', 57: '强毛毛雨',
+  61: '小雨', 63: '中雨', 65: '大雨', 66: '冻雨', 67: '强冻雨',
+  71: '小雪', 73: '中雪', 75: '大雪', 77: '雪粒',
+  80: '小阵雨', 81: '阵雨', 82: '强阵雨', 85: '小阵雪', 86: '大阵雪',
+  95: '雷阵雨', 96: '雷阵雨伴冰雹', 99: '强雷阵雨伴冰雹'
+};
+
+// 天气代码 → 表情图标
+var WEATHER_ICONS = {
+  sunny: '☀️', cloudy: '⛅', overcast: '☁️', fog: '🌫️',
+  rain: '🌧️', snow: '🌨️', storm: '⛈️'
 };
 
 // 对方状态语（循环随机换，仿 chat 的 PARTNER_STATUSES）

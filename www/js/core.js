@@ -76,7 +76,7 @@ function addMessage(msg, opts) {
     if (msg.sender === 'partner' && cid !== activeContactId && !opts.silent) {
       contact.unread = (contact.unread || 0) + 1;
       if (typeof renderContactList === 'function') renderContactList();
-      if (typeof updateDeskBadge === 'function') updateDeskBadge();
+      if (typeof updateNavBadge === 'function') updateNavBadge();
     }
   }
 

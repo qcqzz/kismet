@@ -49,6 +49,15 @@ function renderSettings(focusSection) {
       rowSwitch('statusChangeEnabled', '状态变化', '对方状态偶尔自动变化', settings.statusChangeEnabled) +
     '</div></div>' +
 
+    // 主页
+    '<div class="settings-group"><div class="sg-title">主页</div><div class="sg-card">' +
+      '<div class="sg-row"><span class="row-label">天气城市</span>' +
+      '<input type="text" id="weather-city-input" placeholder="如：上海" value="' + escapeHtml(settings.weatherCity || '') + '"></div>' +
+      '<div class="sg-row"><div><div class="row-label">天气刷新</div><div class="row-sub">上次：' +
+      (weatherNow ? escapeHtml(weatherNow.city + ' ' + weatherNow.temp + '° ' + weatherNow.desc) : '从未获取') +
+      '</div></div><button id="weather-refresh-btn" style="border:1px solid var(--line);background:var(--card-bg);border-radius:6px;padding:7px 12px;font-size:13px;cursor:pointer">立即刷新</button></div>' +
+    '</div></div>' +
+
     // 外观
     '<div class="settings-group"><div class="sg-title">外观</div><div class="sg-card">' +
       '<div class="sg-row"><div><div class="row-label">纯黑白模式</div><div class="row-sub">关闭后用户气泡使用微信绿</div></div>' +
@@ -162,6 +171,21 @@ function bindSettingsEvents() {
       saveData();
     });
   });
+
+  // 主页天气
+  var cityInput = body.querySelector('#weather-city-input');
+  if (cityInput) {
+    cityInput.addEventListener('change', function () {
+      settings.weatherCity = cityInput.value.trim();
+      saveData();
+      if (settings.weatherCity) refreshWeather(true);
+      renderHome();
+    });
+  }
+  var wxBtn = body.querySelector('#weather-refresh-btn');
+  if (wxBtn) {
+    wxBtn.addEventListener('click', function () { refreshWeather(true); });
+  }
 
   // 纯黑白模式
   var mono = body.querySelector('#mono-toggle');
@@ -295,7 +319,13 @@ function exportData() {
     settings: settings,
     keywordRules: keywordRules,
     customPokes: customPokes,
-    customReplies: replyPool.filter(function (r) { return BUILTIN_REPLIES.indexOf(r) === -1; })
+    customReplies: replyPool.filter(function (r) { return BUILTIN_REPLIES.indexOf(r) === -1; }),
+    homeProfile: homeProfile,
+    anniversaries: anniversaries,
+    musicTracks: musicTracks,
+    photoWall: photoWall,
+    weatherNow: weatherNow,
+    dailyCardIndex: dailyCardIndex
   };
   var blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
   var a = document.createElement('a');
@@ -325,6 +355,14 @@ function importData() {
           keywordRules = data.keywordRules || BUILTIN_KEYWORD_RULES.slice();
           customPokes = data.customPokes || POKE_ACTIONS.slice();
           replyPool = BUILTIN_REPLIES.concat(data.customReplies || []);
+          homeProfile = Object.assign({}, DEFAULT_HOME, data.homeProfile || {});
+          anniversaries = Array.isArray(data.anniversaries) ? data.anniversaries : [];
+          musicTracks = Array.isArray(data.musicTracks) && data.musicTracks.length
+            ? data.musicTracks : DEFAULT_TRACKS.map(function (t) { return Object.assign({}, t); });
+          photoWall = Array.isArray(data.photoWall) && data.photoWall.length === 6
+            ? data.photoWall : [null, null, null, null, null, null];
+          weatherNow = data.weatherNow || null;
+          dailyCardIndex = data.dailyCardIndex || 0;
           contacts.forEach(function (c) {
             if (!Array.isArray(messagesByContact[c.id])) messagesByContact[c.id] = [];
           });
@@ -333,6 +371,7 @@ function importData() {
           if (activeContactId) renderAllMessages();
           renderContactList();
           renderSettings();
+          renderHome();
           toast('导入成功');
         }, { danger: true });
       } catch (e) {

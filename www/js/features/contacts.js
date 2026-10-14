@@ -54,7 +54,7 @@ function openChat(contactId) {
   // 清除未读
   contact.unread = 0;
   saveData();
-  updateDeskBadge();
+  updateNavBadge();
 
   // 更新聊天头部
   DOMElements.chatHeadName.textContent = contact.name;
@@ -93,7 +93,7 @@ function initContacts() {
     hideTyping();
     showView('contacts');
     renderContactList();
-    updateDeskBadge();
+    if (typeof updateNavBadge === 'function') updateNavBadge();
   });
 
   // 聊天页右上角 ⋯ → 联系人/聊天设置弹层
@@ -150,7 +150,7 @@ function openChatInfoSheet() {
           activeContactId = null;
           showView('contacts');
           renderContactList();
-          updateDeskBadge();
+          if (typeof updateNavBadge === 'function') updateNavBadge();
           toast('已删除');
         }, { danger: true });
       }

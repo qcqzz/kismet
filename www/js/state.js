@@ -17,4 +17,12 @@ var currentReplyTo = null;    // 引用中的消息
 var isBatchMode = false;
 var batchMessages = [];
 
+// 主页状态
+var homeProfile = null;       // {name, avatar, location, expression}
+var anniversaries = [];       // [{id, name, date}] 多个纪念日
+var musicTracks = [];         // [{id, name, lyric, hasAudio}]
+var photoWall = [];           // 6 个拍立得位（index 0-1 右上，2-5 底部），null 或 dataURL
+var weatherNow = null;        // {city, temp, code, desc, icon, updatedAt}
+var dailyCardIndex = 0;       // 每日字卡当前索引
+
 var DOMElements = {};
