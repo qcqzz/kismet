@@ -1,13 +1,21 @@
-/* ============ 字卡传讯 · 主页（情侣主页式排版，参照用户图片） ============ */
+/* ============ 字卡传讯 · 主页（头像交错 / 重要日轮换 / 方图 / 双展示栏 / 大方框） ============ */
 
-var _selAnniv = 0;  // 当前展示的纪念日下标
+var _selAnniv = 0;            // 当前展示的重要日下标
+var _annivRotateTimer = null; // 10s 自动轮换
+var _boxPressTimer = null;    // 方框长按计时器
+var _boxLongPressed = false;  // 本次按压是否已触发长按
 
 function initHome() {
+  _resetDreamSign();
   renderHome();
   initWeather();
 
-  // 整个主页用事件委托，重渲染后不用重复绑定
-  document.getElementById('home-scroll').addEventListener('click', function (e) {
+  var box = document.getElementById('home-scroll');
+  if (!box || box.dataset.bound) return;
+  box.dataset.bound = '1';
+
+  // 点击委托（重渲染后不用重复绑定）
+  box.addEventListener('click', function (e) {
     var el = e.target.closest('[data-act]');
     if (!el) return;
     var act = el.dataset.act;
@@ -15,12 +23,33 @@ function initHome() {
     if (act === 'profile') openProfileSheet();
     else if (act === 'weather') refreshWeather(true);
     else if (act === 'anniv') openAnnivSheet();
-    else if (act === 'annivChip') { _selAnniv = Number(el.dataset.idx); renderHome(); }
+    else if (act === 'annivNext') { _selAnniv = (_selAnniv + 1) % anniversaries.length; renderHome(); }
     else if (act === 'photo') openPhotoSheet(Number(el.dataset.idx));
-    else if (act === 'play') Player.toggle(el.dataset.id);
-    else if (act === 'trackMore') openTrackSheet(el.dataset.id);
-    else if (act === 'addTrack') addMusicTrack();
     else if (act === 'dailyRefresh') shuffleDailyCard();
+    else if (act === 'scDream') {
+      var hc = getHomeContact();
+      if (hc) openChat(hc.id); else toast('先新建一位梦角吧');
+    }
+    else if (act === 'scMe') openProfileSheet();
+    else if (act === 'box') {
+      // 长按刚触发过 → 忽略这次 click
+      if (_boxLongPressed) { _boxLongPressed = false; return; }
+    }
+  });
+
+  // 方框长按 → 编辑背景图
+  box.addEventListener('pointerdown', function (e) {
+    var el = e.target.closest('.home-box');
+    if (!el) return;
+    _boxLongPressed = false;
+    clearTimeout(_boxPressTimer);
+    _boxPressTimer = setTimeout(function () {
+      _boxLongPressed = true;
+      openBoxBgSheet();
+    }, 550);
+  });
+  ['pointerup', 'pointercancel', 'pointerleave', 'pointermove'].forEach(function (ev) {
+    box.addEventListener(ev, function () { clearTimeout(_boxPressTimer); });
   });
 }
 
@@ -35,14 +64,16 @@ function renderHome() {
     profileCardHtml() +
     '<div class="home-mid">' +
       annivHtml() +
-      '<div class="polaroid-top">' + polaroidHtml(0, 'p1') + polaroidHtml(1, 'p2') + '</div>' +
+      squareTopHtml() +
     '</div>' +
-    playerRowsHtml() +
+    showcaseHtml() +
+    homeBoxHtml() +
     dailyCardHtml() +
     '<div class="photo-row">' +
       polaroidHtml(2) + polaroidHtml(3) + polaroidHtml(4) + polaroidHtml(5) +
     '</div>';
 
+  startAnnivRotation();
   updateNavBadge();
 }
 
@@ -64,34 +95,172 @@ function profileCardHtml() {
     '</div>';
 }
 
-function annivHtml() {
-  var main = anniversaries[_selAnniv];
-  var faceA = escapeHtml(homeProfile.avatar || '🐧');
-  var faceB = contacts.length ? escapeHtml(contacts[0].avatar || '🌷') : '🌷';
-
-  var inner;
-  if (!main) {
-    inner =
-      '<div class="anniv-faces">' + faceA + faceB + '</div>' +
-      '<div class="anniv-num">0</div>' +
-      '<div class="anniv-unit">天</div>' +
-      '<div class="anniv-name">点这里添加纪念日</div>';
-  } else {
-    inner =
-      '<div class="anniv-faces">' + faceA + faceB + '</div>' +
-      '<div class="anniv-num">' + daysSince(main.date) + '</div>' +
-      '<div class="anniv-unit">天</div>' +
-      '<div class="anniv-name">' + escapeHtml(main.name) + '</div>';
-    if (anniversaries.length > 1) {
-      inner += '<div class="anniv-chips">' + anniversaries.map(function (a, i) {
-        return '<button class="anniv-chip' + (i === _selAnniv ? ' active' : '') +
-          '" data-act="annivChip" data-idx="' + i + '">' + escapeHtml(a.name) + ' ' + daysSince(a.date) + '天</button>';
-      }).join('') + '</div>';
-    }
-  }
-  return '<div class="anniv-block" data-act="anniv">' + inner + '</div>';
+// ---------- 重要日（多个 10s 自动轮换，不显示 chips） ----------
+function daysUntil(dateStr) {
+  var p = String(dateStr).split('-');
+  if (p.length !== 3) return 0;
+  var target = new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+  if (isNaN(target.getTime())) return 0;
+  var now = new Date();
+  now.setHours(0, 0, 0, 0);
+  return Math.round((target - now) / 86400000);
 }
 
+// 数字与单位：纪念日=正数天数；倒数日=倒计时（当天"就是今天"，过期转"N天前"）
+function annivInfo(a) {
+  if (!a) return { num: 0, unit: '天' };
+  if ((a.type || 'anniversary') === 'countdown') {
+    var d = daysUntil(a.date);
+    if (d > 0) return { num: d, unit: '天后' };
+    if (d === 0) return { num: 0, unit: '就是今天' };
+    return { num: Math.abs(d), unit: '天前' };
+  }
+  return { num: daysSince(a.date), unit: '天' };
+}
+
+function annivHtml(animate) {
+  var main = anniversaries[_selAnniv];
+  var hc = getHomeContact();
+  var faceA = escapeHtml(homeProfile.avatar || '🐧');
+  var faceB = hc ? escapeHtml(hc.avatar || '🌷') : '🌷';
+
+  var inner = '<div class="anniv-faces">' +
+    '<span class="af-ava af-me">' + faceA + '</span>' +
+    '<span class="af-ava af-dream">' + faceB + '</span>' +
+    '</div>';
+  if (!main) {
+    inner +=
+      '<div class="anniv-num">0</div>' +
+      '<div class="anniv-unit">天</div>' +
+      '<div class="anniv-name">点这里添加重要日</div>';
+  } else {
+    var info = annivInfo(main);
+    inner +=
+      '<div class="anniv-num">' + info.num + '</div>' +
+      '<div class="anniv-unit">' + info.unit + '</div>' +
+      '<div class="anniv-name">' + escapeHtml(main.name) +
+        ((main.type || 'anniversary') === 'countdown' ? ' · 倒数日' : '') +
+      '</div>';
+  }
+  return '<div class="anniv-block' + (animate ? ' rot-in' : '') + '" data-act="anniv">' + inner + '</div>';
+}
+
+// 10 秒轮换（多个重要日时），轮换到哪个显示哪个
+function startAnnivRotation() {
+  if (_annivRotateTimer) { clearInterval(_annivRotateTimer); _annivRotateTimer = null; }
+  if (anniversaries.length < 2) return;
+  _annivRotateTimer = setInterval(function () {
+    if (!anniversaries.length) return;
+    _selAnniv = (_selAnniv + 1) % anniversaries.length;
+    var block = document.querySelector('.anniv-block');
+    if (block) {
+      block.classList.add('anniv-fade');
+      setTimeout(function () {
+        var holder = document.createElement('div');
+        holder.innerHTML = annivHtml(true);
+        var fresh = holder.firstChild;
+        if (block.parentNode) block.parentNode.replaceChild(fresh, block);
+      }, 260);
+    }
+  }, 10000);
+}
+
+// ---------- 两张交错正方形图（上小下大、白边，非拍立得） ----------
+function squareTopHtml() {
+  return '<div class="square-top">' + squarePhotoHtml(0, 'sq-sm') + squarePhotoHtml(1, 'sq-lg') + '</div>';
+}
+
+function squarePhotoHtml(slot, cls) {
+  var src = photoWall[slot];
+  return '<div class="sq-photo ' + cls + '" data-act="photo" data-idx="' + slot + '">' +
+    (src ? '<img src="' + src + '" alt="">' : '<span class="po-empty">＋</span>') +
+    '</div>';
+}
+
+// ---------- 双展示栏（第一排梦角，第二排用户） ----------
+function _resetDreamSign() {
+  _dreamSignCache = '';
+  var hc = getHomeContact();
+  if (!hc) return;
+  var pool = poolFor(hc.id);
+  if (pool.length) _dreamSignCache = randomOf(pool);
+  else _dreamSignCache = hc.signature || '';
+}
+
+function showcaseHtml() {
+  var hc = getHomeContact();
+  var html = '<div class="showcase">';
+
+  if (hc) {
+    html +=
+      '<div class="sc-bar sc-dream" data-act="scDream">' +
+        '<div class="sc-avatar">' + escapeHtml(hc.avatar || '🌷') + '</div>' +
+        '<div class="sc-info">' +
+          '<div class="sc-name">' + escapeHtml(hc.name) + '</div>' +
+          '<div class="sc-sign">' + escapeHtml(_dreamSignCache || '专属字卡库空空的，导入字卡后这里随机换一条') + '</div>' +
+        '</div>' +
+        '<span class="sc-go">›</span>' +
+      '</div>';
+  }
+
+  html +=
+    '<div class="sc-bar sc-me" data-act="scMe">' +
+      '<div class="sc-avatar">' + escapeHtml(homeProfile.avatar || '🐧') + '</div>' +
+      '<div class="sc-info">' +
+        '<div class="sc-name">' + escapeHtml(homeProfile.name || '我') + '</div>' +
+        '<div class="sc-sign">' + escapeHtml(homeProfile.signature || '点这里编辑个性签名') + '</div>' +
+      '</div>' +
+      '<span class="sc-go">›</span>' +
+    '</div>';
+
+  html += '</div>';
+  return html;
+}
+
+// ---------- 大方框（中间梦角头像，长按换背景，无文字） ----------
+function homeBoxHtml() {
+  var hc = getHomeContact();
+  var bgStyle = homeBoxBg ? ' style="background-image:url(' + homeBoxBg + ')"' : '';
+  return '<div class="home-box' + (homeBoxBg ? ' has-bg' : '') + '" data-act="box"' + bgStyle + '>' +
+    '<div class="hb-face">' + (hc ? escapeHtml(hc.avatar || '🌷') : '🌷') + '</div>' +
+    '</div>';
+}
+
+function openBoxBgSheet() {
+  var items = [];
+  if (homeBoxBg) {
+    items.push({ label: '🔍 查看背景', act: 'view' });
+    items.push({ label: '🔄 更换背景图', act: 'replace' });
+    items.push({ label: '🗑 删除背景', act: 'del', danger: true });
+  } else {
+    items.push({ label: '🖼 设置方框背景图', act: 'replace' });
+  }
+  items.push({ label: '取消', act: 'cancel', cancel: true });
+  showSheet('方框背景（长按编辑）', items, function (act) {
+    if (act === 'view') openImageViewer(homeBoxBg);
+    else if (act === 'replace') pickBoxBgFile();
+    else if (act === 'del') { homeBoxBg = null; saveData(); renderHome(); }
+  });
+}
+
+function pickBoxBgFile() {
+  var input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = function () {
+    var file = input.files[0];
+    if (!file) return;
+    compressPhoto(file).then(function (dataUrl) {
+      homeBoxBg = dataUrl;
+      saveData();
+      renderHome();
+      toast('背景已更换');
+    }).catch(function () { toast('图片读取失败'); });
+  };
+  input.click();
+}
+
+// ---------- 底部拍立得照片墙（保留） ----------
 function polaroidHtml(slot, extraClass) {
   var src = photoWall[slot];
   return '<div class="polaroid ' + (extraClass || '') + '" data-act="photo" data-idx="' + slot + '">' +
@@ -99,31 +268,26 @@ function polaroidHtml(slot, extraClass) {
     '</div></div>';
 }
 
-function playerRowsHtml() {
-  var rows = musicTracks.map(function (t) {
-    var playing = Player.playingId === t.id && Player.audio && !Player.audio.paused;
-    return '<div class="player-row' + (playing ? ' playing' : '') + '">' +
-      '<div class="pr-cover">' + (playing ? '♫' : '🎵') + '</div>' +
-      '<div class="pr-mid">' +
-        '<div class="pr-name">' + escapeHtml(t.name) + '</div>' +
-        '<div class="pr-lyric">' + escapeHtml(t.lyric || (t.hasAudio ? '♪' : '未上传音频 · 点 ⋯ 设置')) + '</div>' +
-      '</div>' +
-      '<button class="pr-play" data-act="play" data-id="' + t.id + '">' + (playing ? '⏸' : '▶') + '</button>' +
-      '<button class="pr-more" data-act="trackMore" data-id="' + t.id + '">⋯</button>' +
-    '</div>';
-  }).join('');
-  return '<div class="player-rows">' + rows +
-    '<div class="player-add" data-act="addTrack">＋ 添加一条音乐</div></div>';
-}
-
+// ---------- 每日字卡 ----------
 function dailyCardHtml() {
-  if (!replyPool.length) return '';
-  if (dailyCardIndex >= replyPool.length) dailyCardIndex = 0;
-  var text = replyPool[dailyCardIndex];
-  var c = contacts[0];
-  var ava = c ? escapeHtml(c.avatar || '🌷') : '🌷';
-  var cname = c ? escapeHtml(c.name) : '';
+  var hc = getHomeContact();
+  var pool = replyPool;
+  var text = '';
+  if (pool.length) {
+    if (dailyCardIndex >= pool.length) dailyCardIndex = 0;
+    text = pool[dailyCardIndex];
+  }
+  var ava = hc ? escapeHtml(hc.avatar || '🌷') : '🌷';
+  var cname = hc ? escapeHtml(hc.name) : '';
   var today = (new Date().getMonth() + 1) + '月' + new Date().getDate() + '日';
+
+  if (!text) {
+    return '<div class="word-card wc-empty">' +
+      '<div class="wc-quote">字卡库还是空空的</div>' +
+      '<div class="wc-sign"><span class="wc-ava">' + ava + '</span>' +
+      '<span>去 设置 → 字卡 导入字卡吧 · ' + today + '</span></div>' +
+    '</div>';
+  }
 
   return '<div class="word-card">' +
     '<button class="wc-refresh" data-act="dailyRefresh" title="换一张">↻</button>' +
@@ -133,6 +297,17 @@ function dailyCardHtml() {
       '<span>' + cname + '的字卡 · ' + today + '</span>' +
     '</div>' +
   '</div>';
+}
+
+function shuffleDailyCard() {
+  if (replyPool.length < 2) return;
+  var next = dailyCardIndex;
+  while (next === dailyCardIndex) {
+    next = Math.floor(Math.random() * replyPool.length);
+  }
+  dailyCardIndex = next;
+  saveData();
+  renderHome();
 }
 
 // ---------- 天数 ----------
@@ -151,6 +326,7 @@ function openProfileSheet() {
   showSheet('个人资料', [
     { label: '✏️ 改昵称', act: 'name' },
     { label: '🐧 改头像（emoji）', act: 'avatar' },
+    { label: '💬 改个性签名', act: 'sign' },
     { label: '📍 改位置', act: 'loc' },
     { label: '😊 改状态表情', act: 'expr' },
     { label: '☁️ 设置天气城市', act: 'city' },
@@ -164,6 +340,11 @@ function openProfileSheet() {
       promptModal('头像', '输入一个 emoji（如 🐧 🌷 🌙）', homeProfile.avatar, function (v) {
         homeProfile.avatar = v; saveData(); renderHome();
       });
+    } else if (act === 'sign') {
+      confirmModal('个性签名', '一句话介绍自己（留空清空）', function (v) {
+        homeProfile.signature = (v || '').trim();
+        saveData(); renderHome();
+      }, { input: homeProfile.signature || '' });
     } else if (act === 'loc') {
       promptModal('位置', '如：维多利亚港', homeProfile.location || '', function (v) {
         homeProfile.location = v; saveData(); renderHome();
@@ -178,29 +359,50 @@ function openProfileSheet() {
   });
 }
 
-// ---------- 纪念日 ----------
+// ---------- 重要日（纪念日 / 倒数日） ----------
 function openAnnivSheet() {
   var main = anniversaries[_selAnniv];
+  var isCount = main && (main.type || 'anniversary') === 'countdown';
   var items = [];
+
   if (main) {
+    items.push({ label: '🔄 改类型（当前：' + (isCount ? '倒数日' : '纪念日') + '）', act: 'type' });
     items.push({ label: '✏️ 改名字（' + main.name + '）', act: 'rename' });
     items.push({ label: '📅 改日期（' + main.date + '）', act: 'date' });
-    items.push({ label: '🗑 删除这个纪念日', act: 'del', danger: true });
   }
-  items.push({ label: '➕ 添加纪念日', act: 'add' });
+  if (anniversaries.length > 1) {
+    items.push({ label: '⏭ 换下一个（当前：' + (main ? main.name : '无') + '）', act: 'next' });
+  }
+  items.push({ label: '➕ 添加纪念日（正数天数）', act: 'addAnniv' });
+  items.push({ label: '⏳ 添加倒数日（倒计时）', act: 'addCount' });
+  if (main) items.push({ label: '🗑 删除这个重要日', act: 'del', danger: true });
   items.push({ label: '取消', act: 'cancel', cancel: true });
 
-  showSheet(main ? '纪念日 · ' + main.name : '纪念日', items, function (act) {
-    if (act === 'add') {
-      promptModal('新纪念日', '起个名字（如：在一起 / 认识 / 生日）', '', function (name) {
+  showSheet(main ? '重要日 · ' + main.name : '重要日', items, function (act) {
+    if (act === 'addAnniv' || act === 'addCount') {
+      var type = act === 'addCount' ? 'countdown' : 'anniversary';
+      promptModal(type === 'countdown' ? '新倒数日' : '新纪念日',
+        type === 'countdown' ? '起个名字（如：见面 / 生日 / 考试）' : '起个名字（如：在一起 / 认识）',
+        '', function (name) {
         if (!name) return;
         askAnnivDate(function (date) {
-          anniversaries.push({ id: 'a_' + Date.now(), name: name, date: date });
+          anniversaries.push({ id: 'a_' + Date.now(), name: name, date: date, type: type });
           _selAnniv = anniversaries.length - 1;
           saveData();
           renderHome();
           toast('已添加');
         });
+      });
+    } else if (act === 'type') {
+      showSheet('重要日类型', [
+        { label: '📅 纪念日 — 从那天起已经 N 天', act: 't_anniv' },
+        { label: '⏳ 倒数日 — 距离那天还有 N 天', act: 't_count' },
+        { label: '取消', act: 'cancel', cancel: true }
+      ], function (t) {
+        if (t === 't_anniv') main.type = 'anniversary';
+        else if (t === 't_count') main.type = 'countdown';
+        else return;
+        saveData(); renderHome(); toast('已切换');
       });
     } else if (act === 'rename') {
       promptModal('改名字', '', main.name, function (v) {
@@ -210,8 +412,11 @@ function openAnnivSheet() {
       askAnnivDate(function (date) {
         main.date = date; saveData(); renderHome();
       }, main.date);
+    } else if (act === 'next') {
+      _selAnniv = (_selAnniv + 1) % anniversaries.length;
+      renderHome();
     } else if (act === 'del') {
-      confirmModal('删除纪念日', '确定删除「' + main.name + '」吗？', function () {
+      confirmModal('删除重要日', '确定删除「' + main.name + '」吗？', function () {
         anniversaries.splice(_selAnniv, 1);
         _selAnniv = 0;
         saveData();
@@ -239,7 +444,7 @@ function askAnnivDate(onOk, prefill) {
   });
 }
 
-// ---------- 拍立得照片 ----------
+// ---------- 照片（0-1 方图 / 2-5 拍立得共用） ----------
 function openPhotoSheet(slot) {
   if (!photoWall[slot]) {
     pickPhotoFile(slot);
@@ -277,7 +482,7 @@ function pickPhotoFile(slot) {
   input.click();
 }
 
-// 拍立得专用压缩：720px / 0.75，控制 localStorage 体积
+// 照片专用压缩：720px / 0.75，控制 localStorage 体积
 function compressPhoto(file) {
   return new Promise(function (resolve, reject) {
     var reader = new FileReader();
@@ -300,19 +505,7 @@ function compressPhoto(file) {
   });
 }
 
-// ---------- 每日字卡 ----------
-function shuffleDailyCard() {
-  if (replyPool.length < 2) return;
-  var next = dailyCardIndex;
-  while (next === dailyCardIndex) {
-    next = Math.floor(Math.random() * replyPool.length);
-  }
-  dailyCardIndex = next;
-  saveData();
-  renderHome();
-}
-
-// ---------- 未读角标（导航“聊天”格） ----------
+// ---------- 未读角标（导航"聊天"格） ----------
 function updateNavBadge() {
   var total = contacts.reduce(function (sum, c) { return sum + (c.unread || 0); }, 0);
   var badge = document.getElementById('nav-badge-chat');

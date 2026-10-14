@@ -69,6 +69,7 @@ function initInputBar() {
       currentReplyTo = null;
       hideReplyPreview();
       addMessage(msg);
+      playSound('my_send');
       triggerDelayedReply(true);
     }).catch(function () { toast('图片处理失败'); });
   });
@@ -146,7 +147,7 @@ function renderPopTab(tab) {
 
 // 我拍一拍对方 → 系统消息
 function doMyPoke(action) {
-  var act = action || customPokes[Math.floor(Math.random() * customPokes.length)];
+  var act = action || settings.myPokeText || customPokes[Math.floor(Math.random() * customPokes.length)];
   var contact = getActiveContact();
   var msg = {
     id: newId(), contactId: activeContactId, sender: 'system',
@@ -155,22 +156,25 @@ function doMyPoke(action) {
     replyTo: null, type: 'system'
   };
   addMessage(msg);
-  // 50% 概率对方回拍
+  playSound('my_poke');
+  // 50% 概率对方回拍（群聊随机成员）
   if (Math.random() < 0.5) setTimeout(triggerPartnerPoke, randomBetween(800, 2000));
 }
 
-// 让对方继续说：跳过已读不回，直接排队一条回复
+// 让对方继续说：跳过已读不回，直接排队一条回复（群聊由随机成员接着说）
 function triggerContinue() {
   if (!activeContactId) return;
-  showTyping();
+  var contact = getActiveContact();
+  var group = isGroupContact(contact) ? contact : null;
+  var memberIds = group ? getGroupMemberIds(group) : [];
+  if (group && !memberIds.length) { toast('群里没有可说话的梦角'); return; }
+  var senderId = group ? randomOf(memberIds) : null;
+  showTyping(senderId ? memberById(senderId) : null);
   setTimeout(function () {
     hideTyping();
-    addMessage({
-      id: newId(), contactId: activeContactId, sender: 'partner',
-      text: pickReply(), image: null, voice: null,
-      timestamp: Date.now(), status: 'read', favorited: false, recalled: false,
-      replyTo: null, type: 'normal'
-    });
+    var text = pickReply(senderId || activeContactId);
+    if (!text) { toast('字卡库为空，请到设置中添加'); return; }
+    deliverPartnerMsg(text, senderId);
   }, randomBetween(1200, 3000));
 }
 
@@ -359,6 +363,7 @@ function sendBatchAll() {
       replyTo: null, type: 'normal'
     };
     addMessage(msg);
+    playSound('my_send');
     setTimeout(next, randomBetween(400, 1200));
   })();
   // 批量发完后触发一次回复链

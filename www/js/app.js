@@ -45,10 +45,13 @@
     initContacts();
     initInputBar();
 
-    // 设置页返回按钮：始终回主页
+    // 主动发送定时器（设置里开启时生效）
+    if (typeof startAutoSend === 'function') startAutoSend();
+
+    // 设置页返回：子页先回主设置，否则回主页
     document.getElementById('btn-settings-back').addEventListener('click', function () {
-      showView('home');
-      renderHome();
+      if (typeof settingsBack === 'function') settingsBack();
+      else { showView('home'); renderHome(); }
     });
 
     // 联系人列表返回按钮：回主页

@@ -36,6 +36,7 @@ function loadAllData() {
   photoWall = Array.isArray(savedPhotos) && savedPhotos.length === 6
     ? savedPhotos
     : [null, null, null, null, null, null];
+  homeBoxBg = Storage.get('homeBoxBg') || null;
   weatherNow = Storage.get('weatherNow');
   dailyCardIndex = Storage.get('dailyCardIndex') || 0;
 
@@ -45,16 +46,21 @@ function loadAllData() {
 
   messagesByContact = (savedMsgs && typeof savedMsgs === 'object') ? savedMsgs : {};
 
-  // 语料池：内置 + 自定义（自定义单独存，便于增删）
+  // 基础字卡库（全员可用）：基础 + 自定义（自定义单独存，便于增删）
   var customReplies = Storage.get('customReplies');
   replyPool = BUILTIN_REPLIES.concat(Array.isArray(customReplies) ? customReplies : []);
+
+  // 专属字卡库分区 { contactId: [...] }——每个梦角建号时同步生成
+  var savedPools = Storage.get('contactReplyPools');
+  contactReplyPools = (savedPools && typeof savedPools === 'object') ? savedPools : {};
 
   keywordRules = Array.isArray(savedRules) ? savedRules : BUILTIN_KEYWORD_RULES.slice();
   customPokes = Array.isArray(savedPokes) ? savedPokes : POKE_ACTIONS.slice();
 
-  // 初始化各联系人消息数组
+  // 初始化各联系人消息数组 + 专属字卡库分区
   contacts.forEach(function (c) {
     if (!Array.isArray(messagesByContact[c.id])) messagesByContact[c.id] = [];
+    if (!Array.isArray(contactReplyPools[c.id])) contactReplyPools[c.id] = [];
   });
 
   partnerStatus = PARTNER_STATUSES[Math.floor(Math.random() * PARTNER_STATUSES.length)];
@@ -76,11 +82,13 @@ function saveData() {
     Storage.set('customPokes', customPokes);
     var custom = replyPool.filter(function (r) { return BUILTIN_REPLIES.indexOf(r) === -1; });
     Storage.set('customReplies', custom);
+    Storage.set('contactReplyPools', contactReplyPools);
     // 主页数据
     Storage.set('homeProfile', homeProfile);
     Storage.set('anniversaries', anniversaries);
     Storage.set('musicTracks', musicTracks);
     Storage.set('photoWall', photoWall);
+    Storage.set('homeBoxBg', homeBoxBg);
     Storage.set('weatherNow', weatherNow);
     Storage.set('dailyCardIndex', dailyCardIndex);
   }, 300);

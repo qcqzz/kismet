@@ -111,7 +111,7 @@ function confirmModal(title, desc, onOk, opts) {
       (opts.textarea !== undefined ? '<textarea id="modal-input" rows="3">' + escapeHtml(opts.textarea) + '</textarea>' : '') +
       '<div class="m-actions">' +
         '<button class="m-btn-cancel">取消</button>' +
-        '<button class="' + (opts.danger ? 'm-btn-danger' : 'm-btn-ok') + '">确定</button>' +
+        '<button class="m-btn-ok' + (opts.danger ? ' m-btn-danger' : '') + '">确定</button>' +
       '</div>' +
     '</div>';
   document.body.appendChild(mask);

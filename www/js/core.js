@@ -10,8 +10,17 @@ function escapeHtml(str) {
 
 function formatTimeHM(ts) {
   var d = new Date(ts);
-  var h = d.getHours(), m = d.getMinutes();
-  return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
+  var h = d.getHours(), m = d.getMinutes(), s = d.getSeconds();
+  var fmt = (typeof settings !== 'undefined' && settings.timestampFormat) || 'HH:mm';
+  var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+  if (fmt === 'off') return '';
+  if (fmt === 'HH:mm:ss') return pad(h) + ':' + pad(m) + ':' + pad(s);
+  if (fmt === 'h:mm A' || fmt === 'h:mm:ss A') {
+    var ap = h >= 12 ? 'PM' : 'AM';
+    var h12 = h % 12; if (h12 === 0) h12 = 12;
+    return h12 + ':' + pad(m) + (fmt === 'h:mm:ss A' ? ':' + pad(s) : '') + ' ' + ap;
+  }
+  return pad(h) + ':' + pad(m);
 }
 
 function formatDayLabel(ts) {
@@ -19,10 +28,11 @@ function formatDayLabel(ts) {
   var today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   var day = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
   var diff = (today - day) / 86400000;
-  if (diff === 0) return '今天 ' + formatTimeHM(ts);
-  if (diff === 1) return '昨天 ' + formatTimeHM(ts);
-  if (diff < 7) return ['周日','周一','周二','周三','周四','周五','周六'][d.getDay()] + ' ' + formatTimeHM(ts);
-  return (d.getMonth() + 1) + '月' + d.getDate() + '日 ' + formatTimeHM(ts);
+  var hm = formatTimeHM(ts);
+  if (diff === 0) return ('今天 ' + hm).trim();
+  if (diff === 1) return ('昨天 ' + hm).trim();
+  if (diff < 7) return (['周日','周一','周二','周三','周四','周五','周六'][d.getDay()] + ' ' + hm).trim();
+  return (d.getMonth() + 1) + '月' + d.getDate() + '日 ' + hm;
 }
 
 function contactTimeLabel(ts) {
@@ -58,6 +68,34 @@ function getActiveContact() {
 
 function activeMessages() {
   return messagesByContact[activeContactId] || [];
+}
+
+// ---------- 群聊 / 梦角 ----------
+function isGroupContact(c) { return !!(c && c.type === 'group'); }
+
+function memberById(id) {
+  return contacts.find(function (c) { return c.id === id; }) || null;
+}
+
+// 群聊中仍然存在的成员 id 列表（成员被删除梦角后自动剔除）
+function getGroupMemberIds(group) {
+  if (!isGroupContact(group)) return [];
+  return (group.members || []).filter(function (id) { return !!memberById(id); });
+}
+
+// 双层字卡池：基础库（全员）+ 该梦角专属库
+function poolFor(contactId) {
+  return replyPool.concat(contactReplyPools[contactId] || []);
+}
+
+// 首页展示的梦角（设置里"首页梦角展示"，未选则第一个）
+function getHomeContact() {
+  if (settings.homeContactId) {
+    var picked = memberById(settings.homeContactId);
+    if (picked && !isGroupContact(picked)) return picked;
+  }
+  var singles = contacts.filter(function (c) { return !isGroupContact(c); });
+  return singles[0] || contacts[0] || null;
 }
 
 // ---------- 消息 ----------
@@ -104,9 +142,18 @@ function buildMsgRow(msg) {
   row.className = 'msg-row ' + (isUser ? 'user' : 'partner') + (msg.recalled ? ' recalled' : '');
   row.dataset.id = msg.id;
 
+  // 群聊中伙伴消息带发送者（头像 + 昵称行，微信群样式）
+  var senderContact = isUser ? null
+    : (msg.senderId ? memberById(msg.senderId) : contact);
+  if (!isUser && msg.senderId && !senderContact) senderContact = contact;
+
   var avatarHtml = isUser
     ? '<div class="msg-avatar">🙂</div>'
-    : '<div class="msg-avatar">' + (contact.avatar || '🌷') + '</div>';
+    : '<div class="msg-avatar">' + escapeHtml((senderContact && senderContact.avatar) || '🌷') + '</div>';
+
+  var nameLine = (isUser || !isGroupContact(contact))
+    ? ''
+    : '<div class="msg-name">' + escapeHtml((senderContact && senderContact.name) || '梦角') + '</div>';
 
   var body;
   if (msg.recalled) {
@@ -116,32 +163,48 @@ function buildMsgRow(msg) {
     if (msg.replyTo) {
       inner += '<div class="quote-box">' + escapeHtml(msg.replyTo.text) + '</div>';
     }
-    if (msg.image) {
+    if (msg.type === 'redpacket') {
+      inner += '<span class="rp-ico">' + (msg.redpacketOpened ? '🧧' : '🧧') + '</span>' +
+        '<span class="rp-txt">' + (msg.redpacketOpened ? '已拆开' : '恭喜发财，大吉大利') + '</span>';
+    } else if (msg.image) {
       inner += '<img class="chat-img" src="' + msg.image + '" alt="">';
     } else if (msg.voice) {
       inner += '<span class="voice-dot">🎙</span><span>' + msg.voice + '"</span>';
     } else {
       inner += escapeHtml(msg.text);
     }
-    body = '<div class="bubble">' + inner + '</div>';
+    body = '<div class="bubble' + (msg.type === 'redpacket' ? ' rp-bubble' : '') + '">' + inner + '</div>';
   }
 
   var favMark = msg.favorited ? '<span class="fav-mark">♥</span>' : '';
-  var readMark = (isUser && settings.readReceiptEnabled)
-    ? '<span>' + (msg.status === 'read' ? '已读' : '已发送') + '</span>' : '';
+  var readMark = '';
+  if (isUser && settings.readReceiptEnabled) {
+    if (settings.readReceiptStyle === 'text') {
+      readMark = '<span class="read-mark">' + (msg.status === 'read' ? '已读' : '已发送') + '</span>';
+    } else {
+      readMark = '<span class="read-mark read-ico">' + (msg.status === 'read' ? '✓✓' : '✓') + '</span>';
+    }
+  }
 
   row.innerHTML = avatarHtml +
-    '<div class="bubble-wrap">' + body +
+    '<div class="bubble-wrap">' + nameLine + body +
       '<div class="msg-meta">' + favMark +
-        '<span>' + formatTimeHM(msg.timestamp) + '</span>' + readMark +
+        '<span class="ts">' + formatTimeHM(msg.timestamp) + '</span>' + readMark +
       '</div>' +
     '</div>';
 
-  // 点击气泡 → 操作菜单（撤回的消息只提供删除）
+  // 点击气泡 → 操作菜单（撤回的消息只提供删除；红包点击拆开）
   var bubble = row.querySelector('.bubble');
   if (bubble) {
-    bubble.addEventListener('click', function () {
-      if (msg.recalled) { openActionSheet(msg); return; }
+    bubble.addEventListener('click', function (e) {
+      if (msg.type === 'redpacket' && !msg.recalled && !msg.redpacketOpened) {
+        e.stopPropagation();
+        msg.redpacketOpened = true;
+        saveData();
+        toast('🧧 恭喜发财，大吉大利');
+        renderAllMessages();
+        return;
+      }
       openActionSheet(msg);
     });
   }
@@ -215,11 +278,14 @@ function updateReadMarksDOM() {
   rows.forEach(function (row) {
     var id = Number(row.dataset.id);
     var msg = activeMessages().find(function (m) { return m.id === id; });
-    var spans = row.querySelectorAll('.msg-meta span');
-    if (msg && spans.length) {
-      var last = spans[spans.length - 1];
-      if (last.textContent === '已读' || last.textContent === '已发送') {
-        last.textContent = msg.status === 'read' ? '已读' : '已发送';
+    var el = row.querySelector('.read-mark');
+    if (msg && el) {
+      if (settings.readReceiptStyle === 'text') {
+        el.classList.remove('read-ico');
+        el.textContent = msg.status === 'read' ? '已读' : '已发送';
+      } else {
+        el.classList.add('read-ico');
+        el.textContent = msg.status === 'read' ? '✓✓' : '✓';
       }
     }
   });
@@ -254,6 +320,11 @@ function sendMessage(textOverride, type) {
   DOMElements.messageInput.value = '';
   DOMElements.messageInput.style.height = 'auto';
 
+  // 表情混入消息：概率追加一个表情（与文字同条发送，chat 节奏同款）
+  if (type === 'normal' && text && settings.emojiMixEnabled && Math.random() < 0.25) {
+    text += ' ' + EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+  }
+
   var msg = {
     id: newId(),
     contactId: activeContactId,
@@ -265,7 +336,8 @@ function sendMessage(textOverride, type) {
     status: 'sent',
     favorited: false,
     recalled: false,
-    replyTo: currentReplyTo ? { text: currentReplyTo.text, sender: currentReplyTo.sender } : null,
+    replyTo: (currentReplyTo && settings.quoteReplyEnabled !== false)
+      ? { text: currentReplyTo.text, sender: currentReplyTo.sender } : null,
     type: type
   };
 
@@ -275,6 +347,7 @@ function sendMessage(textOverride, type) {
   addMessage(msg);
 
   if (type === 'normal') {
+    playSound('my_send');
     triggerDelayedReply(true);
     if (typeof toggleBatchMode === 'function' && isBatchMode) {
       // 批量模式下不清空逻辑已由 addToBatch 处理
@@ -325,24 +398,37 @@ window.simulateReply = function () {
   }
   window._simulateReplyLockUntil = now + 2000;
 
-  if (replyPool.length === 0) {
+  var contact = getActiveContact();
+  var group = isGroupContact(contact) ? contact : null;
+  var memberIds = group ? getGroupMemberIds(group) : [];
+
+  // 候选池：单聊=当前梦角（基础+专属）；群聊=各位成员
+  var candidates = group ? memberIds : [activeContactId];
+  var anyPool = candidates.some(function (id) { return poolFor(id).length > 0; });
+  if (!anyPool && keywordRules.length === 0) {
     toast('字卡库为空，请到设置中添加');
     drainReplyQueue(); return;
   }
+  if (group && memberIds.length === 0) { drainReplyQueue(); return; }
 
-  // 对方撤回：3% 概率（chat 同款）
+  // 梦角撤回：3% 概率（chat 同款）
   if (settings.partnerRecallEnabled && Math.random() < 0.03) {
     triggerPartnerRecall();
     drainReplyQueue(); return;
   }
-  // 拍一拍：3% 概率（chat 同款）
-  if (settings.pokeEnabled && Math.random() < 0.03) {
+  // 拍一拍：3% 概率（群聊由随机成员拍）
+  if (settings.pokeEnabled && customPokes.length && Math.random() < 0.03) {
     triggerPartnerPoke();
     drainReplyQueue(); return;
   }
-  // 状态变化：5% 概率（chat 同款）
-  if (settings.statusChangeEnabled && Math.random() < 0.05) {
+  // 状态变化：5% 概率（chat 同款；群聊无状态，跳过）
+  if (!group && settings.statusChangeEnabled && Math.random() < 0.05) {
     changePartnerStatus();
+  }
+  // 梦角主动发红包：2% 概率（功能开启时）
+  if (settings.redPacketEnabled && Math.random() < 0.02) {
+    deliverPartnerMsg('给你发了个红包', group ? randomOf(memberIds) : null, { type: 'redpacket' });
+    drainReplyQueue(); return;
   }
 
   // 回复条数：75% 一条，22% 两条，3% 三条（chat 同款）
@@ -352,66 +438,124 @@ window.simulateReply = function () {
   var totalDelay = 0;
   for (var i = 0; i < replyCount; i++) {
     totalDelay += Math.round(randomBetween(settings.replyDelayMin, settings.replyDelayMax));
-    (function (index, delay) {
+    var senderId = group ? randomOf(memberIds) : null;
+    (function (index, delay, sId) {
       setTimeout(function () {
-        // 微信式正在输入：每次回复前显示
-        if (index === 0) showTyping();
+        // 微信式正在输入：每次回复前显示（群聊显示该成员头像）
+        if (index === 0) showTyping(sId ? memberById(sId) : null);
         setTimeout(function () {
           hideTyping();
-          var msg = {
-            id: newId(),
-            contactId: activeContactId,
-            sender: 'partner',
-            text: pickReply(),
-            image: null,
-            voice: null,
-            timestamp: Date.now(),
-            status: 'read',
-            favorited: false,
-            recalled: false,
-            replyTo: null,
-            type: 'normal'
-          };
-          addMessage(msg);
+          var text = pickReply(sId || activeContactId);
+          if (text) deliverPartnerMsg(text, sId);
           if (index === replyCount - 1) drainReplyQueue();
         }, Math.round(randomBetween(900, 2200)));
       }, delay);
-    })(i, totalDelay);
-    totalDelay += 0;
+    })(i, totalDelay, senderId);
   }
 };
 
-// 选回复：30% 命中关键词规则，否则随机池（chat 的自定义回复逻辑）
-function pickReply() {
+function randomOf(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+// 投递梦角消息（含音效 + 后台通知）
+function deliverPartnerMsg(text, senderId, opts) {
+  if (!text) return;
+  opts = opts || {};
+  var msg = {
+    id: newId(),
+    contactId: activeContactId,
+    sender: 'partner',
+    senderId: senderId || null,
+    text: text,
+    image: null,
+    voice: null,
+    timestamp: Date.now(),
+    status: 'read',
+    favorited: false,
+    recalled: false,
+    replyTo: null,
+    type: opts.type || 'normal'
+  };
+  addMessage(msg);
+  if (opts.type !== 'redpacket') playSound('partner_message');
+  notifyBackground(msg);
+}
+
+// 后台消息推送（Notification，chat 后台推送同用途）
+function notifyBackground(msg) {
+  if (!settings.bgNotifyEnabled) return;
+  if (typeof document !== 'undefined' && !document.hidden) return;
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  try {
+    var c = contacts.find(function (x) { return x.id === msg.contactId; });
+    new Notification(c ? c.name : '字卡传讯', {
+      body: msg.type === 'redpacket' ? '🧧 收到一个红包' : (msg.text || '[图片]')
+    });
+  } catch (e) {}
+}
+
+// 选回复：30% 命中关键词规则，否则从双层池（基础+专属）随机（chat 自定义回复逻辑）
+// poolContactId：单聊=当前梦角 id；群聊=随机到的成员 id
+function pickReply(poolContactId) {
+  var cid = poolContactId || activeContactId;
   var lastUserMsg = '';
   var list = activeMessages();
   for (var i = list.length - 1; i >= 0; i--) {
     if (list[i].sender === 'user' && !list[i].recalled) { lastUserMsg = list[i].text || ''; break; }
   }
+
+  var text = '';
   if (Math.random() < 0.3 && lastUserMsg) {
     for (var j = 0; j < keywordRules.length; j++) {
       var rule = keywordRules[j];
       for (var k = 0; k < rule.keywords.length; k++) {
         if (lastUserMsg.indexOf(rule.keywords[k]) !== -1) {
-          return rule.replies[Math.floor(Math.random() * rule.replies.length)];
+          text = rule.replies[Math.floor(Math.random() * rule.replies.length)];
+          break;
         }
       }
+      if (text) break;
     }
   }
-  return replyPool[Math.floor(Math.random() * replyPool.length)];
+
+  var pool = poolFor(cid);
+  if (!text) {
+    if (!pool.length) return '';
+    text = randomOf(pool);
+  }
+
+  // 回复拼接字卡：概率把多张字卡拼成一条（最多"最多拼接"句）
+  if (settings.combineCardsEnabled && pool.length && Math.random() < 0.35) {
+    var max = Math.max(1, Math.min(5, Number(settings.combineCardsMax) || 3));
+    var n = 2 + Math.floor(Math.random() * Math.max(1, max - 1)); // 2..max
+    var parts = [text];
+    for (var p = 1; p < n; p++) parts.push(randomOf(pool));
+    text = parts.join(' ');
+  }
+
+  // 表情混入消息：概率与文字同条发送
+  if (settings.emojiMixEnabled && text && Math.random() < 0.25) {
+    text += ' ' + EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+  }
+  return text;
 }
 
 // ---------- 对方拍一拍 / 撤回 / 状态（chat 同款事件） ----------
 function triggerPartnerPoke() {
+  if (!customPokes.length) return;
   var action = customPokes[Math.floor(Math.random() * customPokes.length)];
   var contact = getActiveContact();
+  var group = isGroupContact(contact) ? contact : null;
+  var member = group ? memberById(randomOf(getGroupMemberIds(group))) : contact;
+  if (!member) return;
   var msg = {
     id: newId(), contactId: activeContactId, sender: 'system',
-    text: contact.name + ' ' + action,
+    senderId: group ? member.id : null,
+    text: member.name + ' ' + action,
     timestamp: Date.now(), status: 'read', favorited: false, recalled: false,
     replyTo: null, type: 'system'
   };
   addMessage(msg);
+  playSound('partner_poke');
 }
 
 function triggerPartnerRecall() {
@@ -447,18 +591,23 @@ function changePartnerStatus() {
 }
 
 // ---------- 正在输入（微信式：流内气泡三黑点） ----------
-function showTyping() {
+function showTyping(memberContact) {
   if (!settings.typingIndicatorEnabled) return;
   var stream = DOMElements.chatStream;
   if (!stream) return;
   if (stream.querySelector('.typing-row')) return;  // 已存在
   var contact = getActiveContact();
+  var who = memberContact || contact;
   var row = document.createElement('div');
   row.className = 'typing-row';
   row.id = 'typing-row';
+  var nameLine = isGroupContact(contact)
+    ? '<div class="msg-name">' + escapeHtml((who && who.name) || '梦角') + '</div>' : '';
   row.innerHTML =
-    '<div class="msg-avatar">' + (contact.avatar || '🌷') + '</div>' +
-    '<div class="typing-bubble"><i></i><i></i><i></i></div>';
+    '<div class="msg-avatar">' + escapeHtml((who && who.avatar) || '🌷') + '</div>' +
+    '<div class="bubble-wrap">' + nameLine +
+      '<div class="typing-bubble"><i></i><i></i><i></i></div>' +
+    '</div>';
   stream.appendChild(row);
   scrollToBottomIfNear(true);
 }
@@ -466,4 +615,53 @@ function showTyping() {
 function hideTyping() {
   var row = document.getElementById('typing-row');
   if (row) row.remove();
+}
+
+// ---------- 主动发送（chat 节奏：开启后梦角按间隔主动找你） ----------
+var _autoSendTimer = null;
+
+function startAutoSend() {
+  if (_autoSendTimer) { clearInterval(_autoSendTimer); _autoSendTimer = null; }
+  if (!settings.autoSendEnabled) return;
+  var minutes = Math.max(1, Math.min(180, Number(settings.autoSendInterval) || 5));
+  _autoSendTimer = setInterval(runAutoSend, minutes * 60000);
+}
+window.startAutoSend = startAutoSend;
+
+function runAutoSend() {
+  if (!settings.replyEnabled) return;
+  var singles = contacts.filter(function (c) { return !isGroupContact(c); });
+  if (!singles.length) return;
+  var c = randomOf(singles);
+  var pool = poolFor(c.id);
+  if (!pool.length) return;
+
+  var sendOne = function () {
+    var text = randomOf(pool);
+    if (settings.emojiMixEnabled && Math.random() < 0.25) {
+      text += ' ' + EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+    }
+    var msg = {
+      id: newId(),
+      contactId: c.id,
+      sender: 'partner',
+      senderId: c.id,
+      text: text,
+      image: null,
+      voice: null,
+      timestamp: Date.now(),
+      status: 'read',
+      favorited: false,
+      recalled: false,
+      replyTo: null,
+      type: 'normal'
+    };
+    // addMessage 自动处理：正在看该会话 → 渲染；否则 → 未读角标
+    addMessage(msg);
+    playSound('partner_message');
+    notifyBackground(msg);
+  };
+  sendOne();
+  // 15% 概率连发第二条（chat 主动发送的"发送条数"）
+  if (Math.random() < 0.15) setTimeout(sendOne, randomBetween(1200, 3000));
 }

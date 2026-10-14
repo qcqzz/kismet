@@ -4,27 +4,75 @@ var APP_PREFIX = 'KISMET_ZK2_';
 var MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 var VERSION = 2;
 
-// 默认设置（对齐 chat：延迟回复 / 已读不回 / 撤回 / 拍一拍 / 状态）
+// 默认设置（对齐 chat：功能 + 节奏 + 音效，去除真实语音相关）
 var DEFAULT_SETTINGS = {
+  // —— 回复设置 · 消息交互（chat 的"功能"） ——
   replyEnabled: true,
-  replyDelayMin: 1500,
-  replyDelayMax: 6500,
-  typingIndicatorEnabled: true,
-  readNoReplyChance: 0.12,     // 已读不回概率
+  quoteReplyEnabled: true,     // 引用回复
   readReceiptEnabled: true,    // 已读回执
-  partnerRecallEnabled: true,  // 对方撤回（3% 概率）
+  readReceiptStyle: 'icon',    // 已读样式：icon=图形 ✓✓ / text=文字 已读
+  readNoReplyChance: 0.12,     // 已读不回概率
+  typingIndicatorEnabled: true,// 正在输入
+  partnerRecallEnabled: true,  // 梦角撤回消息（3% 概率）
   pokeEnabled: true,           // 拍一拍（3% 概率）
   statusChangeEnabled: true,   // 状态自动变化
+  redPacketEnabled: false,     // 梦角主动发红包
+  myPokeText: '拍了拍',        // 我拍一拍的默认动作
+  timestampFormat: 'HH:mm',    // 时间戳：HH:mm / HH:mm:ss / h:mm A / h:mm:ss A / off
+  // —— 回复设置 · 消息节奏（chat 的"节奏"） ——
+  replyDelayMin: 1500,
+  replyDelayMax: 6500,
+  autoSendEnabled: false,      // 梦角主动发消息给我
+  autoSendInterval: 5,         // 主动发送间隔（分钟，1~180）
+  emojiMixEnabled: true,       // 表情混入消息（与文字同条发送）
+  combineCardsEnabled: false,  // 回复拼接字卡（单条消息拼接多张）
+  combineCardsMax: 3,          // 最多拼接几句话
+  bgNotifyEnabled: false,      // 后台消息推送（Notification）
+  // —— 音效设置（chat 的"音效"） ——
+  soundEnabled: true,
+  soundVolume: 0.15,
+  mySendSoundPreset: 'tone_low',
+  partnerMessageSoundPreset: 'tone_low',
+  myPokeSoundPreset: 'tone_low',
+  partnerPokeSoundPreset: 'tone_low',
+  mySendCustomSoundUrl: '',
+  partnerMessageCustomSoundUrl: '',
+  myPokeCustomSoundUrl: '',
+  partnerPokeCustomSoundUrl: '',
+  // —— 主页 ——
   bubbleTheme: 'wechat',       // wechat=微信绿 / mono=纯黑白
-  weatherCity: ''              // 天气城市（Open-Meteo 自动查）
+  weatherCity: '',             // 天气城市（Open-Meteo 自动查）
+  homeContactId: null          // 首页梦角展示（梦角 id）
 };
+
+// 音效预设（同 chat：无 / kakaoTalk / 内置合成 6 种）
+var SFX_PRESETS = [
+  { v: 'mute', label: '无音效' },
+  { v: 'kakaotalk', label: 'kakaotalk' },
+  { v: 'tone_default', label: '内置：默认' },
+  { v: 'tone_soft', label: '内置：柔和' },
+  { v: 'tone_low', label: '内置：低沉' },
+  { v: 'tone_warm', label: '内置：厚暖' },
+  { v: 'tone_dark', label: '内置：暗夜' },
+  { v: 'tone_haze', label: '内置：雾感' }
+];
+
+// 时间戳格式选项（chat 时间戳同款）
+var TIMESTAMP_FORMATS = [
+  { v: 'HH:mm', label: '14:05' },
+  { v: 'HH:mm:ss', label: '14:05:30' },
+  { v: 'h:mm A', label: '2:05 PM' },
+  { v: 'h:mm:ss A', label: '2:05:30 PM' },
+  { v: 'off', label: '关闭时间戳' }
+];
 
 // 主页个人信息卡默认值
 var DEFAULT_HOME = {
   name: '我',
   avatar: '🐧',
   location: '',
-  expression: '(*^^*)'
+  expression: '(*^^*)',
+  signature: ''               // 个性签名（用户自己编辑）
 };
 
 // 默认音乐条（两条，仿参照图；音频文件存在 IndexedDB）
@@ -69,27 +117,8 @@ var EMOJIS = ['😀','😁','😂','🤣','😊','😍','😘','😜','🤔','�
   '☁️','🌧️','☃️','🔥','✨','💫','🎂','🎁','❤️','💔',
   '💯','🎉','🎊','📩','💌','🧋','☕','🍜','🍰','🍓'];
 
-// 内置字卡语料（chat 规则：自定义回复池）
-var BUILTIN_REPLIES = [
-  '今天的风也很温柔呢',
-  '记得多喝热水，别熬夜',
-  '我刚刚也在想这件事',
-  '你这么说，我竟然无法反驳',
-  '嗯嗯，然后呢？',
-  '这句话我想抄在小本本上',
-  '看到你发的消息，心情都变好了',
-  '慢慢来，一切都来得及',
-  '我在这里，一直都在',
-  '给你一个大大的拥抱',
-  '哈哈，你怎么这么可爱',
-  '这句话我要收藏起来',
-  '窗外的月亮很圆，替你看过了',
-  '累了就休息，我又不会跑',
-  '你今天也要开开心心的呀',
-  '收到了，贴身收藏',
-  '此卡已阅，批注：想你',
-  '字字句句，都当真'
-];
+// 基础字卡库（全员可用）——预定内容待后续指令，暂为空（勿自行预置）
+var BUILTIN_REPLIES = [];
 
 // 内置关键词规则（命中 → 从对应回复抽一条；未命中随机池）
 var BUILTIN_KEYWORD_RULES = [
