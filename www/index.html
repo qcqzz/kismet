@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>字卡传讯</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body data-theme="ink">
+
+  <!-- ===== 桌面（启动页） ===== -->
+  <div id="view-desktop" class="view active">
+    <header class="desk-header">
+      <div class="desk-logo">✦ 字卡传讯</div>
+      <button class="desk-btn" id="btn-open-settings" title="设置">⚙</button>
+    </header>
+    <div class="desk-date" id="desk-date"></div>
+    <div class="desk-grid">
+      <button class="desk-tile" data-module="chat">
+        <span class="tile-ico">💬</span><span class="tile-name">聊天</span>
+        <span class="tile-badge" id="desk-badge-chat" style="display:none">0</span>
+      </button>
+      <button class="desk-tile" data-module="games"><span class="tile-ico">🎮</span><span class="tile-name">游戏</span></button>
+      <button class="desk-tile" data-module="music"><span class="tile-ico">🎵</span><span class="tile-name">音乐</span></button>
+      <button class="desk-tile" data-module="companion"><span class="tile-ico">🧸</span><span class="tile-name">陪伴</span></button>
+      <button class="desk-tile" data-module="letters"><span class="tile-ico">✉️</span><span class="tile-name">信件</span></button>
+      <button class="desk-tile" data-module="moments"><span class="tile-ico">🎞️</span><span class="tile-name">朋友圈</span></button>
+    </div>
+    <footer class="desk-footer">把日子写成卡片</footer>
+  </div>
+
+  <!-- ===== 消息列表（仿微信会话列表） ===== -->
+  <div id="view-contacts" class="view">
+    <header class="wx-header">
+      <button class="wx-back" data-nav="desktop">‹</button>
+      <div class="wx-title">消息</div>
+      <button class="wx-btn" id="btn-add-contact" title="新建联系人">＋</button>
+    </header>
+    <div class="wx-search"><input type="text" id="contact-search" placeholder="搜索"></div>
+    <main class="contact-list" id="contact-list"></main>
+  </div>
+
+  <!-- ===== 聊天页（仿微信对话） ===== -->
+  <div id="view-chat" class="view">
+    <header class="wx-header">
+      <button class="wx-back" id="btn-chat-back">‹</button>
+      <div class="chat-head-info">
+        <div class="chat-head-name" id="chat-head-name">对方</div>
+        <div class="chat-head-status" id="chat-head-status"></div>
+      </div>
+      <button class="wx-btn" id="btn-chat-info" title="聊天设置">⋯</button>
+    </header>
+
+    <main class="chat-stream" id="chat-stream"></main>
+
+    <footer class="input-area-wrapper">
+      <div class="reply-preview" id="reply-preview" style="display:none"></div>
+
+      <div class="batch-preview" id="batch-preview" style="display:none"></div>
+
+      <div class="more-panel" id="more-panel" style="display:none">
+        <div class="more-grid">
+          <button class="more-item" data-more="image"><span class="more-ico">🖼️</span><span>发送图片</span></button>
+          <button class="more-item" data-more="poke"><span class="more-ico">👋</span><span>拍一拍</span></button>
+          <button class="more-item" data-more="continue"><span class="more-ico">⏭️</span><span>让对方继续说</span></button>
+          <button class="more-item" data-more="batch"><span class="more-ico">📚</span><span>批量发送</span></button>
+          <button class="more-item" data-more="cards"><span class="more-ico">🗂️</span><span>字卡库</span></button>
+        </div>
+      </div>
+
+      <div class="sticker-pop" id="sticker-pop" style="display:none">
+        <div class="pop-tabs">
+          <button class="pop-tab active" data-tab="emoji">表情</button>
+          <button class="pop-tab" data-tab="poke">拍一拍</button>
+        </div>
+        <div class="pop-body" id="pop-body"></div>
+      </div>
+
+      <div class="input-area">
+        <button class="ibtn" id="more-btn" title="更多">＋</button>
+        <button class="ibtn" id="call-btn" title="语音通话">📹</button>
+        <button class="ibtn" id="image-btn" title="发送图片">🖼️</button>
+        <button class="ibtn" id="combo-btn" title="表情与拍一拍">😊</button>
+
+        <textarea id="message-input" rows="1" placeholder=""></textarea>
+
+        <div class="voice-wrap" id="voice-wrap" style="display:none">
+          <button type="button" id="voice-btn">按住 说话</button>
+          <div class="voice-hint" id="voice-hint">松开 发送，上滑 取消</div>
+        </div>
+
+        <button class="ibtn" id="mic-btn" title="语音消息">🎤</button>
+        <button class="ibtn" id="continue-btn" title="让对方继续说">⏭️</button>
+        <button class="ibtn" id="batch-btn" title="批量发送">📚</button>
+        <button class="ibtn ibtn-send" id="send-btn" title="发送">➤</button>
+      </div>
+      <input type="file" id="image-input" accept="image/*" style="display:none">
+    </footer>
+  </div>
+
+  <!-- ===== 设置页 ===== -->
+  <div id="view-settings" class="view">
+    <header class="wx-header">
+      <button class="wx-back" id="btn-settings-back">‹</button>
+      <div class="wx-title">设置</div>
+      <div style="width:38px"></div>
+    </header>
+    <main class="settings-body" id="settings-body"></main>
+  </div>
+
+  <!-- 弹层 -->
+  <div class="sheet-mask" id="sheet-mask" style="display:none"></div>
+  <div class="action-sheet" id="action-sheet" style="display:none"></div>
+  <div id="modal-root"></div>
+  <div class="img-viewer" id="img-viewer" style="display:none"><img id="img-viewer-img" alt=""></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/features/desktop.js"></script>
+  <script src="js/features/contacts.js"></script>
+  <script src="js/features/inputbar.js"></script>
+  <script src="js/features/cards.js"></script>
+  <script src="js/features/share.js"></script>
+  <script src="js/features/rules.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
