@@ -40,10 +40,12 @@
     loadAllData();
     applyBubbleTheme();
     if (typeof applyAppearance === 'function') applyAppearance();
+    if (typeof partnerActivityTick === 'function') partnerActivityTick();
 
     // 初始化各模块
     initHome();
     initContacts();
+    initContactInfo();
     initStickers();
     initMoments();
     initTransfer();
@@ -106,10 +108,11 @@
         renderContactList();
       } else if (tab === 'moments') {
         showView('moments');
-        renderMoments();
+        renderMoments(null);      // 从导航进入：清除梦角资料页带来的按人过滤
       } else if (tab === 'letters') {
         showView('letters');
       } else if (tab === 'settings') {
+        _settingsReturnView = null;   // 从导航直接进设置：没有来路可回
         showView('settings');
         renderSettings();
       }
@@ -118,7 +121,7 @@
 
   // ---------- 视图切换 ----------
   var NAV_FOR_VIEW = {
-    home: null, contacts: 'chat', chat: 'chat',
+    home: null, contacts: 'chat', chat: 'chat', contactinfo: 'chat',
     moments: 'moments', letters: 'letters', settings: 'settings'
   };
 

@@ -10,6 +10,8 @@ var _mPressTimer = null;      // 长按计时器
 var _mLongPressed = false;    // 本次按压是否已触发长按
 var _mComposeImages = [];     // 撰写弹窗中已选图片（dataURL）
 var _momentsTimer = null;     // 每分钟检查定时器
+var momentsFilterId = null;    // 只看某位梦角的动态（梦角资料页进入时设置）；null=全部
+var momentsOnlyPartner = false;// true=只看该梦角发的（不含我发的）
 
 // ---------- 小工具 ----------
 function _mUid(prefix) {
@@ -187,34 +189,69 @@ function _checkAction() {
 }
 
 // ---------- 渲染 ----------
-function renderMoments() {
+// filter：undefined=沿用当前 / null=清除 / {contactId, onlyPartner}=按条件过滤
+function renderMoments(filter) {
   var box = document.getElementById('moments-scroll');
   if (!box) return;
-  var posts = momentsData.posts.slice().sort(function (a, b) {
+  if (filter === null) {
+    momentsFilterId = null;
+    momentsOnlyPartner = false;
+  } else if (filter) {
+    momentsFilterId = filter.contactId || null;
+    momentsOnlyPartner = !!filter.onlyPartner;
+  }
+
+  var posts = momentsData.posts.filter(function (p) {
+    if (momentsOnlyPartner && p.type !== 'partner') return false;
+    return !momentsFilterId || p.contactId === momentsFilterId;
+  }).slice().sort(function (a, b) {
     return (b.timestamp || 0) - (a.timestamp || 0);
   });
   box.innerHTML = momentsCoverHtml() +
     '<div class="m-feed">' +
       (posts.length ? posts.map(momentPostHtml).join('')
-        : '<div class="empty-hint"><i class="fas fa-camera-retro"></i> 还没有动态，点右上角 ＋ 发一条吧</div>') +
+        : '<div class="empty-hint">' + (momentsFilterId
+            ? 'TA 还没有发过动态'
+            : '<i class="fas fa-camera-retro"></i> 还没有动态，点右上角 ＋ 发一条吧') + '</div>') +
     '</div>';
   // 用户正在看这一页时，清除"对方评论未读"小圆点（下次渲染不再显示）
   if (document.getElementById('view-moments').classList.contains('active')) _clearPartnerCmtsNew();
 }
 
+// 当前朋友圈的"身份"：在某个梦角的朋友圈下查看 → 用该梦角的头像昵称；否则用我自己的
+function _mIdentity() {
+  if (momentsFilterId) {
+    var c = _mContact(momentsFilterId);
+    if (c) return { name: c.name || '梦角', avatar: c.avatar || '🌷', cover: momentsCovers[c.id] || null };
+  }
+  return { name: _mMeName(), avatar: (homeProfile && homeProfile.avatar) || '', cover: momentsCover };
+}
+
+// 写入封面：梦角的朋友圈写各自的，全局朋友圈写我自己的
+function _mSetCover(dataUrl) {
+  if (momentsFilterId) {
+    if (dataUrl) momentsCovers[momentsFilterId] = dataUrl;
+    else delete momentsCovers[momentsFilterId];
+  } else {
+    momentsCover = dataUrl || null;
+  }
+  saveData();
+}
+
 function momentsCoverHtml() {
-  var p = homeProfile || {};
-  var avatar = p.avatar || '';
+  var me = _mIdentity();
+  var viewingPartner = !!momentsFilterId;
   return '<div class="m-cover" data-act="cover">' +
-    (momentsCover
-      ? '<img class="m-cover-img" src="' + escapeHtml(momentsCover) + '" alt="">'
+    (me.cover
+      ? '<img class="m-cover-img" src="' + escapeHtml(me.cover) + '" alt="">'
       : '<div class="m-cover-default"></div>') +
     '<div class="m-cover-shade"></div>' +
     '<button type="button" class="m-back" data-back-home><i class="fas fa-chevron-left"></i></button>' +
-    '<button type="button" class="m-post-btn" data-act="post"><i class="fas fa-plus"></i></button>' +
+    // 看梦角的朋友圈时不显示 ＋：那里的动态都是 TA 发的，我发不出
+    (viewingPartner ? '' : '<button type="button" class="m-post-btn" data-act="post"><i class="fas fa-plus"></i></button>') +
     '<div class="m-me-row">' +
-      '<div class="m-me-avatar">' + (avatar ? escapeHtml(avatar) : '<i class="fas fa-user"></i>') + '</div>' +
-      '<div class="m-me-name">' + escapeHtml(p.name || '我') + '</div>' +
+      '<div class="m-me-avatar">' + (me.avatar ? avatarHtml(me.avatar) : '<i class="fas fa-user"></i>') + '</div>' +
+      '<div class="m-me-name">' + escapeHtml(me.name) + '</div>' +
     '</div>' +
   '</div>';
 }
@@ -232,7 +269,7 @@ function momentPostHtml(post) {
   if (post.userLiked) likers.push(_mMeName());
 
   return '<div class="m-post" data-pid="' + escapeHtml(post.id) + '" data-type="' + post.type + '">' +
-    '<div class="m-pav">' + (avatar ? escapeHtml(avatar) : '<i class="fas fa-user"></i>') + '</div>' +
+    '<div class="m-pav">' + (avatar ? avatarHtml(avatar) : '<i class="fas fa-user"></i>') + '</div>' +
     '<div class="m-pmain">' +
       '<div class="m-phead">' +
         '<div class="m-pname">' + escapeHtml(name) + '</div>' +
@@ -311,13 +348,14 @@ function _clearPartnerCmtsNew() {
 
 // ---------- 交互：背景 / 发布 / 点赞 / 评论 / 删除 ----------
 function openCoverSheet() {
-  showSheet('朋友圈背景', [
+  var who = momentsFilterId ? (_mContact(momentsFilterId) || {}).name : _mMeName();
+  showSheet(who + ' 的朋友圈背景', [
     { label: '<i class="fas fa-sync"></i> 更换背景', act: 'replace' },
     { label: '<i class="fas fa-undo"></i> 恢复默认', act: 'reset' },
     { label: '取消', act: 'cancel', cancel: true }
   ], function (act) {
     if (act === 'replace') pickMomentsCover();
-    else if (act === 'reset') { momentsCover = null; saveData(); renderMoments(); }
+    else if (act === 'reset') { _mSetCover(null); renderMoments(); }
   });
 }
 
@@ -329,8 +367,7 @@ function pickMomentsCover() {
     var file = input.files[0];
     if (!file) return;
     compressPhoto(file).then(function (dataUrl) {
-      momentsCover = dataUrl;
-      saveData();
+      _mSetCover(dataUrl);
       renderMoments();
       toast('背景已更换');
     }).catch(function () { toast('图片读取失败'); });
@@ -505,7 +542,19 @@ function initMoments() {
     box.addEventListener('click', function (e) {
       if (_mLongPressed) { _mLongPressed = false; return; }
 
-      if (e.target.closest('[data-back-home]')) { showView('home'); renderHome(); return; }
+      if (e.target.closest('[data-back-home]')) {
+        // 从梦角资料页带过滤进来的 → 回梦角资料页；否则回主页。
+        // 需阻止冒泡，避免 app.js 的全局 [data-back-home] 委托再跳一次主页
+        e.stopPropagation();
+        if (momentsFilterId) {
+          renderMoments(null);              // 连带清掉 onlyPartner，避免污染全局朋友圈
+          if (typeof renderContactInfo === 'function') { renderContactInfo(); showView('contactinfo'); }
+          return;
+        }
+        showView('home');
+        renderHome();
+        return;
+      }
 
       var act = e.target.closest('[data-act]');
       if (act) {

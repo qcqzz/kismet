@@ -34,10 +34,10 @@ function initInputBar() {
     }
   });
 
-  // ---- 📹 视频通话（占位，与 chat 相同为占位提示）----
+  // ---- 📹 视频通话（规则照搬 chat/features/call.js：35% 对方拒接等）----
   var videocallBtn = document.getElementById('videocall-btn');
   if (videocallBtn) videocallBtn.addEventListener('click', function () {
-    toast('视频通话 · 敬请期待');
+    if (window.CallFeature) window.CallFeature.start();
   });
 
   // ---- 🖼 发送图片（更多面板与隐藏的 attachment-btn 均触发）----

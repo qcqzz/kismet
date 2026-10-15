@@ -51,6 +51,18 @@ function loadAllData() {
     if (p.partnerLiked === undefined) p.partnerLiked = false;
   });
   momentsCover = Storage.get('momentsCover') || null;
+  var savedCovers = Storage.get('momentsCovers');
+  momentsCovers = (savedCovers && typeof savedCovers === 'object') ? savedCovers : {};
+
+  // 头像 / 朋友圈背景图库（每个梦角独立）+ 自主更换的下次时间
+  var savedAvas = Storage.get('contactAvatars');
+  contactAvatars = (savedAvas && typeof savedAvas === 'object') ? savedAvas : {};
+  var savedCGalleries = Storage.get('contactCovers');
+  contactCovers = (savedCGalleries && typeof savedCGalleries === 'object') ? savedCGalleries : {};
+  var savedSwap = Storage.get('autoSwapNext');
+  autoSwapNext = (savedSwap && typeof savedSwap === 'object') ? savedSwap : {};
+  var savedActs = Storage.get('partnerActivities');
+  partnerActivities = (savedActs && typeof savedActs === 'object') ? savedActs : {};
 
   contacts = Array.isArray(savedContacts) && savedContacts.length
     ? savedContacts
@@ -76,12 +88,21 @@ function loadAllData() {
 
   customPokes = Array.isArray(savedPokes) ? savedPokes : POKE_ACTIONS.slice();
 
+  // 通话记录（梦角资料页 → 历史通话）
+  var savedCalls = Storage.get('callLogs');
+  callLogs = (savedCalls && typeof savedCalls === 'object') ? savedCalls : {};
+
   // 初始化各联系人消息数组 + 专属字卡库分区
   contacts.forEach(function (c) {
     if (!Array.isArray(messagesByContact[c.id])) messagesByContact[c.id] = [];
     if (!Array.isArray(contactReplyPools[c.id])) contactReplyPools[c.id] = [];
     if (!Array.isArray(poolGroups[c.id])) poolGroups[c.id] = [];
     if (!Array.isArray(disabledPoolReplies[c.id])) disabledPoolReplies[c.id] = [];
+    if (!Array.isArray(callLogs[c.id])) callLogs[c.id] = [];
+    if (!Array.isArray(contactAvatars[c.id])) contactAvatars[c.id] = [];
+    if (!Array.isArray(contactCovers[c.id])) contactCovers[c.id] = [];
+    if (!autoSwapNext[c.id]) autoSwapNext[c.id] = { avatar: 0, cover: 0 };
+    if (!partnerActivities[c.id]) partnerActivities[c.id] = {};
   });
 
   partnerStatus = PARTNER_STATUSES[Math.floor(Math.random() * PARTNER_STATUSES.length)];
@@ -100,6 +121,7 @@ function saveData() {
     });
     Storage.set('messagesByContact', trimmed);
     Storage.set('customPokes', customPokes);
+    Storage.set('callLogs', callLogs);
     var custom = replyPool.filter(function (r) { return BUILTIN_REPLIES.indexOf(r) === -1; });
     Storage.set('customReplies', custom);
     Storage.set('contactReplyPools', contactReplyPools);
@@ -117,5 +139,10 @@ function saveData() {
     // 朋友圈
     Storage.set('momentsData', momentsData);
     Storage.set('momentsCover', momentsCover);
+    Storage.set('momentsCovers', momentsCovers);
+    Storage.set('contactAvatars', contactAvatars);
+    Storage.set('contactCovers', contactCovers);
+    Storage.set('autoSwapNext', autoSwapNext);
+    Storage.set('partnerActivities', partnerActivities);
   }, 300);
 }

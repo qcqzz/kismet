@@ -82,7 +82,7 @@ function profileCardHtml() {
   return '' +
     '<div class="profile-card" data-act="profile">' +
       '<div class="pc-left">' +
-        '<div class="pc-avatar">' + escapeHtml(p.avatar || '🐧') + '</div>' +
+        '<div class="pc-avatar">' + avatarHtml(p.avatar || '🐧') + '</div>' +
         '<div>' +
           '<div class="pc-name">' + escapeHtml(p.name || '我') + '</div>' +
           '<div class="pc-loc">' + (p.location ? '<i class="fas fa-location-dot"></i> ' + escapeHtml(p.location) : '<i class="fas fa-location-dot"></i> 点这里设置位置') + '</div>' +
@@ -121,8 +121,8 @@ function annivInfo(a) {
 function annivHtml(animate) {
   var main = anniversaries[_selAnniv];
   var hc = getHomeContact();
-  var faceA = escapeHtml(homeProfile.avatar || '🐧');
-  var faceB = hc ? escapeHtml(hc.avatar || '🌷') : '🌷';
+  var faceA = avatarHtml(homeProfile.avatar || '🐧');
+  var faceB = hc ? avatarHtml(hc.avatar || '🌷') : '🌷';
 
   var inner = '<div class="anniv-faces">' +
     '<span class="af-ava af-me">' + faceA + '</span>' +
@@ -198,18 +198,9 @@ function linkStatusHtml() {
   for (var i = 0; i < 5; i++) hearts += '<i class="fas fa-heart"></i>';
   return '' +
     '<div class="dt-linkstatus" title="链接状态">' +
-      '<div class="dt-ls-head">' +
-        '<div class="dt-ls-icon"><i class="fas fa-heartbeat"></i></div>' +
-        '<div class="dt-ls-label">链接状态</div>' +
-      '</div>' +
-      '<div class="dt-ls-body">' +
-        '<div class="dt-ls-hearts" id="dt-ls-hearts">' + hearts + '</div>' +
-        '<div class="dt-ls-text" id="dt-ls-text">共鸣中</div>' +
-      '</div>' +
-      '<svg class="dt-ls-line" viewBox="0 0 240 44" preserveAspectRatio="none" aria-hidden="true">' +
-        '<polyline class="ls-l-s" points="0,22 83,22 97,22 107,13 119,31 131,9 143,22 240,22"/>' +
-        '<polyline class="ls-l-m" points="0,22 83,22 97,22 107,13 119,31 131,9 143,22 240,22"/>' +
-      '</svg>' +
+      '<div class="dt-ls-label">链接状态</div>' +
+      '<div class="dt-ls-text" id="dt-ls-text">共鸣中</div>' +
+      '<div class="dt-ls-hearts" id="dt-ls-hearts">' + hearts + '</div>' +
     '</div>';
 }
 
@@ -267,7 +258,7 @@ function showcaseHtml() {
   if (hc) {
     html +=
       '<div class="sc-bar sc-dream" data-act="scDream">' +
-        '<div class="sc-avatar">' + escapeHtml(hc.avatar || '🌷') + '</div>' +
+        '<div class="sc-avatar">' + avatarHtml(hc.avatar || '🌷') + '</div>' +
         '<div class="sc-info">' +
           '<div class="sc-name">' + escapeHtml(hc.name) + '</div>' +
           '<div class="sc-sign">' + escapeHtml(_dreamSignCache || '专属字卡库空空的，导入字卡后这里随机换一条') + '</div>' +
@@ -277,7 +268,7 @@ function showcaseHtml() {
 
   html +=
     '<div class="sc-bar sc-me" data-act="scMe">' +
-      '<div class="sc-avatar">' + escapeHtml(homeProfile.avatar || '🐧') + '</div>' +
+      '<div class="sc-avatar">' + avatarHtml(homeProfile.avatar || '🐧') + '</div>' +
       '<div class="sc-info">' +
         '<div class="sc-name">' + escapeHtml(homeProfile.name || '我') + '</div>' +
         '<div class="sc-sign">' + escapeHtml(homeProfile.signature || '点这里编辑个性签名') + '</div>' +
@@ -293,7 +284,7 @@ function homeBoxHtml() {
   var hc = getHomeContact();
   var bgStyle = homeBoxBg ? ' style="background-image:url(' + homeBoxBg + ')"' : '';
   return '<div class="home-box' + (homeBoxBg ? ' has-bg' : '') + '" data-act="box"' + bgStyle + '>' +
-    '<div class="hb-face">' + (hc ? escapeHtml(hc.avatar || '🌷') : '🌷') + '</div>' +
+    '<div class="hb-face">' + (hc ? avatarHtml(hc.avatar || '🌷') : '🌷') + '</div>' +
     '</div>';
 }
 
@@ -354,7 +345,7 @@ function daysSince(dateStr) {
 function openProfileSheet() {
   showSheet('个人资料', [
     { label: '<i class="fas fa-pen"></i> 改昵称', act: 'name' },
-    { label: '<i class="fas fa-user"></i> 改头像（emoji）', act: 'avatar' },
+    { label: '<i class="fas fa-user"></i> 改头像（上传图片）', act: 'avatar' },
     { label: '<i class="fas fa-comment"></i> 改个性签名', act: 'sign' },
     { label: '<i class="fas fa-location-dot"></i> 改位置', act: 'loc' },
     { label: '<i class="fas fa-smile"></i> 改状态表情', act: 'expr' },
@@ -366,9 +357,7 @@ function openProfileSheet() {
         homeProfile.name = v; saveData(); renderHome();
       });
     } else if (act === 'avatar') {
-      promptModal('头像', '输入一个 emoji（如 🐧 🌷 🌙）', homeProfile.avatar, function (v) {
-        homeProfile.avatar = v; saveData(); renderHome();
-      });
+      pickMyAvatar(function () { renderHome(); });
     } else if (act === 'sign') {
       confirmModal('个性签名', '一句话介绍自己（留空清空）', function (v) {
         homeProfile.signature = (v || '').trim();
@@ -527,6 +516,53 @@ function compressPhoto(file) {
         canvas.height = Math.round(img.height * scale);
         canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
         resolve(canvas.toDataURL('image/jpeg', 0.75));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// 我的头像：只支持上传图片（压到 480px，与图库同一套压缩）
+function pickMyAvatar(onDone) {
+  var input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = function () {
+    var file = input.files && input.files[0];
+    if (!file) return;
+    if (file.size > MAX_IMAGE_SIZE) { toast('图片请小于 5MB'); return; }
+    compressGallery(file).then(function (dataUrl) {
+      homeProfile.avatar = dataUrl;
+      saveData();
+      if (typeof renderMoments === 'function') renderMoments();
+      if (onDone) onDone();
+      toast('头像已更换');
+    }).catch(function () { toast('图片处理失败'); });
+  };
+  input.click();
+}
+
+// 图库专用压缩：图库里会囤多张，尺寸压小一点避免撑爆 localStorage
+function compressGallery(file) {
+  return compressImage(file, 480, 0.7);
+}
+
+// 通用图片压缩
+function compressImage(file, max, quality) {
+  return new Promise(function (resolve, reject) {
+    var reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = function () {
+      var img = new Image();
+      img.onerror = reject;
+      img.onload = function () {
+        var scale = Math.min(1, max / Math.max(img.width, img.height));
+        var canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
       };
       img.src = reader.result;
     };
