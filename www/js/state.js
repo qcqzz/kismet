@@ -25,7 +25,6 @@ var musicTracks = [];         // [{id, name, lyric, hasAudio}]（音乐功能待
 var photoWall = [];           // 6 个照片位（0-1 右上交错方图，2-5 底部拍立得），null 或 dataURL
 var homeBoxBg = null;         // 首页大方框背景图（dataURL）
 var weatherNow = null;        // {city, temp, code, desc, icon, updatedAt}
-var dailyCardIndex = 0;       // 每日字卡当前索引
 var _dreamSignCache = null;   // 梦角展示栏个签（本次打开抽取一次）
 var _annivRotateTimer = null; // 重要日 10s 轮换定时器
 

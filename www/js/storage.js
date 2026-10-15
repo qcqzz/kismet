@@ -38,7 +38,6 @@ function loadAllData() {
     : [null, null, null, null, null, null];
   homeBoxBg = Storage.get('homeBoxBg') || null;
   weatherNow = Storage.get('weatherNow');
-  dailyCardIndex = Storage.get('dailyCardIndex') || 0;
 
   contacts = Array.isArray(savedContacts) && savedContacts.length
     ? savedContacts
@@ -90,6 +89,5 @@ function saveData() {
     Storage.set('photoWall', photoWall);
     Storage.set('homeBoxBg', homeBoxBg);
     Storage.set('weatherNow', weatherNow);
-    Storage.set('dailyCardIndex', dailyCardIndex);
   }, 300);
 }

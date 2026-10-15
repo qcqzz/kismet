@@ -906,8 +906,7 @@ function exportData() {
     musicTracks: musicTracks,
     photoWall: photoWall,
     homeBoxBg: homeBoxBg,
-    weatherNow: weatherNow,
-    dailyCardIndex: dailyCardIndex
+    weatherNow: weatherNow
   };
   var blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
   var a = document.createElement('a');
@@ -947,7 +946,6 @@ function importData() {
             ? data.photoWall : [null, null, null, null, null, null];
           homeBoxBg = data.homeBoxBg || null;
           weatherNow = data.weatherNow || null;
-          dailyCardIndex = data.dailyCardIndex || 0;
           contacts.forEach(function (c) {
             if (!Array.isArray(messagesByContact[c.id])) messagesByContact[c.id] = [];
             if (!Array.isArray(contactReplyPools[c.id])) contactReplyPools[c.id] = [];

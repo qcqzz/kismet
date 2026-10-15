@@ -40,25 +40,25 @@ body {
 
 .home-scroll {
   flex: 1; overflow-y: auto;
-  padding: calc(16px + env(safe-area-inset-top)) 16px calc(96px + env(safe-area-inset-bottom));
+  padding: calc(12px + env(safe-area-inset-top)) 16px calc(68px + env(safe-area-inset-bottom));
 }
 
 /* 顶部个人信息卡 */
 .profile-card {
   display: flex; align-items: center; justify-content: space-between;
   background: var(--card-bg); border: 1px solid var(--line); border-radius: 16px;
-  padding: 14px 16px; box-shadow: var(--shadow); cursor: pointer;
+  padding: 11px 14px; box-shadow: var(--shadow); cursor: pointer;
 }
 .profile-card:active { background: #fafafa; }
 .pc-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .pc-avatar {
-  width: 50px; height: 50px; border-radius: 50%; flex-shrink: 0;
+  width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0;
   background: var(--bg); border: 1px solid var(--line);
   display: flex; align-items: center; justify-content: center;
-  font-size: 26px; overflow: hidden;
+  font-size: 24px; overflow: hidden;
 }
 .pc-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.pc-name { font-size: 17px; font-weight: 700; }
+.pc-name { font-size: 16px; font-weight: 700; }
 .pc-loc {
   font-size: 12px; color: var(--ink-3); margin-top: 3px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px;
@@ -71,7 +71,7 @@ body {
 /* 纪念日 + 右上拍立得 */
 .home-mid {
   display: flex; align-items: flex-start; justify-content: space-between;
-  margin-top: 24px; padding: 0 4px; gap: 10px;
+  margin-top: 16px; padding: 0 4px; gap: 10px;
 }
 .anniv-block { text-align: center; cursor: pointer; min-width: 0; padding-top: 2px; }
 /* 用户头像 + 梦角头像交错（左上角） */
@@ -86,7 +86,7 @@ body {
 .af-dream { margin-left: -11px; }
 .anniv-num {
   font-family: Georgia, "Times New Roman", "Songti SC", serif;
-  font-size: 64px; font-weight: 700; line-height: 1; letter-spacing: 1px;
+  font-size: 56px; font-weight: 700; line-height: 1; letter-spacing: 1px;
 }
 .anniv-unit { font-size: 13px; color: var(--ink-2); margin-top: 4px; }
 .anniv-name { font-size: 12px; color: var(--ink-3); margin-top: 7px; }
@@ -110,8 +110,8 @@ body {
 .polaroid-top .polaroid { width: 76px; height: 92px; }
 .polaroid-top .p1 { transform: rotate(-6deg); }
 .polaroid-top .p2 { transform: rotate(5deg) translateY(12px); }
-.photo-row { display: flex; justify-content: space-between; gap: 8px; margin-top: 26px; padding: 0 6px; }
-.photo-row .polaroid { width: calc((100% - 24px) / 4); height: 100px; }
+.photo-row { display: flex; justify-content: space-between; gap: 8px; margin-top: 16px; padding: 0 6px; }
+.photo-row .polaroid { width: calc((100% - 24px) / 4); height: 88px; }
 .photo-row .polaroid:nth-child(1) { transform: rotate(-3deg); }
 .photo-row .polaroid:nth-child(2) { transform: rotate(2deg) translateY(5px); }
 .photo-row .polaroid:nth-child(3) { transform: rotate(-2deg); }
@@ -148,31 +148,6 @@ body {
   padding: 10px; text-align: center; font-size: 13px; color: var(--ink-3); cursor: pointer;
 }
 .player-add:active { background: var(--bg); }
-
-/* 每日字卡（中央大卡片） */
-.word-card {
-  margin-top: 26px; position: relative;
-  background: var(--card-bg); border: 1px solid var(--line); border-radius: 16px;
-  padding: 26px 20px 20px; text-align: center; box-shadow: var(--shadow);
-}
-.wc-refresh {
-  position: absolute; top: 8px; right: 10px; border: none; background: none;
-  font-size: 15px; color: var(--ink-3); cursor: pointer; padding: 5px;
-}
-.wc-quote {
-  font-size: 17px; font-weight: 600; line-height: 1.8; color: var(--ink);
-  word-break: break-word;
-}
-.wc-sign {
-  margin-top: 12px; font-size: 12px; color: var(--ink-3);
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-}
-.wc-sign .wc-ava {
-  width: 22px; height: 22px; border-radius: 50%; background: var(--bg);
-  border: 1px solid var(--line); display: flex; align-items: center; justify-content: center;
-  font-size: 12px; overflow: hidden;
-}
-.wc-sign .wc-ava img { width: 100%; height: 100%; object-fit: cover; }
 
 /* ============ 微信式头部 ============ */
 .wx-header {
@@ -547,9 +522,10 @@ body {
 
 /* ============ 底部导航（悬浮四格，参照图） ============ */
 .bottom-nav {
-  position: fixed; left: 50%; transform: translateX(-50%);
+  position: fixed; left: 16px; right: 16px;
   bottom: calc(14px + env(safe-area-inset-bottom));
   display: none; z-index: 50;
+  justify-content: space-evenly;
   background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border: 1px solid var(--line); border-radius: 20px;
@@ -559,16 +535,17 @@ body {
 body.show-nav .bottom-nav { display: flex; }
 .nav-item {
   position: relative;
-  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  flex: 1;
   border: none; background: none; cursor: pointer;
-  padding: 6px 17px; border-radius: 14px; color: var(--ink-3);
+  padding: 6px 4px; border-radius: 14px; color: var(--ink-3);
   transition: color 0.15s, background 0.15s;
 }
 .nav-item svg {
   width: 22px; height: 22px; fill: none; stroke: currentColor;
   stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
 }
-.nav-item span:not(.nav-badge) { font-size: 10px; }
+.nav-item span:not(.nav-badge) { font-size: 10px; white-space: nowrap; }
 .nav-item.active { color: var(--ink); background: var(--bg); }
 .nav-badge {
   position: absolute; top: 0; right: 8px; min-width: 16px; height: 16px;
@@ -583,7 +560,7 @@ body.show-nav .empty-state { padding-bottom: 70px; }
 
 /* ============ 梦角改版：方图 / 双展示栏 / 大方框 / 空态字卡 ============ */
 /* 两张交错正方形图（上小下大、白边，非拍立得） */
-.square-top { position: relative; width: 138px; height: 156px; flex-shrink: 0; }
+.square-top { position: relative; width: 116px; height: 126px; flex-shrink: 0; }
 .sq-photo {
   position: absolute; overflow: hidden; cursor: pointer;
   background: var(--bg); border: 5px solid #fff;
@@ -592,15 +569,15 @@ body.show-nav .empty-state { padding-bottom: 70px; }
 }
 .sq-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .sq-photo .po-empty { font-size: 18px; color: var(--ink-4); }
-.sq-sm { width: 64px; height: 64px; top: 0; right: 0; z-index: 2; }
-.sq-lg { width: 100px; height: 100px; bottom: 0; left: 0; z-index: 1; }
+.sq-sm { width: 50px; height: 50px; top: 0; right: 0; z-index: 2; }
+.sq-lg { width: 80px; height: 80px; bottom: 0; left: 0; z-index: 1; }
 
 /* 双展示栏（第一排梦角 / 第二排用户） */
-.showcase { margin-top: 26px; display: flex; flex-direction: column; gap: 10px; }
+.showcase { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
 .sc-bar {
   display: flex; align-items: center; gap: 12px; cursor: pointer;
   background: var(--card-bg); border: 1px solid var(--line); border-radius: 14px;
-  padding: 12px 14px; box-shadow: var(--shadow);
+  padding: 10px 12px; box-shadow: var(--shadow);
 }
 .sc-bar:active { background: #fafafa; }
 .sc-avatar {
@@ -611,14 +588,13 @@ body.show-nav .empty-state { padding-bottom: 70px; }
 .sc-info { flex: 1; min-width: 0; }
 .sc-name { font-size: 15px; font-weight: 700; }
 .sc-sign {
-  font-size: 12px; color: var(--ink-3); margin-top: 3px; line-height: 1.4;
+  font-size: 11px; color: var(--ink-3); margin-top: 3px; line-height: 1.4;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.sc-go { color: var(--ink-4); font-size: 18px; flex-shrink: 0; }
 
 /* 大方框（中间梦角头像，长按换背景，无文字） */
 .home-box {
-  margin-top: 26px; height: 172px; position: relative; overflow: hidden; cursor: pointer;
+  margin-top: 16px; height: 132px; position: relative; overflow: hidden; cursor: pointer;
   border-radius: 16px; border: 1px solid var(--line); box-shadow: var(--shadow);
   background: var(--card-bg) center / cover no-repeat;
   display: flex; align-items: center; justify-content: center;
@@ -630,15 +606,11 @@ body.show-nav .empty-state { padding-bottom: 70px; }
   background: rgba(255, 255, 255, 0.32);
 }
 .hb-face {
-  width: 66px; height: 66px; border-radius: 50%; z-index: 1;
+  width: 60px; height: 60px; border-radius: 50%; z-index: 1;
   background: rgba(255,255,255,0.92); border: 2px solid #fff;
   box-shadow: 0 2px 10px rgba(0,0,0,0.16);
-  display: flex; align-items: center; justify-content: center; font-size: 32px;
+  display: flex; align-items: center; justify-content: center; font-size: 30px;
 }
-
-/* 空库每日字卡 */
-.word-card.wc-empty { color: var(--ink-3); }
-.word-card.wc-empty .wc-quote { color: var(--ink-3); font-weight: 500; }
 
 /* ============ 设置页（mochi 排版：搜索 + 分组标签 + 图标行 + 子页） ============ */
 .set-search { padding-top: 12px; }

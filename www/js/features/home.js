@@ -25,7 +25,6 @@ function initHome() {
     else if (act === 'anniv') openAnnivSheet();
     else if (act === 'annivNext') { _selAnniv = (_selAnniv + 1) % anniversaries.length; renderHome(); }
     else if (act === 'photo') openPhotoSheet(Number(el.dataset.idx));
-    else if (act === 'dailyRefresh') shuffleDailyCard();
     else if (act === 'scDream') {
       var hc = getHomeContact();
       if (hc) openChat(hc.id); else toast('先新建一位梦角吧');
@@ -68,7 +67,6 @@ function renderHome() {
     '</div>' +
     showcaseHtml() +
     homeBoxHtml() +
-    dailyCardHtml() +
     '<div class="photo-row">' +
       polaroidHtml(2) + polaroidHtml(3) + polaroidHtml(4) + polaroidHtml(5) +
     '</div>';
@@ -199,7 +197,6 @@ function showcaseHtml() {
           '<div class="sc-name">' + escapeHtml(hc.name) + '</div>' +
           '<div class="sc-sign">' + escapeHtml(_dreamSignCache || '专属字卡库空空的，导入字卡后这里随机换一条') + '</div>' +
         '</div>' +
-        '<span class="sc-go">›</span>' +
       '</div>';
   }
 
@@ -210,7 +207,6 @@ function showcaseHtml() {
         '<div class="sc-name">' + escapeHtml(homeProfile.name || '我') + '</div>' +
         '<div class="sc-sign">' + escapeHtml(homeProfile.signature || '点这里编辑个性签名') + '</div>' +
       '</div>' +
-      '<span class="sc-go">›</span>' +
     '</div>';
 
   html += '</div>';
@@ -266,48 +262,6 @@ function polaroidHtml(slot, extraClass) {
   return '<div class="polaroid ' + (extraClass || '') + '" data-act="photo" data-idx="' + slot + '">' +
     '<div class="po-img">' + (src ? '<img src="' + src + '" alt="">' : '<span class="po-empty">＋</span>') +
     '</div></div>';
-}
-
-// ---------- 每日字卡 ----------
-function dailyCardHtml() {
-  var hc = getHomeContact();
-  var pool = replyPool;
-  var text = '';
-  if (pool.length) {
-    if (dailyCardIndex >= pool.length) dailyCardIndex = 0;
-    text = pool[dailyCardIndex];
-  }
-  var ava = hc ? escapeHtml(hc.avatar || '🌷') : '🌷';
-  var cname = hc ? escapeHtml(hc.name) : '';
-  var today = (new Date().getMonth() + 1) + '月' + new Date().getDate() + '日';
-
-  if (!text) {
-    return '<div class="word-card wc-empty">' +
-      '<div class="wc-quote">字卡库还是空空的</div>' +
-      '<div class="wc-sign"><span class="wc-ava">' + ava + '</span>' +
-      '<span>去 设置 → 字卡 导入字卡吧 · ' + today + '</span></div>' +
-    '</div>';
-  }
-
-  return '<div class="word-card">' +
-    '<button class="wc-refresh" data-act="dailyRefresh" title="换一张">↻</button>' +
-    '<div class="wc-quote">' + escapeHtml(text) + '</div>' +
-    '<div class="wc-sign">' +
-      '<span class="wc-ava">' + ava + '</span>' +
-      '<span>' + cname + '的字卡 · ' + today + '</span>' +
-    '</div>' +
-  '</div>';
-}
-
-function shuffleDailyCard() {
-  if (replyPool.length < 2) return;
-  var next = dailyCardIndex;
-  while (next === dailyCardIndex) {
-    next = Math.floor(Math.random() * replyPool.length);
-  }
-  dailyCardIndex = next;
-  saveData();
-  renderHome();
 }
 
 // ---------- 天数 ----------
