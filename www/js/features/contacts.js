@@ -19,7 +19,7 @@ function renderContactList() {
   });
 
   if (shown.length === 0) {
-    list.innerHTML = '<div class="empty-state"><div class="es-icon">💭</div><div class="es-title">' +
+    list.innerHTML = '<div class="empty-state"><div class="es-icon"><i class="fas fa-comment-dots"></i></div><div class="es-title">' +
       (keyword ? '没有匹配的梦角' : '还没有梦角，点右上角＋新建') + '</div></div>';
     return;
   }
@@ -90,8 +90,8 @@ function initContacts() {
   // ＋ → 新建梦角 / 发起群聊
   document.getElementById('btn-add-contact').addEventListener('click', function () {
     showSheet('添加', [
-      { label: '👤 新建梦角', act: 'new' },
-      { label: '👥 发起群聊（邀请多位梦角）', act: 'group' },
+      { label: '<i class="fas fa-user-plus"></i> 新建梦角', act: 'new' },
+      { label: '<i class="fas fa-users"></i> 发起群聊（邀请多位梦角）', act: 'group' },
       { label: '取消', act: 'cancel', cancel: true }
     ], function (act) {
       if (act === 'new') createNewContact();
@@ -204,17 +204,17 @@ function openChatInfoSheet() {
 
   var items = [];
   if (group) {
-    items.push({ label: '👥 群成员（' + getGroupMemberIds(contact).length + '）', act: 'members' });
-    items.push({ label: '✏️ 修改群聊名称', act: 'rename' });
-    items.push({ label: '🗂 收藏的字卡（' + favCount + '）', act: 'favs' });
-    items.push({ label: '🧹 清空此聊天记录', act: 'clear', danger: true });
+    items.push({ label: '<i class="fas fa-users"></i> 群成员（' + getGroupMemberIds(contact).length + '）', act: 'members' });
+    items.push({ label: '<i class="fas fa-pen"></i> 修改群聊名称', act: 'rename' });
+    items.push({ label: '<i class="fas fa-folder"></i> 收藏的字卡（' + favCount + '）', act: 'favs' });
+    items.push({ label: '<i class="fas fa-broom"></i> 清空此聊天记录', act: 'clear', danger: true });
     items.push({ label: '解散群聊', act: 'del', danger: true });
   } else {
-    items.push({ label: '🗂 收藏的字卡（' + favCount + '）', act: 'favs' });
-    items.push({ label: '📚 专属字卡库', act: 'pool' });
-    items.push({ label: '✏️ 修改昵称', act: 'rename' });
-    items.push({ label: '🖼 更换头像', act: 'avatar' });
-    items.push({ label: '🧹 清空此聊天记录', act: 'clear', danger: true });
+    items.push({ label: '<i class="fas fa-folder"></i> 收藏的字卡（' + favCount + '）', act: 'favs' });
+    items.push({ label: '<i class="fas fa-book"></i> 专属字卡库', act: 'pool' });
+    items.push({ label: '<i class="fas fa-pen"></i> 修改昵称', act: 'rename' });
+    items.push({ label: '<i class="fas fa-image"></i> 更换头像', act: 'avatar' });
+    items.push({ label: '<i class="fas fa-broom"></i> 清空此聊天记录', act: 'clear', danger: true });
     items.push({ label: '删除梦角', act: 'del', danger: true });
   }
   items.push({ label: '取消', act: 'cancel', cancel: true });

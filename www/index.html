@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>字卡传讯</title>
   <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body data-theme="ink">
 
@@ -13,18 +14,9 @@
     <div class="home-scroll" id="home-scroll"></div>
   </div>
 
-  <!-- ===== 朋友圈（占位，等参考图） ===== -->
+  <!-- ===== 朋友圈 ===== -->
   <div id="view-moments" class="view">
-    <header class="wx-header">
-      <div style="width:38px"></div>
-      <div class="wx-title">朋友圈</div>
-      <div style="width:38px"></div>
-    </header>
-    <div class="empty-state" style="flex:1">
-      <div class="es-icon">🎞️</div>
-      <div class="es-title">朋友圈 · 敬请期待</div>
-      <div class="es-desc">等你的参考图和指令</div>
-    </div>
+    <div class="moments-scroll" id="moments-scroll"></div>
   </div>
 
   <!-- ===== 消息列表（仿微信会话列表） ===== -->
@@ -56,43 +48,64 @@
 
       <div class="batch-preview" id="batch-preview" style="display:none"></div>
 
-      <div class="more-panel" id="more-panel" style="display:none">
-        <div class="more-grid">
-          <button class="more-item" data-more="image"><span class="more-ico">🖼️</span><span>发送图片</span></button>
-          <button class="more-item" data-more="poke"><span class="more-ico">👋</span><span>拍一拍</span></button>
-          <button class="more-item" data-more="continue"><span class="more-ico">⏭️</span><span>让对方继续说</span></button>
-          <button class="more-item" data-more="batch"><span class="more-ico">📚</span><span>批量发送</span></button>
-          <button class="more-item" data-more="cards"><span class="more-ico">🗂️</span><span>字卡库</span></button>
+      <div class="more-panel" id="more-panel">
+        <div class="more-panel-grid">
+          <button class="more-item" data-more="transfer">
+            <span class="more-item-ico"><i class="fas fa-gift"></i></span>
+            <span class="more-item-label">发红包</span>
+          </button>
+          <button class="more-item" data-more="rp-record">
+            <span class="more-item-ico"><i class="fas fa-history"></i></span>
+            <span class="more-item-label">红包记录</span>
+          </button>
+          <button class="more-item" data-more="ask">
+            <span class="more-item-ico"><i class="fas fa-question-circle"></i></span>
+            <span class="more-item-label">问问你</span>
+          </button>
+          <button class="more-item" data-more="image">
+            <span class="more-item-ico"><i class="fas fa-image"></i></span>
+            <span class="more-item-label">发送图片</span>
+          </button>
         </div>
       </div>
 
-      <div class="sticker-pop" id="sticker-pop" style="display:none">
-        <div class="pop-tabs">
-          <button class="pop-tab active" data-tab="emoji">表情</button>
-          <button class="pop-tab" data-tab="poke">拍一拍</button>
+      <div class="sticker-picker-popover" id="user-sticker-picker">
+        <div class="combo-tabs-header">
+          <button class="combo-tab-btn active" data-tab="my-sticker"><i class="fas fa-user" style="font-size:10px;"></i> 我</button>
+          <button class="combo-tab-btn" data-tab="partner-sticker"><i class="fas fa-heart" style="font-size:10px;"></i> 对方</button>
+          <button class="combo-tab-btn" data-tab="poke">拍一拍</button>
+          <div class="sticker-picker-actions">
+            <button id="sticker-add-btn" title="添加我的表情"><i class="fas fa-plus"></i> 添加</button>
+            <button id="sticker-manage-btn" title="管理表情库"><i class="fas fa-cog"></i></button>
+          </div>
         </div>
-        <div class="pop-body" id="pop-body"></div>
+        <div class="my-sticker-group-row-slot" id="my-sticker-group-row-slot"></div>
+        <div class="combo-content-area show-title" id="combo-content-area"></div>
       </div>
 
       <div class="input-area">
-        <button class="ibtn" id="more-btn" title="更多">＋</button>
-        <button class="ibtn" id="call-btn" title="语音通话">📹</button>
-        <button class="ibtn" id="image-btn" title="发送图片">🖼️</button>
-        <button class="ibtn" id="combo-btn" title="表情与拍一拍">😊</button>
+        <button class="input-btn more-btn" id="more-btn" title="更多"><i class="fas fa-plus"></i></button>
+        <button class="input-btn videocall-btn" id="videocall-btn" title="视频通话"><i class="fas fa-video"></i></button>
+        <button class="input-btn attachment-btn" id="attachment-btn" title="发送图片"><i class="fas fa-image"></i></button>
+        <button class="input-btn combo-btn" id="combo-btn" title="表情 & 拍一拍"><i class="fas fa-laugh-beam"></i></button>
 
-        <textarea id="message-input" rows="1" placeholder=""></textarea>
+        <textarea class="message-input" id="message-input" rows="1" placeholder=""></textarea>
 
-        <div class="voice-wrap" id="voice-wrap" style="display:none">
-          <button type="button" id="voice-btn">按住 说话</button>
-          <div class="voice-hint" id="voice-hint">松开 发送，上滑 取消</div>
+        <div class="voice-hold-wrap" id="voice-hold-wrap" style="display:none">
+          <button type="button" id="voice-hold-btn" class="voice-hold-btn"><i class="fas fa-microphone"></i><span id="voice-hold-label">按住 说话</span></button>
+          <div class="voice-rec-hint" id="voice-rec-hint">松开 发送，上滑 取消</div>
         </div>
 
-        <button class="ibtn" id="mic-btn" title="语音消息">🎤</button>
-        <button class="ibtn" id="continue-btn" title="让对方继续说">⏭️</button>
-        <button class="ibtn" id="batch-btn" title="批量发送">📚</button>
-        <button class="ibtn ibtn-send" id="send-btn" title="发送">➤</button>
+        <div class="input-buttons">
+          <button class="input-btn mic-btn toggle-voice-btn" id="voice-mic-btn" title="语音消息"><i class="fas fa-microphone"></i></button>
+          <button class="input-btn continue-btn" id="continue-btn" title="让对方继续说"><i class="fas fa-ellipsis-h"></i></button>
+          <button class="input-btn batch-btn" id="batch-btn" title="批量发送模式"><i class="fas fa-layer-group"></i></button>
+          <button class="input-btn send-btn" id="send-btn" title="发送消息"><i class="fas fa-paper-plane"></i></button>
+        </div>
       </div>
-      <input type="file" id="image-input" accept="image/*" style="display:none">
+
+      <input type="file" id="image-input" class="file-input" accept="image/*" style="display:none">
+      <input type="file" id="my-sticker-quick-upload" class="file-input" accept="image/*" multiple style="display:none">
     </footer>
   </div>
 
@@ -109,12 +122,12 @@
   <!-- ===== 信件（占位，等参考图） ===== -->
   <div id="view-letters" class="view">
     <header class="wx-header">
-      <div style="width:38px"></div>
+      <button class="wx-back" data-back-home>‹</button>
       <div class="wx-title">信件</div>
       <div style="width:38px"></div>
     </header>
     <div class="empty-state" style="flex:1">
-      <div class="es-icon">✉️</div>
+      <div class="es-icon"><i class="fas fa-envelope"></i></div>
       <div class="es-title">信件 · 敬请期待</div>
       <div class="es-desc">等你的参考图和指令</div>
     </div>
@@ -147,6 +160,91 @@
   <div id="modal-root"></div>
   <div class="img-viewer" id="img-viewer" style="display:none"><img id="img-viewer-img" alt=""></div>
 
+  <!-- ===== 说说你弹窗（问问你） ===== -->
+  <div class="modal" id="ask-modal">
+    <div class="modal-content ask-modal-content">
+      <div class="modal-title"><i class="fas fa-question-circle"></i><span>问问你</span></div>
+      <textarea id="ask-question-input" class="ask-question-input" placeholder="输入你想问的问题…"></textarea>
+      <div class="ask-mode-row">
+        <span class="ask-mode-label">选项</span>
+        <div class="ask-mode-seg">
+          <button type="button" id="ask-mode-single" class="ask-mode-btn on" data-mode="single">单选</button>
+          <button type="button" id="ask-mode-multiple" class="ask-mode-btn" data-mode="multiple">多选</button>
+        </div>
+      </div>
+      <div id="ask-options-container" class="ask-options-container"></div>
+      <button type="button" class="ask-add-option" id="ask-add-option">+ 添加选项</button>
+      <div class="modal-buttons ask-modal-buttons">
+        <button class="modal-btn modal-btn-secondary" id="ask-cancel-btn">取消</button>
+        <button class="modal-btn modal-btn-primary" id="ask-send-btn">发送问题</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 红包记录弹窗 ===== -->
+  <div class="modal" id="rp-record-modal">
+    <div class="modal-content rp-record-content">
+      <div class="modal-title"><i class="fas fa-gift"></i><span>红包记录</span></div>
+      <div class="stats-tab-bar">
+        <button class="stats-toggle-btn active" id="rp-record-tab-partner"><i class="fas fa-heart"></i> 梦角</button>
+        <button class="stats-toggle-btn" id="rp-record-tab-me"><i class="fas fa-user"></i> 我</button>
+      </div>
+      <div id="rp-record-list" class="rp-record-list"></div>
+      <div class="modal-buttons" style="justify-content:flex-end;">
+        <button class="modal-btn modal-btn-secondary" id="close-rp-record">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 发红包弹窗 ===== -->
+  <div class="modal" id="transfer-modal">
+    <div class="modal-content redpacket-send-content">
+      <div class="redpacket-send-head">
+        <span class="redpacket-send-head-ico"><i class="fas fa-gift"></i></span>
+        <div class="redpacket-send-head-txt">
+          <div class="redpacket-send-head-title">发红包</div>
+          <div class="redpacket-send-head-sub">输入金额与祝福语</div>
+        </div>
+      </div>
+      <div class="redpacket-send-form">
+        <div class="rp-send-amount-row">
+          <span class="rp-yuan">¥</span>
+          <input class="modal-input rp-amount-input" id="transfer-amount-input" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00">
+        </div>
+        <div class="rp-amount-label" id="transfer-amount-label">¥0.00</div>
+        <input class="modal-input rp-greeting-input" id="rp-send-greeting" type="text" maxlength="20" placeholder="恭喜发财，大吉大利">
+        <div class="rp-amount-hint" id="transfer-amount-hint"></div>
+        <div class="rp-preset-row">
+          <button class="transfer-preset" data-amt="6.66">6.66</button>
+          <button class="transfer-preset" data-amt="8.88">8.88</button>
+          <button class="transfer-preset" data-amt="52.00">52.00</button>
+          <button class="transfer-preset" data-amt="520.00">520.00</button>
+          <button class="transfer-preset" data-amt="1314.00">1314.00</button>
+        </div>
+        <div class="modal-buttons" style="gap:10px;">
+          <button class="modal-btn modal-btn-secondary" id="transfer-cancel-btn" style="flex:1;">取消</button>
+          <button class="modal-btn modal-btn-primary" id="transfer-confirm-btn" style="flex:2;">塞钱进红包</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 拆红包小窗（微信风格） ===== -->
+  <div class="redpacket-open-modal" id="redpacket-open-modal">
+    <div class="redpacket-open-inner" id="redpacket-open-inner">
+      <button class="redpacket-open-close" id="rp-open-close"><i class="fas fa-times"></i></button>
+      <div class="redpacket-open-body" id="redpacket-open-body">
+        <div class="redpacket-open-heart" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></div>
+        <div class="redpacket-open-name" id="rp-open-name"></div>
+        <div class="redpacket-open-greeting" id="rp-open-greeting"></div>
+        <div class="redpacket-open-amount" id="rp-open-amount">¥0.00</div>
+      </div>
+      <div class="redpacket-open-foot">
+        <button class="redpacket-open-btn" id="rp-open-btn">开</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/config.js"></script>
   <script src="js/state.js"></script>
   <script src="js/storage.js"></script>
@@ -156,10 +254,15 @@
   <script src="js/features/sound.js"></script>
   <script src="js/features/home.js"></script>
   <script src="js/features/contacts.js"></script>
+  <script src="js/features/stickers.js"></script>
+  <script src="js/features/moments.js"></script>
+  <script src="js/features/transfer.js"></script>
+  <script src="js/features/ask.js"></script>
   <script src="js/features/inputbar.js"></script>
   <script src="js/features/cards.js"></script>
   <script src="js/features/share.js"></script>
   <script src="js/features/rules.js"></script>
+  <script src="js/features/appearance.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

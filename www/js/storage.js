@@ -21,7 +21,6 @@ function loadAllData() {
   var savedContacts = Storage.get('contacts');
   var savedMsgs = Storage.get('messagesByContact');
   var savedReplyPool = Storage.get('replyPool');
-  var savedRules = Storage.get('keywordRules');
   var savedPokes = Storage.get('customPokes');
 
   settings = Object.assign({}, DEFAULT_SETTINGS, savedSettings || {});
@@ -39,6 +38,20 @@ function loadAllData() {
   homeBoxBg = Storage.get('homeBoxBg') || null;
   weatherNow = Storage.get('weatherNow');
 
+  // 朋友圈：动态流 + 自定义背景
+  var savedMoments = Storage.get('momentsData');
+  momentsData = (savedMoments && typeof savedMoments === 'object') ? savedMoments : {};
+  if (!Array.isArray(momentsData.posts)) momentsData.posts = [];
+  if (typeof momentsData.partnerNext === 'undefined') momentsData.partnerNext = null;
+  momentsData.posts.forEach(function (p) {
+    if (!p || typeof p !== 'object') return;
+    if (!Array.isArray(p.comments)) p.comments = [];
+    if (!Array.isArray(p.images)) p.images = [];
+    if (p.userLiked === undefined) p.userLiked = false;
+    if (p.partnerLiked === undefined) p.partnerLiked = false;
+  });
+  momentsCover = Storage.get('momentsCover') || null;
+
   contacts = Array.isArray(savedContacts) && savedContacts.length
     ? savedContacts
     : BUILTIN_CONTACTS.map(function (c) { return Object.assign({ unread: 0, lastTime: 0 }, c); });
@@ -53,13 +66,22 @@ function loadAllData() {
   var savedPools = Storage.get('contactReplyPools');
   contactReplyPools = (savedPools && typeof savedPools === 'object') ? savedPools : {};
 
-  keywordRules = Array.isArray(savedRules) ? savedRules : BUILTIN_KEYWORD_RULES.slice();
+  // 字卡库分组 / 屏蔽（与 chat 一致：分组、屏蔽均为独立结构，条目本身仍是字符串）
+  replyGroups = Array.isArray(Storage.get('replyGroups')) ? Storage.get('replyGroups') : [];
+  var savedPoolGroups = Storage.get('poolGroups');
+  poolGroups = (savedPoolGroups && typeof savedPoolGroups === 'object') ? savedPoolGroups : {};
+  disabledReplies = Array.isArray(Storage.get('disabledReplies')) ? Storage.get('disabledReplies') : [];
+  var savedDisabledPool = Storage.get('disabledPoolReplies');
+  disabledPoolReplies = (savedDisabledPool && typeof savedDisabledPool === 'object') ? savedDisabledPool : {};
+
   customPokes = Array.isArray(savedPokes) ? savedPokes : POKE_ACTIONS.slice();
 
   // 初始化各联系人消息数组 + 专属字卡库分区
   contacts.forEach(function (c) {
     if (!Array.isArray(messagesByContact[c.id])) messagesByContact[c.id] = [];
     if (!Array.isArray(contactReplyPools[c.id])) contactReplyPools[c.id] = [];
+    if (!Array.isArray(poolGroups[c.id])) poolGroups[c.id] = [];
+    if (!Array.isArray(disabledPoolReplies[c.id])) disabledPoolReplies[c.id] = [];
   });
 
   partnerStatus = PARTNER_STATUSES[Math.floor(Math.random() * PARTNER_STATUSES.length)];
@@ -77,11 +99,14 @@ function saveData() {
       trimmed[cid] = messagesByContact[cid].slice(-300);
     });
     Storage.set('messagesByContact', trimmed);
-    Storage.set('keywordRules', keywordRules);
     Storage.set('customPokes', customPokes);
     var custom = replyPool.filter(function (r) { return BUILTIN_REPLIES.indexOf(r) === -1; });
     Storage.set('customReplies', custom);
     Storage.set('contactReplyPools', contactReplyPools);
+    Storage.set('replyGroups', replyGroups);
+    Storage.set('poolGroups', poolGroups);
+    Storage.set('disabledReplies', disabledReplies);
+    Storage.set('disabledPoolReplies', disabledPoolReplies);
     // 主页数据
     Storage.set('homeProfile', homeProfile);
     Storage.set('anniversaries', anniversaries);
@@ -89,5 +114,8 @@ function saveData() {
     Storage.set('photoWall', photoWall);
     Storage.set('homeBoxBg', homeBoxBg);
     Storage.set('weatherNow', weatherNow);
+    // 朋友圈
+    Storage.set('momentsData', momentsData);
+    Storage.set('momentsCover', momentsCover);
   }, 300);
 }

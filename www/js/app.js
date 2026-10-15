@@ -13,16 +13,16 @@
       sendBtn: document.getElementById('send-btn'),
       moreBtn: document.getElementById('more-btn'),
       morePanel: document.getElementById('more-panel'),
-      callBtn: document.getElementById('call-btn'),
-      imageBtn: document.getElementById('image-btn'),
+      videocallBtn: document.getElementById('videocall-btn'),
+      attachmentBtn: document.getElementById('attachment-btn'),
       imageInput: document.getElementById('image-input'),
       comboBtn: document.getElementById('combo-btn'),
-      stickerPop: document.getElementById('sticker-pop'),
-      popBody: document.getElementById('pop-body'),
-      micBtn: document.getElementById('mic-btn'),
-      voiceWrap: document.getElementById('voice-wrap'),
-      voiceBtn: document.getElementById('voice-btn'),
-      voiceHint: document.getElementById('voice-hint'),
+      stickerPop: document.getElementById('user-sticker-picker'),
+      popBody: document.getElementById('combo-content-area'),
+      voiceMicBtn: document.getElementById('voice-mic-btn'),
+      voiceWrap: document.getElementById('voice-hold-wrap'),
+      voiceBtn: document.getElementById('voice-hold-btn'),
+      voiceHint: document.getElementById('voice-rec-hint'),
       continueBtn: document.getElementById('continue-btn'),
       batchBtn: document.getElementById('batch-btn'),
       batchPreview: document.getElementById('batch-preview'),
@@ -39,10 +39,15 @@
     // 加载数据 + 主题
     loadAllData();
     applyBubbleTheme();
+    if (typeof applyAppearance === 'function') applyAppearance();
 
     // 初始化各模块
     initHome();
     initContacts();
+    initStickers();
+    initMoments();
+    initTransfer();
+    initAsk();
     initInputBar();
 
     // 主动发送定时器（设置里开启时生效）
@@ -56,6 +61,14 @@
 
     // 联系人列表返回按钮：回主页
     document.getElementById('btn-contacts-back').addEventListener('click', function () {
+      showView('home');
+      renderHome();
+    });
+
+    // 返回主页按钮（含朋友圈等动态渲染出来的返回键）：统一用事件委托，避免动态插入的按钮漏绑
+    document.addEventListener('click', function (e) {
+      var btn = e.target && e.target.closest && e.target.closest('[data-back-home]');
+      if (!btn) return;
       showView('home');
       renderHome();
     });
@@ -93,6 +106,7 @@
         renderContactList();
       } else if (tab === 'moments') {
         showView('moments');
+        renderMoments();
       } else if (tab === 'letters') {
         showView('letters');
       } else if (tab === 'settings') {
@@ -113,8 +127,8 @@
     var view = document.getElementById('view-' + name);
     if (view) view.classList.add('active');
 
-    // 悬浮导航：主页/列表/占位页/设置都显示，聊天对话页隐藏（沉浸式）
-    document.body.classList.toggle('show-nav', name !== 'chat');
+    // 悬浮导航：只在主页显示；由导航键进入的界面一律隐藏导航键，靠页内返回键返回
+    document.body.classList.toggle('show-nav', name === 'home');
 
     // 高亮当前格（聊天页属于“聊天”格）
     var tab = NAV_FOR_VIEW[name];

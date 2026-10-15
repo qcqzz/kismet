@@ -63,7 +63,7 @@ function renderHome() {
     profileCardHtml() +
     '<div class="home-mid">' +
       annivHtml() +
-      squareTopHtml() +
+      linkStatusHtml() +
     '</div>' +
     showcaseHtml() +
     homeBoxHtml() +
@@ -71,6 +71,8 @@ function renderHome() {
       polaroidHtml(2) + polaroidHtml(3) + polaroidHtml(4) + polaroidHtml(5) +
     '</div>';
 
+  refreshLinkStatus(false);
+  startLinkStatusTimer();
   startAnnivRotation();
   updateNavBadge();
 }
@@ -83,7 +85,7 @@ function profileCardHtml() {
         '<div class="pc-avatar">' + escapeHtml(p.avatar || '🐧') + '</div>' +
         '<div>' +
           '<div class="pc-name">' + escapeHtml(p.name || '我') + '</div>' +
-          '<div class="pc-loc">' + (p.location ? '📍 ' + escapeHtml(p.location) : '📍 点这里设置位置') + '</div>' +
+          '<div class="pc-loc">' + (p.location ? '<i class="fas fa-location-dot"></i> ' + escapeHtml(p.location) : '<i class="fas fa-location-dot"></i> 点这里设置位置') + '</div>' +
         '</div>' +
       '</div>' +
       '<div class="pc-right">' +
@@ -163,16 +165,89 @@ function startAnnivRotation() {
   }, 10000);
 }
 
-// ---------- 两张交错正方形图（上小下大、白边，非拍立得） ----------
-function squareTopHtml() {
-  return '<div class="square-top">' + squarePhotoHtml(0, 'sq-sm') + squarePhotoHtml(1, 'sq-lg') + '</div>';
+// ---------- 链接状态小组件（UI 与内容规则均对齐 chat 桌面第二页） ----------
+// chat 的规则：14 条文案随机取一条，各配 1~5 颗亮心；每 1~2 小时重新随机一次
+// （重摇时尽量不与上次重复），按梦角隔离存储下次切换时间。
+var LINK_STATUS_LIST = [
+  { text: '灵魂共鸣', level: 5 },
+  { text: '魂印相契', level: 5 },
+  { text: '命定归栖', level: 5 },
+  { text: '心律同频', level: 4 },
+  { text: '命理相缠', level: 4 },
+  { text: '星轨交叠', level: 4 },
+  { text: '灵栖此处', level: 4 },
+  { text: '命轨渐合', level: 3 },
+  { text: '潮汐同流', level: 3 },
+  { text: '风缕交织', level: 3 },
+  { text: '心绪时隐', level: 2 },
+  { text: '冥冥相引', level: 2 },
+  { text: '昼夜错频', level: 1 },
+  { text: '频段游离', level: 1 }
+];
+var LS_MIN = 60 * 60 * 1000;    // 最短间隔 1 小时
+var LS_MAX = 2 * 60 * 60 * 1000; // 最长间隔 2 小时
+var _lsTimer = null;
+
+function _linkStatusKey() {
+  var hc = getHomeContact();
+  return 'linkStatus' + (hc ? '_' + hc.id : '');
 }
 
-function squarePhotoHtml(slot, cls) {
-  var src = photoWall[slot];
-  return '<div class="sq-photo ' + cls + '" data-act="photo" data-idx="' + slot + '">' +
-    (src ? '<img src="' + src + '" alt="">' : '<span class="po-empty">＋</span>') +
+function linkStatusHtml() {
+  var hearts = '';
+  for (var i = 0; i < 5; i++) hearts += '<i class="fas fa-heart"></i>';
+  return '' +
+    '<div class="dt-linkstatus" title="链接状态">' +
+      '<div class="dt-ls-head">' +
+        '<div class="dt-ls-icon"><i class="fas fa-heartbeat"></i></div>' +
+        '<div class="dt-ls-label">链接状态</div>' +
+      '</div>' +
+      '<div class="dt-ls-body">' +
+        '<div class="dt-ls-hearts" id="dt-ls-hearts">' + hearts + '</div>' +
+        '<div class="dt-ls-text" id="dt-ls-text">共鸣中</div>' +
+      '</div>' +
+      '<svg class="dt-ls-line" viewBox="0 0 240 44" preserveAspectRatio="none" aria-hidden="true">' +
+        '<polyline class="ls-l-s" points="0,22 83,22 97,22 107,13 119,31 131,9 143,22 240,22"/>' +
+        '<polyline class="ls-l-m" points="0,22 83,22 97,22 107,13 119,31 131,9 143,22 240,22"/>' +
+      '</svg>' +
     '</div>';
+}
+
+function _paintLinkStatus(idx) {
+  var item = LINK_STATUS_LIST[idx] || LINK_STATUS_LIST[0];
+  var textEl = document.getElementById('dt-ls-text');
+  var heartsEl = document.getElementById('dt-ls-hearts');
+  if (textEl) textEl.textContent = item.text;
+  if (heartsEl) {
+    var hs = heartsEl.querySelectorAll('i');
+    for (var i = 0; i < hs.length; i++) {
+      hs[i].classList.toggle('on', i < item.level);
+      hs[i].classList.toggle('pulse', i < item.level && item.level <= 2);
+    }
+  }
+}
+
+// 读取缓存的 idx；到期或没有则重摇，并把下次切换时间一并存下
+function refreshLinkStatus(force) {
+  var key = _linkStatusKey();
+  var data = Storage.get(key);
+  var idx;
+  var needRoll = !data || typeof data.idx !== 'number' || force || !data.next || Date.now() >= data.next;
+  if (needRoll) {
+    var prev = data ? data.idx : -1;
+    do { idx = Math.floor(Math.random() * LINK_STATUS_LIST.length); }
+    while (idx === prev && LINK_STATUS_LIST.length > 1);
+    Storage.set(key, { idx: idx, next: Date.now() + LS_MIN + Math.random() * (LS_MAX - LS_MIN) });
+  } else {
+    idx = data.idx;
+  }
+  _paintLinkStatus(idx);
+}
+
+// 每分钟检查一次是否该换了（页面隐藏时定时器会被浏览器节流，回前台会立刻补上）
+function startLinkStatusTimer() {
+  if (_lsTimer) return;
+  _lsTimer = setInterval(function () { refreshLinkStatus(false); }, 60 * 1000);
 }
 
 // ---------- 双展示栏（第一排梦角，第二排用户） ----------
@@ -225,11 +300,11 @@ function homeBoxHtml() {
 function openBoxBgSheet() {
   var items = [];
   if (homeBoxBg) {
-    items.push({ label: '🔍 查看背景', act: 'view' });
-    items.push({ label: '🔄 更换背景图', act: 'replace' });
-    items.push({ label: '🗑 删除背景', act: 'del', danger: true });
+    items.push({ label: '<i class="fas fa-search"></i> 查看背景', act: 'view' });
+    items.push({ label: '<i class="fas fa-sync"></i> 更换背景图', act: 'replace' });
+    items.push({ label: '<i class="fas fa-trash-alt"></i> 删除背景', act: 'del', danger: true });
   } else {
-    items.push({ label: '🖼 设置方框背景图', act: 'replace' });
+    items.push({ label: '<i class="fas fa-image"></i> 设置方框背景图', act: 'replace' });
   }
   items.push({ label: '取消', act: 'cancel', cancel: true });
   showSheet('方框背景（长按编辑）', items, function (act) {
@@ -256,7 +331,7 @@ function pickBoxBgFile() {
   input.click();
 }
 
-// ---------- 底部拍立得照片墙（保留） ----------
+// ---------- 底部拍立得照片墙 ----------
 function polaroidHtml(slot, extraClass) {
   var src = photoWall[slot];
   return '<div class="polaroid ' + (extraClass || '') + '" data-act="photo" data-idx="' + slot + '">' +
@@ -278,12 +353,12 @@ function daysSince(dateStr) {
 // ---------- 个人资料卡 ----------
 function openProfileSheet() {
   showSheet('个人资料', [
-    { label: '✏️ 改昵称', act: 'name' },
-    { label: '🐧 改头像（emoji）', act: 'avatar' },
-    { label: '💬 改个性签名', act: 'sign' },
-    { label: '📍 改位置', act: 'loc' },
-    { label: '😊 改状态表情', act: 'expr' },
-    { label: '☁️ 设置天气城市', act: 'city' },
+    { label: '<i class="fas fa-pen"></i> 改昵称', act: 'name' },
+    { label: '<i class="fas fa-user"></i> 改头像（emoji）', act: 'avatar' },
+    { label: '<i class="fas fa-comment"></i> 改个性签名', act: 'sign' },
+    { label: '<i class="fas fa-location-dot"></i> 改位置', act: 'loc' },
+    { label: '<i class="fas fa-smile"></i> 改状态表情', act: 'expr' },
+    { label: '<i class="fas fa-cloud"></i> 设置天气城市', act: 'city' },
     { label: '取消', act: 'cancel', cancel: true }
   ], function (act) {
     if (act === 'name') {
@@ -320,16 +395,16 @@ function openAnnivSheet() {
   var items = [];
 
   if (main) {
-    items.push({ label: '🔄 改类型（当前：' + (isCount ? '倒数日' : '纪念日') + '）', act: 'type' });
-    items.push({ label: '✏️ 改名字（' + main.name + '）', act: 'rename' });
-    items.push({ label: '📅 改日期（' + main.date + '）', act: 'date' });
+    items.push({ label: '<i class="fas fa-sync"></i> 改类型（当前：' + (isCount ? '倒数日' : '纪念日') + '）', act: 'type' });
+    items.push({ label: '<i class="fas fa-pen"></i> 改名字（' + main.name + '）', act: 'rename' });
+    items.push({ label: '<i class="fas fa-calendar"></i> 改日期（' + main.date + '）', act: 'date' });
   }
   if (anniversaries.length > 1) {
     items.push({ label: '⏭ 换下一个（当前：' + (main ? main.name : '无') + '）', act: 'next' });
   }
-  items.push({ label: '➕ 添加纪念日（正数天数）', act: 'addAnniv' });
+  items.push({ label: '<i class="fas fa-plus"></i> 添加纪念日（正数天数）', act: 'addAnniv' });
   items.push({ label: '⏳ 添加倒数日（倒计时）', act: 'addCount' });
-  if (main) items.push({ label: '🗑 删除这个重要日', act: 'del', danger: true });
+  if (main) items.push({ label: '<i class="fas fa-trash-alt"></i> 删除这个重要日', act: 'del', danger: true });
   items.push({ label: '取消', act: 'cancel', cancel: true });
 
   showSheet(main ? '重要日 · ' + main.name : '重要日', items, function (act) {
@@ -349,7 +424,7 @@ function openAnnivSheet() {
       });
     } else if (act === 'type') {
       showSheet('重要日类型', [
-        { label: '📅 纪念日 — 从那天起已经 N 天', act: 't_anniv' },
+        { label: '<i class="fas fa-calendar"></i> 纪念日 — 从那天起已经 N 天', act: 't_anniv' },
         { label: '⏳ 倒数日 — 距离那天还有 N 天', act: 't_count' },
         { label: '取消', act: 'cancel', cancel: true }
       ], function (t) {
@@ -398,16 +473,16 @@ function askAnnivDate(onOk, prefill) {
   });
 }
 
-// ---------- 照片（0-1 方图 / 2-5 拍立得共用） ----------
+// ---------- 照片（2-5 拍立得照片墙；纪念日旁已换为链接状态小组件） ----------
 function openPhotoSheet(slot) {
   if (!photoWall[slot]) {
     pickPhotoFile(slot);
     return;
   }
   showSheet('照片', [
-    { label: '🔍 查看大图', act: 'view' },
-    { label: '🔄 更换照片', act: 'replace' },
-    { label: '🗑 删除', act: 'del', danger: true },
+    { label: '<i class="fas fa-search"></i> 查看大图', act: 'view' },
+    { label: '<i class="fas fa-sync"></i> 更换照片', act: 'replace' },
+    { label: '<i class="fas fa-trash-alt"></i> 删除', act: 'del', danger: true },
     { label: '取消', act: 'cancel', cancel: true }
   ], function (act) {
     if (act === 'view') openImageViewer(photoWall[slot]);

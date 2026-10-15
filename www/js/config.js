@@ -42,7 +42,31 @@ var DEFAULT_SETTINGS = {
   // —— 主页 ——
   bubbleTheme: 'wechat',       // wechat=微信绿 / mono=纯黑白
   weatherCity: '',             // 天气城市（Open-Meteo 自动查）
-  homeContactId: null          // 首页梦角展示（梦角 id）
+  homeContactId: null,         // 首页梦角展示（梦角 id）
+  // —— 外观 ——
+  theme: 'light',              // light=浅色 / dark=深色（html[data-theme]）
+  customGlobalCss: '',         // 全局主题 CSS（作用于 <style id="custom-global-css">）
+  globalCssLive: false,        // 全局 CSS 实时应用
+  chatFontSize: 15,            // 聊天字号（px，作用于 .chat-stream）
+  bubbleStyle: 'standard',     // standard / rounded / rounded-large / square
+  showChatAvatar: true,        // 聊天中显示头像
+  showEveryAvatar: false,      // 每条消息都显示头像（关闭=仅首条显示）
+  showPartnerName: false,      // 消息旁显示对方名字（单聊）
+  avatarSize: 38,              // 聊天头像尺寸（px）
+  avatarShape: 'square',       // circle / square
+  chatBg: '',                  // 聊天流背景（dataURL 或 CSS 渐变）
+  headerBg: '',                // 聊天页顶部栏背景
+  redpacketCover: '',          // 红包封面（颜色 / 渐变 / dataURL）
+  // —— 外观设置弹窗（chat 参考） ——
+  appearanceAccent: '#111111', // 主题强调色（快捷换肤）
+  chatBgImage: '',             // 聊天背景图（dataURL，叠加遮罩保证气泡可读）
+  fontScale: 1,                // 字体缩放（0.85~1.25）
+  showMsgAvatar: true,         // 每条消息都显示头像（applyAppearance 同步 showEveryAvatar）
+  avatarAlign: 'left',         // 头像对齐 left / right
+  globalCss: '',               // 全局主题 CSS（<style id="kc-global-css">）
+  // —— 正在输入（微信式） ——
+  typingText: '正在输入…',     // 正在输入提示文案
+  typingShowAvatar: true       // 正在输入时显示对方头像
 };
 
 // 音效预设（同 chat：无 / kakaoTalk / 内置合成 6 种）
@@ -64,6 +88,20 @@ var TIMESTAMP_FORMATS = [
   { v: 'h:mm A', label: '2:05 PM' },
   { v: 'h:mm:ss A', label: '2:05:30 PM' },
   { v: 'off', label: '关闭时间戳' }
+];
+
+// 气泡样式（chat「字体 & 气泡」同款）
+var BUBBLE_STYLES = [
+  { v: 'standard', label: '标准尖角', ico: 'fa-comment' },
+  { v: 'rounded', label: '圆角', ico: 'fa-comment-dots' },
+  { v: 'rounded-large', label: '大圆角胶囊', ico: 'fa-circle' },
+  { v: 'square', label: '方形直角', ico: 'fa-square' }
+];
+
+// 聊天头像形状
+var AVATAR_SHAPES = [
+  { v: 'circle', label: '圆形' },
+  { v: 'square', label: '方形' }
 ];
 
 // 主页个人信息卡默认值
@@ -119,22 +157,6 @@ var EMOJIS = ['😀','😁','😂','🤣','😊','😍','😘','😜','🤔','�
 
 // 基础字卡库（全员可用）——预定内容待后续指令，暂为空（勿自行预置）
 var BUILTIN_REPLIES = [];
-
-// 内置关键词规则（命中 → 从对应回复抽一条；未命中随机池）
-var BUILTIN_KEYWORD_RULES = [
-  { id: 'kw-greet', keywords: ['早安', '早上好', '早呀', '起床'],
-    replies: ['早安呀，今天也要元气满满', '早，梦里有没有我？', '早安，新的一天开始想你了'] },
-  { id: 'kw-night', keywords: ['晚安', '睡了', '困了', '去睡', '好困'],
-    replies: ['晚安，做个好梦', '快去睡吧，我帮你守着夜', '晚安，明天见'] },
-  { id: 'kw-miss', keywords: ['想你', '好想', '想念', '你在吗', '在吗'],
-    replies: ['我也在想你，心有灵犀', '在的在的，一直在', '想我就对了，因为我也在想你'] },
-  { id: 'kw-sad', keywords: ['难过', '伤心', '不开心', '委屈', '哭了', '唉'],
-    replies: ['抱抱你，我在呢', '把难过分我一半吧', '不开心就靠着我，我哪也不去'] },
-  { id: 'kw-food', keywords: ['饿', '吃饭', '吃什么', '外卖', '好吃'],
-    replies: ['要好好吃饭呀，不许饿着', '我也想和你一起吃', '先去吃点东西，回来再聊'] },
-  { id: 'kw-work', keywords: ['加班', '好累', '上班', '工作', '压力'],
-    replies: ['辛苦了，记得歇一歇', '再忙也要记得我想你', '下班后给自己买点好吃的犒劳一下'] }
-];
 
 // 默认联系人（对方人格）
 var BUILTIN_CONTACTS = [

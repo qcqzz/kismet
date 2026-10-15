@@ -70,6 +70,25 @@ function activeMessages() {
   return messagesByContact[activeContactId] || [];
 }
 
+function _myName() { return (settings && settings.myName) ? settings.myName : '我'; }
+function _partnerName() {
+  var c = getActiveContact();
+  return (c && c.name) ? c.name : '对方';
+}
+
+// 通用模态（对齐 chat showModal / hideModal）
+function showModal(el, focusEl) {
+  if (!el) return;
+  el.classList.add('open');
+  if (focusEl) setTimeout(function () { try { focusEl.focus(); } catch (e) {} }, 60);
+}
+window.showModal = showModal;
+function hideModal(el) {
+  if (!el) return;
+  el.classList.remove('open');
+}
+window.hideModal = hideModal;
+
 // ---------- 群聊 / 梦角 ----------
 function isGroupContact(c) { return !!(c && c.type === 'group'); }
 
@@ -83,9 +102,13 @@ function getGroupMemberIds(group) {
   return (group.members || []).filter(function (id) { return !!memberById(id); });
 }
 
-// 双层字卡池：基础库（全员）+ 该梦角专属库
+// 双层字卡池：基础库（全员）+ 该梦角专属库，过滤掉被屏蔽的条目
 function poolFor(contactId) {
-  return replyPool.concat(contactReplyPools[contactId] || []);
+  var pool = replyPool.concat(contactReplyPools[contactId] || []);
+  var blocked = (Array.isArray(disabledReplies) ? disabledReplies : [])
+    .concat((disabledPoolReplies && Array.isArray(disabledPoolReplies[contactId])) ? disabledPoolReplies[contactId] : []);
+  if (!blocked.length) return pool;
+  return pool.filter(function (t) { return blocked.indexOf(t) === -1; });
 }
 
 // 首页展示的梦角（设置里"首页梦角展示"，未选则第一个）
@@ -125,9 +148,79 @@ function addMessage(msg, opts) {
     renderNewMessage(msg);
     scrollToBottomIfNear();
   }
+
+  return msg;
 }
 
 // ---------- 渲染（微信式） ----------
+function _envelopeSVG() {
+  return '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7.5l9 6 9-6"/></svg>';
+}
+
+// 红包消息卡片
+function _redpacketCardHTML(msg) {
+  var greeting = (msg && msg.text) ? String(msg.text) : '恭喜发财，大吉大利';
+  var amount = '¥' + Number((msg && msg.amount) || 0).toFixed(2);
+  var time = formatTimeHM(msg && msg.timestamp);
+  var opened = !!(msg && msg.opened);
+  var status = opened
+    ? '<span class="redpacket-card-check"><i class="fas fa-check"></i></span>已领取'
+    : '<span class="redpacket-card-check empty"><i class="fas fa-clock"></i></span>待领取';
+  return '<div class="redpacket-card" data-id="' + msg.id + '">'
+    + '<div class="redpacket-card-main">'
+    +   '<span class="redpacket-card-env">' + _envelopeSVG() + '</span>'
+    +   '<span class="redpacket-card-title">红包</span>'
+    +   '<div class="redpacket-card-amount">' + escapeHtml(amount) + '</div>'
+    +   '<div class="redpacket-card-greeting">' + escapeHtml(greeting) + '</div>'
+    + '</div>'
+    + '<div class="redpacket-card-foot">'
+    +   '<span class="redpacket-card-status">' + status + '</span>'
+    +   '<span class="redpacket-card-time">' + escapeHtml(time) + '</span>'
+    + '</div>'
+    + '</div>';
+}
+
+// 问问你问题/回答卡片
+function _questionCardHTML(msg) {
+  var q = escapeHtml(msg.question || msg.text || '');
+  var opts = Array.isArray(msg.options) ? msg.options : [];
+  var answered = Array.isArray(msg.answer) && msg.answer.length > 0;
+  var modeTag = (msg.choiceMode === 'multiple')
+    ? '<span class="question-mode-tag">多选</span>'
+    : '<span class="question-mode-tag">单选</span>';
+  var icon = answered ? '<i class="fas fa-envelope-open-text"></i>' : '<i class="fas fa-seedling"></i>';
+  var marks = ['A','B','C','D','E','F','G','H','I','J'];
+  var isIdxAnswer = answered && msg.answer.every(function (a) {
+    var n = (typeof a === 'number') ? a : (typeof a === 'string' && a.trim() !== '' ? Number(a) : NaN);
+    return Number.isInteger(n) && n >= 0 && n < opts.length;
+  });
+  var optsHtml = '';
+  for (var i = 0; i < opts.length; i++) {
+    var label = marks[i] || (i + 1);
+    var v = escapeHtml(opts[i]);
+    var cls = 'question-option';
+    var check = '';
+    if (answered) {
+      var chosen = isIdxAnswer ? (msg.answer.indexOf(i) > -1) : (msg.answer.indexOf(opts[i]) > -1);
+      if (chosen) { cls += ' chosen'; check = '<span class="question-opt-check"><i class="fas fa-check"></i></span>'; }
+    }
+    optsHtml += '<div class="' + cls + '"><span class="question-opt-tag">' + label + '</span><span class="question-opt-text">' + v + '</span>' + check + '</div>';
+  }
+  var answerLine = '';
+  if (answered) {
+    var shown = isIdxAnswer
+      ? msg.answer.map(function (idx) { return opts[idx] != null ? String(opts[idx]) : ''; }).join('、')
+      : msg.answer.map(function (a) { return String(a); }).join('、');
+    answerLine = '<div class="question-answer-line"><span class="question-answer-label">TA 的选择</span><span class="question-answer-val">' + escapeHtml(shown) + '</span></div>';
+  }
+  return '<div class="question-card' + (answered ? ' question-card-answer' : '') + '" data-id="' + msg.id + '">'
+    + '<div class="question-card-q"><span class="question-card-icon">' + icon + '</span><span class="question-card-text">' + q + '</span>' + modeTag + '</div>'
+    + '<div class="question-card-sep"></div>'
+    + '<div class="question-card-options">' + optsHtml + '</div>'
+    + answerLine
+    + '</div>';
+}
+
 function buildMsgRow(msg) {
   var row = document.createElement('div');
   var contact = getActiveContact();
@@ -139,7 +232,8 @@ function buildMsgRow(msg) {
   }
 
   var isUser = msg.sender === 'user';
-  row.className = 'msg-row ' + (isUser ? 'user' : 'partner') + (msg.recalled ? ' recalled' : '');
+  row.className = 'msg-row ' + (isUser ? 'user' : 'partner') + (msg.recalled ? ' recalled' : '')
+    + (msg.type === 'redpacket' ? ' rp-row' : (msg.type === 'question' ? ' question-row' : ''));
   row.dataset.id = msg.id;
 
   // 群聊中伙伴消息带发送者（头像 + 昵称行，微信群样式）
@@ -147,13 +241,25 @@ function buildMsgRow(msg) {
     : (msg.senderId ? memberById(msg.senderId) : contact);
   if (!isUser && msg.senderId && !senderContact) senderContact = contact;
 
-  var avatarHtml = isUser
-    ? '<div class="msg-avatar">🙂</div>'
-    : '<div class="msg-avatar">' + escapeHtml((senderContact && senderContact.avatar) || '🌷') + '</div>';
+  // 头像展示：总开关 + 每条消息开关（关闭时仅首条显示，微信式）
+  var showAvatar = settings.showChatAvatar !== false;
+  if (showAvatar && !settings.showEveryAvatar) {
+    var list = activeMessages();
+    var idx = list.indexOf(msg);
+    if (idx > 0) {
+      var prev = list[idx - 1];
+      if (prev && prev.sender === msg.sender && prev.senderId === msg.senderId) showAvatar = false;
+    }
+  }
+  var avatarHtml = showAvatar
+    ? (isUser
+        ? '<div class="msg-avatar">🙂</div>'
+        : '<div class="msg-avatar">' + escapeHtml((senderContact && senderContact.avatar) || '🌷') + '</div>')
+    : '<div class="msg-avatar msg-avatar-hidden"></div>';
 
-  var nameLine = (isUser || !isGroupContact(contact))
-    ? ''
-    : '<div class="msg-name">' + escapeHtml((senderContact && senderContact.name) || '梦角') + '</div>';
+  var nameLine = (!isUser && (isGroupContact(contact) || settings.showPartnerName))
+    ? '<div class="msg-name">' + escapeHtml((senderContact && senderContact.name) || '梦角') + '</div>'
+    : '';
 
   var body;
   if (msg.recalled) {
@@ -164,25 +270,29 @@ function buildMsgRow(msg) {
       inner += '<div class="quote-box">' + escapeHtml(msg.replyTo.text) + '</div>';
     }
     if (msg.type === 'redpacket') {
-      inner += '<span class="rp-ico">' + (msg.redpacketOpened ? '🧧' : '🧧') + '</span>' +
-        '<span class="rp-txt">' + (msg.redpacketOpened ? '已拆开' : '恭喜发财，大吉大利') + '</span>';
+      inner += _redpacketCardHTML(msg);
+    } else if (msg.type === 'question') {
+      inner += _questionCardHTML(msg);
     } else if (msg.image) {
       inner += '<img class="chat-img" src="' + msg.image + '" alt="">';
     } else if (msg.voice) {
-      inner += '<span class="voice-dot">🎙</span><span>' + msg.voice + '"</span>';
+      inner += '<span class="voice-dot"><i class="fas fa-microphone"></i></span><span>' + msg.voice + '"</span>';
     } else {
       inner += escapeHtml(msg.text);
     }
-    body = '<div class="bubble' + (msg.type === 'redpacket' ? ' rp-bubble' : '') + '">' + inner + '</div>';
+    var bubbleCls = 'bubble';
+    if (msg.type === 'redpacket') bubbleCls += ' rp-card-bubble';
+    else if (msg.type === 'question') bubbleCls += ' question-bubble';
+    body = '<div class="' + bubbleCls + '">' + inner + '</div>';
   }
 
-  var favMark = msg.favorited ? '<span class="fav-mark">♥</span>' : '';
+  var favMark = msg.favorited ? '<span class="fav-mark"><i class="fas fa-heart"></i></span>' : '';
   var readMark = '';
   if (isUser && settings.readReceiptEnabled) {
     if (settings.readReceiptStyle === 'text') {
       readMark = '<span class="read-mark">' + (msg.status === 'read' ? '已读' : '已发送') + '</span>';
     } else {
-      readMark = '<span class="read-mark read-ico">' + (msg.status === 'read' ? '✓✓' : '✓') + '</span>';
+      readMark = '<span class="read-mark read-ico">' + (msg.status === 'read' ? '<i class="fas fa-check-double"></i>' : '<i class="fas fa-check"></i>') + '</span>';
     }
   }
 
@@ -193,16 +303,15 @@ function buildMsgRow(msg) {
       '</div>' +
     '</div>';
 
-  // 点击气泡 → 操作菜单（撤回的消息只提供删除；红包点击拆开）
+  // 点击气泡 → 操作菜单（红包点击拆开；问问你卡片进操作菜单便于删除）
   var bubble = row.querySelector('.bubble');
   if (bubble) {
     bubble.addEventListener('click', function (e) {
-      if (msg.type === 'redpacket' && !msg.recalled && !msg.redpacketOpened) {
+      if (msg.type === 'redpacket' && !msg.recalled) {
         e.stopPropagation();
-        msg.redpacketOpened = true;
-        saveData();
-        toast('🧧 恭喜发财，大吉大利');
-        renderAllMessages();
+        if (window.TransferFeature && typeof window.TransferFeature.openRedpacket === 'function') {
+          window.TransferFeature.openRedpacket(msg.id);
+        }
         return;
       }
       openActionSheet(msg);
@@ -244,7 +353,7 @@ function renderAllMessages() {
   if (list.length === 0) {
     stream.innerHTML =
       '<div class="empty-state">' +
-        '<div class="es-icon">✉️</div>' +
+        '<div class="es-icon"><i class="fas fa-envelope"></i></div>' +
         '<div class="es-title">和对方还没有消息</div>' +
         '<div class="es-desc">发出第一张字卡吧</div>' +
       '</div>';
@@ -285,7 +394,7 @@ function updateReadMarksDOM() {
         el.textContent = msg.status === 'read' ? '已读' : '已发送';
       } else {
         el.classList.add('read-ico');
-        el.textContent = msg.status === 'read' ? '✓✓' : '✓';
+        el.innerHTML = msg.status === 'read' ? '<i class="fas fa-check-double"></i>' : '<i class="fas fa-check"></i>';
       }
     }
   });
@@ -405,7 +514,7 @@ window.simulateReply = function () {
   // 候选池：单聊=当前梦角（基础+专属）；群聊=各位成员
   var candidates = group ? memberIds : [activeContactId];
   var anyPool = candidates.some(function (id) { return poolFor(id).length > 0; });
-  if (!anyPool && keywordRules.length === 0) {
+  if (!anyPool) {
     toast('字卡库为空，请到设置中添加');
     drainReplyQueue(); return;
   }
@@ -493,35 +602,14 @@ function notifyBackground(msg) {
   } catch (e) {}
 }
 
-// 选回复：30% 命中关键词规则，否则从双层池（基础+专属）随机（chat 自定义回复逻辑）
+// 选回复：从双层池（基础+专属）随机（chat 自定义回复逻辑）
 // poolContactId：单聊=当前梦角 id；群聊=随机到的成员 id
 function pickReply(poolContactId) {
   var cid = poolContactId || activeContactId;
-  var lastUserMsg = '';
-  var list = activeMessages();
-  for (var i = list.length - 1; i >= 0; i--) {
-    if (list[i].sender === 'user' && !list[i].recalled) { lastUserMsg = list[i].text || ''; break; }
-  }
-
-  var text = '';
-  if (Math.random() < 0.3 && lastUserMsg) {
-    for (var j = 0; j < keywordRules.length; j++) {
-      var rule = keywordRules[j];
-      for (var k = 0; k < rule.keywords.length; k++) {
-        if (lastUserMsg.indexOf(rule.keywords[k]) !== -1) {
-          text = rule.replies[Math.floor(Math.random() * rule.replies.length)];
-          break;
-        }
-      }
-      if (text) break;
-    }
-  }
 
   var pool = poolFor(cid);
-  if (!text) {
-    if (!pool.length) return '';
-    text = randomOf(pool);
-  }
+  if (!pool.length) return '';
+  var text = randomOf(pool);
 
   // 回复拼接字卡：概率把多张字卡拼成一条（最多"最多拼接"句）
   if (settings.combineCardsEnabled && pool.length && Math.random() < 0.35) {
@@ -590,31 +678,22 @@ function changePartnerStatus() {
   }
 }
 
-// ---------- 正在输入（微信式：流内气泡三黑点） ----------
+// ---------- 正在输入（微信式：聊天页标题栏副标题显示，不插气泡） ----------
+var _typingSavedStatus = null;   // 显示期间的副标题原文（null=未显示中）
 function showTyping(memberContact) {
   if (!settings.typingIndicatorEnabled) return;
-  var stream = DOMElements.chatStream;
-  if (!stream) return;
-  if (stream.querySelector('.typing-row')) return;  // 已存在
-  var contact = getActiveContact();
-  var who = memberContact || contact;
-  var row = document.createElement('div');
-  row.className = 'typing-row';
-  row.id = 'typing-row';
-  var nameLine = isGroupContact(contact)
-    ? '<div class="msg-name">' + escapeHtml((who && who.name) || '梦角') + '</div>' : '';
-  row.innerHTML =
-    '<div class="msg-avatar">' + escapeHtml((who && who.avatar) || '🌷') + '</div>' +
-    '<div class="bubble-wrap">' + nameLine +
-      '<div class="typing-bubble"><i></i><i></i><i></i></div>' +
-    '</div>';
-  stream.appendChild(row);
-  scrollToBottomIfNear(true);
+  if (_typingSavedStatus !== null) return;   // 已在显示中
+  var el = DOMElements.chatHeadStatus;
+  if (!el) return;
+  _typingSavedStatus = el.textContent || '';
+  el.textContent = settings.typingText || '对方正在输入…';
 }
 
 function hideTyping() {
-  var row = document.getElementById('typing-row');
-  if (row) row.remove();
+  if (_typingSavedStatus === null) return;   // 没有保存值 → 保持不动
+  var el = DOMElements.chatHeadStatus;
+  if (el) el.textContent = _typingSavedStatus;
+  _typingSavedStatus = null;
 }
 
 // ---------- 主动发送（chat 节奏：开启后梦角按间隔主动找你） ----------

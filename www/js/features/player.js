@@ -111,10 +111,10 @@ function openTrackSheet(trackId) {
   var track = musicTracks.find(function (t) { return t.id === trackId; });
   if (!track) return;
   showSheet('♪ ' + track.name, [
-    { label: '✏️ 改名字', act: 'rename' },
-    { label: '💬 改歌词行', act: 'lyric' },
-    { label: '🎵 上传音频（' + (track.hasAudio ? '已上传，可替换' : '未上传') + '）', act: 'audio' },
-    { label: '🗑 删除这条', act: 'del', danger: true },
+    { label: '<i class="fas fa-pen"></i> 改名字', act: 'rename' },
+    { label: '<i class="fas fa-comment"></i> 改歌词行', act: 'lyric' },
+    { label: '<i class="fas fa-music"></i> 上传音频（' + (track.hasAudio ? '已上传，可替换' : '未上传') + '）', act: 'audio' },
+    { label: '<i class="fas fa-trash-alt"></i> 删除这条', act: 'del', danger: true },
     { label: '取消', act: 'cancel', cancel: true }
   ], function (act) {
     if (act === 'rename') {

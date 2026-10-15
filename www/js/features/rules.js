@@ -1,9 +1,16 @@
 /* ============ 字卡传讯 · 设置页（排版参照 mochi：搜索 + 分组标签 + 图标行 + 二级子页） ============ */
-/* 通用 = 主页资料/天气/外观/数据 · 聊天 = 回复设置·音效设置·首页梦角展示 · 字卡 = 基础库/专属库/关键词/拍一拍/收藏 */
+/* 通用 = 主页资料/天气/外观/数据 · 聊天 = 回复设置·音效设置·首页梦角展示 · 字卡 = 基础库/专属库/拍一拍/收藏 */
 
-var _settingsSub = null;      // null=主设置 / 'reply' / 'sfx'
-var _settingsTab = 'basic';   // basic / chat / cards
+var _settingsSub = null;      // null=主设置 / 'reply' / 'sfx' / 'card-*' / 'appearance' / 'ap-*'
 var _poolSelContact = null;   // 专属字卡库当前梦角 id
+
+// 字卡库（基础库 / 专属库）工具条与列表的模块级状态（重渲染后保留）
+var _rlGroupFilter = null;    // null=全部 / '__ungrouped'=未分组 / 分组 id
+var _rlSearch = '';           // 搜索词（实时过滤，重渲染后回填）
+var _rlBatchMode = false;     // 批量管理模式
+var _rlBatchSelected = [];    // 批量选中条目文本数组
+var _rlLastKind = null;       // 上一次渲染的字卡库种类（base/pool），用于切换库时重置筛选
+var RL_GROUP_COLORS = ['#3b82f6', '#8b5cf6', '#22c55e', '#f59e0b', '#ec4899', '#6b7280'];
 
 // ---------- 行生成器（mochi .set-row：图标 + 标题/副标题 + 开关/值/箭头） ----------
 function sRow(o) {
@@ -20,7 +27,7 @@ function sRow(o) {
   }
   return '<div class="set-row"' + (o.act ? ' data-act="' + o.act + '"' : '') +
     (o.id ? ' id="' + o.id + '"' : '') + (o.hide ? ' style="display:none"' : '') + '>' +
-    '<span class="row-ico">' + (o.ico || '⚙️') + '</span>' +
+    '<span class="row-ico">' + (o.ico || '<i class="fas fa-cog"></i>') + '</span>' +
     '<span class="row-txt"><span class="row-label">' + o.label + '</span>' +
       (o.sub ? '<span class="row-sub">' + o.sub + '</span>' : '') + '</span>' +
     right +
@@ -33,113 +40,229 @@ function sGroup(title, rowsHtml) {
     '<div class="set-card">' + rowsHtml + '</div></div>';
 }
 
-// ---------- 主设置页 ----------
+// ---------- 用户资料卡（设置页顶部） ----------
+function profileAvatarHtml() {
+  var v = (homeProfile && homeProfile.avatar) ? String(homeProfile.avatar) : '🐧';
+  if (/^(data:|https?:|blob:)/.test(v)) return '<img src="' + escapeHtml(v) + '" alt="">';
+  return escapeHtml(v);
+}
+
+// 设置页顶部的资料卡（注意：函数名不能与 home.js 的 profileCardHtml 重名，
+// 否则会互相覆盖——rules.js 后加载，会把主页顶部栏的卡片替换掉）
+function settingsProfileCardHtml() {
+  return '<div class="set-profile-card" id="set-profile-card">' +
+    '<div class="spc-avatar" data-act="pAvatar">' + profileAvatarHtml() + '</div>' +
+    '<div class="spc-main" data-act="pName">' +
+      '<div class="spc-name">' + escapeHtml((homeProfile && homeProfile.name) || '我') + '</div>' +
+      ((homeProfile && homeProfile.signature) ? '<div class="spc-sign">' + escapeHtml(homeProfile.signature) + '</div>' : '') +
+      '<div class="spc-hint">点击头像 / 昵称即可修改</div>' +
+    '</div>' +
+    '<span class="spc-arrow"><i class="fas fa-chevron-right"></i></span>' +
+  '</div>';
+}
+
+// ---------- 主设置页（微信式：资料卡 → 字卡库（下钻） → 通用 → 聊天 → 外观） ----------
 function renderSettings(focusSection) {
   _settingsSub = null;
   var body = DOMElements.settingsBody;
   if (!body) return;
-  setSettingsHeader('设置');
 
-  // focus 处理
-  _settingsTab = 'basic';
-  if (focusSection === 'favs' || focusSection === 'replies' || (focusSection || '').indexOf('pool:') === 0) {
-    _settingsTab = 'cards';
-  }
+  // 快捷入口：直接下钻到「收藏的字卡」/「某梦角专属字卡库」（来自聊天信息面板）
+  if (focusSection === 'favs') { renderCardFav(); return; }
   if ((focusSection || '').indexOf('pool:') === 0) {
     _poolSelContact = focusSection.slice(5);
+    renderCardPool();
+    return;
   }
 
+  setSettingsHeader('设置');
+
+  var favCount = 0;
+  Object.keys(messagesByContact).forEach(function (cid) {
+    (messagesByContact[cid] || []).forEach(function (m) { if (m.favorited) favCount++; });
+  });
+
   body.innerHTML =
-    // 顶部搜索（mochi 同款：实时过滤设置行）
+    // 顶部搜索（实时过滤设置行）
     '<div class="set-search"><input type="text" id="set-search-input" placeholder="搜索设置项（如 天气 / 字卡 / 音效）"></div>' +
 
-    // 分组标签
-    '<div class="set-tabs" id="set-tabs">' +
-      '<div class="set-tab' + (_settingsTab === 'basic' ? ' active' : '') + '" data-tab="basic">通用</div>' +
-      '<div class="set-tab' + (_settingsTab === 'chat' ? ' active' : '') + '" data-tab="chat">聊天</div>' +
-      '<div class="set-tab' + (_settingsTab === 'cards' ? ' active' : '') + '" data-tab="cards">字卡</div>' +
+    // 1) 用户资料卡
+    '<div class="set-sec active" data-sec="profile">' +
+      '<div class="set-group">' + settingsProfileCardHtml() + '</div>' +
     '</div>' +
 
-    // —— 通用 ——
-    '<div class="set-sec' + (_settingsTab === 'basic' ? ' active' : '') + '" data-sec="basic">' +
-      sGroup('主页资料', [
-        sRow({ ico: '✏️', label: '昵称', val: homeProfile.name || '我', act: 'pName' }),
-        sRow({ ico: '🐧', label: '头像', val: homeProfile.avatar || '🐧', act: 'pAvatar' }),
-        sRow({ ico: '💬', label: '个性签名', val: homeProfile.signature || '未填写', act: 'pSign' }),
-        sRow({ ico: '📍', label: '位置', val: homeProfile.location || '未设置', act: 'pLoc' }),
-        sRow({ ico: '😊', label: '状态表情', val: homeProfile.expression || '', act: 'pExpr' })
+    // 2) 字卡库（4 行下钻入口）
+    '<div class="set-sec active" data-sec="cards">' +
+      sGroup('字卡库', [
+        sRow({ ico: '<i class="fas fa-comment-dots"></i>', label: '基础字卡库', sub: replyPool.length + ' 条 · 全员可用', arrow: true, act: 'cardReply' }),
+        sRow({ ico: '<i class="fas fa-user-group"></i>', label: '专属字卡库', sub: '单人可用，按梦角分库', arrow: true, act: 'cardPool' }),
+        sRow({ ico: '<i class="fas fa-hand-paper"></i>', label: '拍一拍动作', sub: customPokes.length + ' 个', arrow: true, act: 'cardPoke' }),
+        sRow({ ico: '<i class="fas fa-star"></i>', label: '收藏的字卡', sub: favCount + ' 条', arrow: true, act: 'cardFav' })
       ].join('')) +
-      sGroup('天气', [
-        '<div class="set-row"><span class="row-ico">☁️</span>' +
+    '</div>' +
+
+    // 3) 通用设置
+    '<div class="set-sec active" data-sec="basic">' +
+      sGroup('通用设置', [
+        sRow({ ico: '<i class="fas fa-comment"></i>', label: '个性签名', val: homeProfile.signature || '未填写', act: 'pSign' }),
+        sRow({ ico: '<i class="fas fa-location-dot"></i>', label: '位置', val: homeProfile.location || '未设置', act: 'pLoc' }),
+        sRow({ ico: '<i class="fas fa-smile"></i>', label: '状态表情', val: homeProfile.expression || '', act: 'pExpr' }),
+        '<div class="set-row"><span class="row-ico"><i class="fas fa-cloud"></i></span>' +
           '<span class="row-txt"><span class="row-label">天气城市</span>' +
           '<span class="row-sub">' + (settings.weatherCity ? '当前：' + escapeHtml(settings.weatherCity) : '填城市名自动查询，如：上海') + '</span></span>' +
           '<input type="text" class="row-input" id="weather-city-input" value="' + escapeHtml(settings.weatherCity || '') + '" placeholder="城市名">' +
         '</div>',
-        '<div class="set-row"><span class="row-ico">🔄</span>' +
+        '<div class="set-row"><span class="row-ico"><i class="fas fa-sync"></i></span>' +
           '<span class="row-txt"><span class="row-label">天气刷新</span>' +
           '<span class="row-sub">' + (weatherNow ? escapeHtml(weatherNow.city + ' ' + weatherNow.temp + '° ' + weatherNow.desc) : '从未获取') + '</span></span>' +
           '<button class="row-btn" id="weather-refresh-btn">立即刷新</button>' +
-        '</div>'
-      ].join('')) +
-      sGroup('外观', [
-        sRow({ ico: '🎭', label: '纯黑白模式', sub: '关闭后用户气泡使用微信绿', toggle: settings.bubbleTheme === 'mono', key: 'mono' })
-      ].join('')) +
-      sGroup('数据', [
-        sRow({ ico: '⬆️', label: '导出数据', sub: '字卡库、梦角、群聊与设置备份为 JSON', arrow: true, act: 'exportData' }),
-        sRow({ ico: '⬇️', label: '导入数据', sub: '从 JSON 备份恢复', arrow: true, act: 'importData' }),
-        sRow({ ico: '⚠️', label: '重置一切', sub: '恢复到出厂状态，不可恢复', arrow: true, act: 'resetAll' })
+        '</div>',
+        sRow({ ico: '<i class="fas fa-upload"></i>', label: '导出数据', sub: '字卡库、梦角、群聊与设置备份为 JSON', arrow: true, act: 'exportData' }),
+        sRow({ ico: '<i class="fas fa-download"></i>', label: '导入数据', sub: '从 JSON 备份恢复', arrow: true, act: 'importData' }),
+        sRow({ ico: '<i class="fas fa-exclamation-triangle"></i>', label: '重置一切', sub: '恢复到出厂状态，不可恢复', arrow: true, act: 'resetAll' })
       ].join('')) +
     '</div>' +
 
-    // —— 聊天 ——
-    '<div class="set-sec' + (_settingsTab === 'chat' ? ' active' : '') + '" data-sec="chat">' +
+    // 4) 聊天设置
+    '<div class="set-sec active" data-sec="chat">' +
       sGroup('聊天设置', [
-        sRow({ ico: '🎛', label: '回复设置', sub: '功能与节奏：引用/已读/撤回/红包/速度/主动发送/拼接', arrow: true, act: 'openReply' }),
-        sRow({ ico: '🔊', label: '音效设置', sub: '消息与拍一拍音效、音量、自定义音频', arrow: true, act: 'openSfx' }),
-        sRow({ ico: '👤', label: '首页梦角展示', sub: '主页头像对与展示栏显示哪位梦角',
+        sRow({ ico: '<i class="fas fa-sliders"></i>', label: '回复设置', sub: '功能与节奏：引用/已读/撤回/红包/速度/主动发送/拼接', arrow: true, act: 'openReply' }),
+        sRow({ ico: '<i class="fas fa-volume-up"></i>', label: '音效设置', sub: '消息与拍一拍音效、音量、自定义音频', arrow: true, act: 'openSfx' }),
+        sRow({ ico: '<i class="fas fa-user"></i>', label: '首页梦角展示', sub: '主页头像对与展示栏显示哪位梦角',
           val: homeContactDisplay(), act: 'homeDream' })
       ].join('')) +
     '</div>' +
 
-    // —— 字卡 ——
-    '<div class="set-sec' + (_settingsTab === 'cards' ? ' active' : '') + '" data-sec="cards">' +
-      sGroup('基础字卡库 · 全员可用（' + replyPool.length + ' 条）',
-        '<div class="kar-list" id="reply-list">' + replyListHtml() +
-          '<div class="kar-add-row">' +
-            '<input type="text" id="new-reply-input" placeholder="添加一条新字卡…">' +
-            '<button id="add-reply-btn">添加</button>' +
-          '</div>' +
-          '<button class="pool-batch" id="reply-batch-btn">📄 批量导入（每行一条）</button>' +
-        '</div>') +
-      sGroup('专属字卡库 · 单人可用', poolSectionHtml()) +
-      sGroup('关键词规则（' + keywordRules.length + ' 组）',
-        '<div class="kar-list" id="kw-list">' + keywordListHtml() +
-          '<div class="kw-form">' +
-            '<input type="text" id="kw-keys-input" placeholder="关键词，用逗号分隔（如：早安,早上好）">' +
-            '<input type="text" id="kw-replies-input" placeholder="对应回复，用逗号分隔">' +
-            '<button id="add-kw-btn">+ 添加规则</button>' +
-          '</div>' +
-        '</div>') +
-      sGroup('拍一拍动作（' + customPokes.length + ' 个）',
-        '<div class="kar-list" id="poke-list">' + pokeListHtml() +
-          '<div class="kar-add-row">' +
-            '<input type="text" id="new-poke-input" placeholder="添加拍一拍动作…（对方拍你时随机用）">' +
-            '<button id="add-poke-btn">添加</button>' +
-          '</div>' +
-        '</div>') +
-      sGroup('收藏的字卡', '<div class="kar-list" id="fav-list">' + favListHtml() + '</div>') +
+    // 5) 外观设置（1 行下钻入口）
+    '<div class="set-sec active" data-sec="appearance">' +
+      sGroup('外观设置',
+        sRow({ ico: '<i class="fas fa-palette"></i>', label: '外观设置', sub: '主题配色 · 背景 · 字体 & 气泡 · 聊天头像', arrow: true, act: 'openAppearance' })) +
     '</div>';
 
   bindSettingsEvents();
+}
 
-  // 滚动定位
-  if (focusSection) {
-    var target = null;
-    if (focusSection === 'favs') target = document.getElementById('fav-list');
-    else if (focusSection === 'replies') target = document.getElementById('reply-list');
-    else if ((focusSection || '').indexOf('pool:') === 0) target = document.getElementById('pool-list');
-    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+// ---------- 二级子页：基础字卡库 ----------
+function renderCardReply() {
+  _settingsSub = 'card-reply';
+  var body = DOMElements.settingsBody;
+  if (!body) return;
+  setSettingsHeader('基础字卡库');
+  var ctx = _rlCtx();
+
+  body.innerHTML =
+    '<div class="sub-back" id="sub-back">‹ 返回设置</div>' +
+    sGroup('基础字卡库 · 全员可用（' + replyPool.length + ' 条）',
+      '<div class="kar-list" id="reply-list">' +
+        _rlToolbarHtml(ctx) +
+        replyListHtml() +
+        '<div class="kar-add-row">' +
+          '<input type="text" id="new-reply-input" placeholder="添加一条新字卡…">' +
+          '<button id="add-reply-btn">添加</button>' +
+        '</div>' +
+      '</div>');
+
+  bindCardListEvents(body, renderCardReply);
+}
+
+// ---------- 二级子页：专属字卡库（梦角列表，联系人式排布） ----------
+function renderCardPoolList() {
+  _settingsSub = 'card-pool-list';
+  var body = DOMElements.settingsBody;
+  if (!body) return;
+  setSettingsHeader('专属字卡库');
+
+  var singles = contacts.filter(function (c) { return !isGroupContact(c); });
+  var listHtml;
+  if (!singles.length) {
+    listHtml = '<div class="empty-hint">先新建一位梦角，专属库分区会自动生成</div>';
+  } else {
+    listHtml = singles.map(function (c) {
+      var pool = contactReplyPools[c.id] || [];
+      var groups = poolGroups[c.id] || [];
+      var disabled = disabledPoolReplies[c.id] || [];
+      return '<div class="contact-row" data-pid="' + c.id + '">' +
+        '<div class="contact-avatar">' + escapeHtml(c.avatar || ' ') + '</div>' +
+        '<div class="contact-mid">' +
+          '<div class="contact-name">' + escapeHtml(c.name) + '</div>' +
+          '<div class="contact-last">' + pool.length + ' 条字卡 · ' + groups.length + ' 个分组' +
+            (disabled.length ? ' · ' + disabled.length + ' 条已屏蔽' : '') + '</div>' +
+        '</div>' +
+        '<span class="row-arrow">›</span>' +
+      '</div>';
+    }).join('');
   }
+
+  body.innerHTML =
+    '<div class="sub-back" id="sub-back">‹ 返回设置</div>' +
+    sGroup('专属字卡库 · 单人可用（' + singles.length + ' 位梦角）', listHtml) +
+    '<div class="pool-hint">每位梦角的专属字卡只对该梦角生效</div>';
+
+  bindCardListEvents(body, renderCardPoolList);
+}
+
+// ---------- 三级子页：某位梦角的专属字卡库（排版同基础字卡库） ----------
+function renderCardPool() {
+  var body = DOMElements.settingsBody;
+  if (!body) return;
+  var singles = contacts.filter(function (c) { return !isGroupContact(c); });
+  if (!singles.length) { toast('先新建一位梦角'); renderCardPoolList(); return; }
+  if (!_poolSelContact || !singles.some(function (c) { return c.id === _poolSelContact; })) {
+    _poolSelContact = (getHomeContact() && !isGroupContact(getHomeContact()))
+      ? getHomeContact().id : singles[0].id;
+  }
+  _settingsSub = 'card-pool';
+  var sel = memberById(_poolSelContact);
+  setSettingsHeader(sel ? sel.name : '专属字卡库');
+
+  var ctx = _rlCtx();
+  body.innerHTML =
+    '<div class="sub-back" id="sub-back">‹ 返回专属字卡库</div>' +
+    sGroup('「' + escapeHtml(sel ? sel.name : '') + '」专属（' + ctx.pool.length + ' 条）',
+      '<div class="kar-list" id="pool-list">' +
+        _rlToolbarHtml(ctx) +
+        _rlListHtml(ctx) +
+        '<div class="kar-add-row">' +
+          '<input type="text" id="new-pool-input" placeholder="给这位梦角加一条字卡…">' +
+          '<button id="add-pool-btn">添加</button>' +
+        '</div>' +
+      '</div>');
+
+  bindCardListEvents(body, renderCardPool);
+}
+
+// ---------- 二级子页：拍一拍动作 ----------
+function renderCardPoke() {
+  _settingsSub = 'card-poke';
+  var body = DOMElements.settingsBody;
+  if (!body) return;
+  setSettingsHeader('拍一拍动作');
+
+  body.innerHTML =
+    '<div class="sub-back" id="sub-back">‹ 返回设置</div>' +
+    sGroup('拍一拍动作（' + customPokes.length + ' 个）',
+      '<div class="kar-list" id="poke-list">' + pokeListHtml() +
+        '<div class="kar-add-row">' +
+          '<input type="text" id="new-poke-input" placeholder="添加拍一拍动作…（对方拍你时随机用）">' +
+          '<button id="add-poke-btn">添加</button>' +
+        '</div>' +
+      '</div>');
+
+  bindCardListEvents(body, renderCardPoke);
+}
+
+// ---------- 二级子页：收藏的字卡 ----------
+function renderCardFav() {
+  _settingsSub = 'card-fav';
+  var body = DOMElements.settingsBody;
+  if (!body) return;
+  setSettingsHeader('收藏的字卡');
+
+  body.innerHTML =
+    '<div class="sub-back" id="sub-back">‹ 返回设置</div>' +
+    sGroup('收藏的字卡', '<div class="kar-list" id="fav-list">' + favListHtml() + '</div>');
+
+  bindCardListEvents(body, renderCardFav);
 }
 
 function homeContactDisplay() {
@@ -152,31 +275,17 @@ function setSettingsHeader(title, backIsSub) {
   if (titleEl) titleEl.textContent = title;
 }
 
-// ---------- 列表辅助（基础库/关键词/拍一拍/收藏） ----------
+// ---------- 列表辅助（拍一拍/收藏） ----------
+// 基础字卡库列表 HTML（委托给共用渲染器，上下文=基础库）
 function replyListHtml() {
-  if (replyPool.length === 0) return '<div class="empty-hint">基础库为空，添加后全员可用</div>';
-  return replyPool.map(function (r, i) {
-    return '<div class="kar-item"><span class="kar-text">' + escapeHtml(r) + '</span>' +
-      '<button class="kar-del" data-idx="' + i + '">✕</button></div>';
-  }).join('');
-}
-
-function keywordListHtml() {
-  if (keywordRules.length === 0) return '<div class="empty-hint">没有关键词规则</div>';
-  return keywordRules.map(function (rule, i) {
-    return '<div class="kw-item">' +
-      '<div class="kw-info">' +
-        '<div class="kw-keys">当包含：' + escapeHtml(rule.keywords.join(' / ')) + '</div>' +
-        '<div class="kw-replies">回复：' + escapeHtml(rule.replies.join(' | ')) + '</div>' +
-      '</div><button class="kw-del" data-idx="' + i + '">✕</button></div>';
-  }).join('');
+  return _rlListHtml(_rlCtx());
 }
 
 function pokeListHtml() {
   if (customPokes.length === 0) return '<div class="empty-hint">没有拍一拍动作</div>';
   return customPokes.map(function (p, i) {
     return '<div class="kar-item"><span class="kar-text">' + escapeHtml(p) + '</span>' +
-      '<button class="kar-del" data-idx="' + i + '">✕</button></div>';
+      '<button class="kar-del" data-idx="' + i + '"><i class="fas fa-times"></i></button></div>';
   }).join('');
 }
 
@@ -199,37 +308,461 @@ function favListHtml() {
   }).join('');
 }
 
-// ---------- 专属字卡库分区（梦角选择 + 列表） ----------
-function poolSectionHtml() {
-  var singles = contacts.filter(function (c) { return !isGroupContact(c); });
-  if (!singles.length) return '<div class="empty-hint">先新建一位梦角，专属库分区会自动生成</div>';
-  if (!_poolSelContact || !singles.some(function (c) { return c.id === _poolSelContact; })) {
-    _poolSelContact = getHomeContact() && !isGroupContact(getHomeContact())
-      ? getHomeContact().id : singles[0].id;
+/* ============ 字卡库：工具条 / 列表 / 分组 / 屏蔽 / 导入导出 ============ */
+
+// 当前字卡库上下文：{ kind, contactId, pool, groups, disabled }
+function _rlCtx() {
+  var ctx;
+  if (_settingsSub === 'card-pool') {
+    var cid = _poolSelContact;
+    if (!contactReplyPools[cid]) contactReplyPools[cid] = [];
+    if (!poolGroups[cid]) poolGroups[cid] = [];
+    if (!disabledPoolReplies[cid]) disabledPoolReplies[cid] = [];
+    ctx = { kind: 'pool', contactId: cid, pool: contactReplyPools[cid], groups: poolGroups[cid], disabled: disabledPoolReplies[cid] };
+  } else {
+    if (!Array.isArray(replyGroups)) replyGroups = [];
+    if (!Array.isArray(disabledReplies)) disabledReplies = [];
+    ctx = { kind: 'base', contactId: null, pool: replyPool, groups: replyGroups, disabled: disabledReplies };
   }
-  var sel = memberById(_poolSelContact);
-  var pool = contactReplyPools[_poolSelContact] || [];
-  return '' +
-    '<div class="pool-picker" id="pool-picker">' +
-      singles.map(function (c) {
-        return '<button class="pool-chip' + (c.id === _poolSelContact ? ' active' : '') +
-          '" data-pid="' + c.id + '">' + escapeHtml(c.avatar || ' ') + ' ' + escapeHtml(c.name) + '</button>';
-      }).join('') +
-    '</div>' +
-    '<div class="pool-hint">「' + escapeHtml(sel ? sel.name : '') + '」专属 · ' + pool.length +
-      ' 条（回复与首页个签只从这里 + 基础库抽取）</div>' +
-    '<div class="kar-list" id="pool-list">' + (pool.length
-      ? pool.map(function (r, i) {
-          return '<div class="kar-item"><span class="kar-text">' + escapeHtml(r) + '</span>' +
-            '<button class="kar-del" data-pidx="' + i + '">✕</button></div>';
-        }).join('')
-      : '<div class="empty-hint">专属库为空，由你自定义导入</div>') +
-      '<div class="kar-add-row">' +
-        '<input type="text" id="new-pool-input" placeholder="给这位梦角加一条字卡…">' +
-        '<button id="add-pool-btn">添加</button>' +
+  // 基础库与专属库共用一套筛选/批量状态：切到另一种库时重置，避免带着上个库的筛选结果
+  if (_rlLastKind !== ctx.kind) {
+    _rlLastKind = ctx.kind;
+    _rlSearch = '';
+    _rlGroupFilter = null;
+    _rlBatchMode = false;
+    _rlBatchSelected = [];
+  }
+  // 分组筛选若指向了当前库里不存在的分组（例如切换梦角后），自动回落为「全部」
+  if (_rlGroupFilter && _rlGroupFilter !== '__ungrouped' &&
+      !ctx.groups.some(function (g) { return g.id === _rlGroupFilter; })) {
+    _rlGroupFilter = null;
+  }
+  return ctx;
+}
+
+function _rlPoolName() {
+  var c = memberById(_poolSelContact);
+  return c ? c.name : '梦角';
+}
+
+// 某条目所属分组（一个条目最多属于一个分组，取第一个命中）
+function _rlItemGroup(ctx, item) {
+  return ctx.groups.filter(function (g) { return (g.items || []).indexOf(item) !== -1; })[0] || null;
+}
+
+// 搜索 + 分组筛选叠加后的条目列表
+function _rlFiltered(ctx) {
+  var q = _rlSearch.trim().toLowerCase();
+  var f = _rlGroupFilter;
+  return ctx.pool.filter(function (t) {
+    if (q && String(t).toLowerCase().indexOf(q) === -1) return false;
+    if (f === null) return true;
+    if (f === '__ungrouped') return !_rlItemGroup(ctx, t);
+    var g = ctx.groups.filter(function (gg) { return gg.id === f; })[0];
+    return g ? (g.items || []).indexOf(t) !== -1 : false;
+  });
+}
+
+// 顶部工具条（搜索 + 分组筛选 + 按钮 + 批量操作条）
+function _rlToolbarHtml(ctx) {
+  var chips =
+    '<button class="rl-chip' + (_rlGroupFilter === null ? ' active' : '') + '" data-gfilter="__all">全部</button>' +
+    '<button class="rl-chip' + (_rlGroupFilter === '__ungrouped' ? ' active' : '') + '" data-gfilter="__ungrouped">未分组</button>';
+  ctx.groups.forEach(function (g) {
+    var active = _rlGroupFilter === g.id;
+    chips += '<button class="rl-chip' + (active ? ' active' : '') + '" data-gfilter="' + escapeHtml(g.id) + '"' +
+      (active ? ' style="border-color:' + g.color + ';color:' + g.color + ';"' : '') + '>' +
+      '<span class="rl-dot" style="background:' + g.color + ';"></span>' + escapeHtml(g.name) + '</button>';
+  });
+
+  var batchBar = _rlBatchMode
+    ? '<div class="rl-batch-bar">' +
+        '<span class="rl-batch-count">已选 ' + _rlBatchSelected.length + ' 条</span>' +
+        '<button class="rl-tool-btn danger" data-batch="disable"><i class="fas fa-eye-slash"></i> 批量屏蔽</button>' +
+        '<button class="rl-tool-btn danger" data-batch="delete"><i class="fas fa-trash-alt"></i> 批量删除</button>' +
+        '<button class="rl-tool-btn" data-batch="cancel">取消</button>' +
+      '</div>'
+    : '';
+
+  return '<div class="rl-toolbar">' +
+      '<div class="rl-search-row">' +
+        '<i class="fas fa-search rl-search-ico"></i>' +
+        '<input id="rl-search-input" type="text" placeholder="搜索字卡…" value="' + escapeHtml(_rlSearch) + '">' +
       '</div>' +
-      '<button class="pool-batch" id="pool-batch-btn">📄 批量导入到此分区</button>' +
+      '<div class="rl-group-chips" id="rl-group-chips">' + chips + '</div>' +
+      '<div class="rl-btn-row">' +
+        '<button class="rl-tool-btn' + (_rlBatchMode ? ' active' : '') + '" id="tb-batch-btn"><i class="fas fa-check-square"></i> ' + (_rlBatchMode ? '退出批量' : '批量管理') + '</button>' +
+        '<button class="rl-tool-btn" id="tb-groups-btn"><i class="fas fa-folder"></i> 分组管理</button>' +
+        '<button class="rl-tool-btn" id="tb-batch-import-btn"><i class="fas fa-layer-group"></i> 批量导入</button>' +
+        '<button class="rl-tool-btn" id="tb-import-btn"><i class="fas fa-upload"></i> 导入文件</button>' +
+        '<button class="rl-tool-btn" id="tb-export-btn"><i class="fas fa-download"></i> 导出</button>' +
+      '</div>' +
+      batchBar +
     '</div>';
+}
+
+// 列表 HTML（基础库 / 专属库共用）；#rl-list 容器固定，内容可单独刷新
+function _rlListHtml(ctx) {
+  return '<div class="rl-list" id="rl-list">' + _rlListInnerHtml(ctx) + '</div>';
+}
+
+function _rlListInnerHtml(ctx) {
+  var items = _rlFiltered(ctx);
+  if (!items.length) {
+    return '<div class="empty-hint">' +
+      (_rlSearch.trim() ? '没有匹配「' + escapeHtml(_rlSearch.trim()) + '」的字卡' : '这里还没有字卡，添加后即可抽取') +
+      '</div>';
+  }
+  return items.map(function (t) { return _rlCardHtml(ctx, t); }).join('');
+}
+
+function _rlCardHtml(ctx, t) {
+  var isDisabled = ctx.disabled.indexOf(t) !== -1;
+  var selected = _rlBatchSelected.indexOf(t) !== -1;
+  var g = _rlItemGroup(ctx, t);
+  var badge = g
+    ? '<span class="rl-group-badge" style="background:' + g.color + '22;color:' + g.color + ';border-color:' + g.color + '55;">' +
+        '<span class="rl-dot" style="background:' + g.color + ';"></span>' + escapeHtml(g.name) + '</span>'
+    : '';
+  var check = _rlBatchMode
+    ? '<span class="rl-batch-check' + (selected ? ' checked' : '') + '">' + (selected ? '<i class="fas fa-check"></i>' : '') + '</span>'
+    : '';
+  var actions = _rlBatchMode ? '' :
+    '<div class="rl-card-actions">' +
+      '<button class="rl-act-btn' + (isDisabled ? ' active' : '') + '" data-action="disable" title="' + (isDisabled ? '启用' : '屏蔽') + '"><i class="fas fa-' + (isDisabled ? 'eye' : 'eye-slash') + '"></i></button>' +
+      '<button class="rl-act-btn" data-action="tag" title="分组"><i class="fas fa-tag"></i></button>' +
+      '<button class="rl-act-btn" data-action="edit" title="编辑"><i class="fas fa-pen"></i></button>' +
+      '<button class="rl-act-btn danger" data-action="delete" title="删除"><i class="fas fa-trash-alt"></i></button>' +
+    '</div>';
+  return '<div class="rl-card' + (selected ? ' rl-selected' : '') + '" data-item="' + escapeHtml(t) + '">' +
+      check +
+      '<div class="rl-text' + (isDisabled ? ' disabled' : '') + '">' + escapeHtml(t) + badge + '</div>' +
+      actions +
+    '</div>';
+}
+
+// 只重渲染列表内容（搜索实时过滤时用，避免输入框失焦、保留 #rl-list 事件监听）
+function _rlRenderListOnly(body, ctx) {
+  var list = body.querySelector('#rl-list');
+  if (!list) return;
+  list.innerHTML = _rlListInnerHtml(ctx);
+}
+
+// ---- 单条操作 ----
+function _rlToggleDisable(item, ctx, rerender) {
+  var i = ctx.disabled.indexOf(item);
+  if (i === -1) { ctx.disabled.push(item); toast('已屏蔽（不会再被抽取）'); }
+  else { ctx.disabled.splice(i, 1); toast('已启用'); }
+  saveData(); rerender();
+}
+
+// 从池 / 所有分组 / 屏蔽列表里移除一个条目（池内只移除一份，避免重复项被误删）
+function _rlDeleteItem(item, ctx) {
+  var idx = ctx.pool.indexOf(item);
+  if (idx !== -1) ctx.pool.splice(idx, 1);
+  ctx.groups.forEach(function (g) {
+    if (g.items) {
+      for (var i = g.items.length - 1; i >= 0; i--) { if (g.items[i] === item) g.items.splice(i, 1); }
+    }
+  });
+  for (var j = ctx.disabled.length - 1; j >= 0; j--) { if (ctx.disabled[j] === item) ctx.disabled.splice(j, 1); }
+}
+
+function _rlEditItem(item, ctx, rerender) {
+  promptModal('编辑字卡', '', item, function (val) {
+    if (!val || val === item) return;
+    var idx = ctx.pool.indexOf(item);
+    if (idx !== -1) ctx.pool[idx] = val;
+    ctx.groups.forEach(function (g) {
+      if (g.items) g.items = g.items.map(function (t) { return t === item ? val : t; });
+    });
+    var di = ctx.disabled.indexOf(item);
+    if (di !== -1) ctx.disabled[di] = val;
+    saveData(); rerender();
+  });
+}
+
+function _rlOpenItemGroupPicker(item, ctx, rerender) {
+  if (!ctx.groups.length) {
+    confirmModal('还没有分组', '是否立即创建一个分组？', function () { _rlShowGroupEditor(ctx, rerender); });
+    return;
+  }
+  var current = _rlItemGroup(ctx, item);
+  var items = [{ label: (current ? '　' : '✓ ') + '未分组（移出所有分组）', act: 'grp_none' }];
+  ctx.groups.forEach(function (g) {
+    items.push({ label: (current && current.id === g.id ? '✓ ' : '　') + escapeHtml(g.name), act: 'grp_' + g.id });
+  });
+  items.push({ label: '取消', act: 'cancel', cancel: true });
+  showSheet('选择分组', items, function (act) {
+    if (act === 'cancel') return;
+    ctx.groups.forEach(function (g) {
+      if (g.items) g.items = g.items.filter(function (t) { return t !== item; });
+    });
+    if (act !== 'grp_none' && act.indexOf('grp_') === 0) {
+      var gid = act.slice(4);
+      var g = ctx.groups.filter(function (gg) { return String(gg.id) === String(gid); })[0];
+      if (g) { if (!g.items) g.items = []; g.items.push(item); }
+    }
+    saveData(); rerender();
+    toast('已更新分组');
+  });
+}
+
+// ---- 分组管理 ----
+function _rlShowGroupManager(ctx, rerender) {
+  var items = ctx.groups.map(function (g) {
+    return {
+      label: '<span class="rl-dot" style="background:' + g.color + ';"></span> ' + escapeHtml(g.name) +
+        '（' + (g.items ? g.items.length : 0) + '）',
+      act: 'g_' + ctx.groups.indexOf(g)
+    };
+  });
+  if (!items.length) items.push({ label: '还没有分组', act: 'noop' });
+  items.push({ label: '＋ 新建分组', act: 'g_add' });
+  items.push({ label: '取消', act: 'cancel', cancel: true });
+  showSheet('分组管理', items, function (act) {
+    if (act === 'cancel' || act === 'noop') return;
+    if (act === 'g_add') { _rlShowGroupEditor(ctx, rerender); return; }
+    if (act.indexOf('g_') === 0) {
+      var g = ctx.groups[parseInt(act.slice(2), 10)];
+      if (g) _rlGroupEditorSheet(g, ctx, rerender);
+    }
+  });
+}
+
+function _rlGroupEditorSheet(group, ctx, rerender) {
+  showSheet(group.name, [
+    { label: '重命名', act: 'rename' },
+    { label: '更改颜色', act: 'color' },
+    { label: '删除分组', act: 'delete', danger: true },
+    { label: '取消', act: 'cancel', cancel: true }
+  ], function (act) {
+    if (act === 'rename') {
+      promptModal('重命名分组', '', group.name, function (v) {
+        group.name = v; saveData(); rerender(); toast('已重命名');
+      });
+    } else if (act === 'color') {
+      _rlPickGroupColor(group, ctx, rerender);
+    } else if (act === 'delete') {
+      confirmModal('删除分组', '删除「' + group.name + '」？只会解散分组，不会删除字卡。', function () {
+        var i = ctx.groups.indexOf(group);
+        if (i !== -1) ctx.groups.splice(i, 1);
+        if (_rlGroupFilter === group.id) _rlGroupFilter = null;
+        saveData(); rerender(); toast('分组已删除');
+      }, { danger: true });
+    }
+  });
+}
+
+function _rlPickGroupColor(group, ctx, rerender) {
+  var items = RL_GROUP_COLORS.map(function (c) {
+    return { label: (group.color === c ? '✓ ' : '　') + '<span class="rl-dot" style="background:' + c + ';"></span> ' + c, act: 'c_' + c.slice(1) };
+  });
+  items.push({ label: '取消', act: 'cancel', cancel: true });
+  showSheet('选择颜色', items, function (act) {
+    if (act === 'cancel') return;
+    group.color = '#' + act.slice(2);
+    saveData(); rerender(); toast('颜色已更新');
+  });
+}
+
+function _rlShowGroupEditor(ctx, rerender) {
+  promptModal('新建分组', '分组名', '', function (name) {
+    var color = RL_GROUP_COLORS[Math.floor(Math.random() * RL_GROUP_COLORS.length)];
+    ctx.groups.push({ id: 'rg-' + Date.now(), name: name, color: color, items: [] });
+    saveData(); rerender(); toast('分组已创建');
+  });
+}
+
+// ---- 文件导入 ----
+function _rlImportJson(data, ctx) {
+  var added = 0;
+  var replies = Array.isArray(data) ? data
+    : (data && typeof data === 'object' && Array.isArray(data.replies) ? data.replies : []);
+  if (data && typeof data === 'object' && Array.isArray(data.groups)) {
+    data.groups.forEach(function (g) {
+      if (!g || typeof g !== 'object' || !g.name) return;
+      var exist = ctx.groups.filter(function (gg) { return gg.name === g.name; })[0];
+      if (!exist) {
+        exist = { id: g.id || ('rg-' + Date.now() + '-' + Math.floor(Math.random() * 1000)), name: g.name, color: g.color || RL_GROUP_COLORS[0], items: [] };
+        ctx.groups.push(exist);
+      }
+      (Array.isArray(g.items) ? g.items : []).forEach(function (it) {
+        if (typeof it === 'string' && it.trim() && exist.items.indexOf(it) === -1) exist.items.push(it);
+      });
+    });
+  }
+  replies.forEach(function (r) {
+    if (typeof r !== 'string') return;
+    var t = r.trim();
+    if (t) { ctx.pool.push(t); added++; }
+  });
+  // 分组里出现、但不在池中的字卡也补进池，保证可抽取
+  ctx.groups.forEach(function (g) {
+    (g.items || []).forEach(function (it) { if (ctx.pool.indexOf(it) === -1) { ctx.pool.push(it); added++; } });
+  });
+  return added;
+}
+
+function _rlImportFile(ctx, rerender) {
+  var input = document.createElement('input');
+  input.type = 'file';
+  input.id = 'rl-file-input';
+  input.accept = '.txt,.json,text/plain,application/json';
+  input.onchange = function () {
+    var file = input.files[0];
+    if (!file) return;
+    var isJson = /\.json$/i.test(file.name);
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        var added = 0;
+        if (isJson) {
+          added = _rlImportJson(JSON.parse(reader.result), ctx);
+        } else {
+          String(reader.result || '').split(/\r?\n/).forEach(function (line) {
+            var t = line.trim();
+            if (t) { ctx.pool.push(t); added++; }
+          });
+        }
+        saveData(); rerender();
+        toast('已导入 ' + added + ' 条');
+      } catch (e) {
+        toast('文件解析失败');
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+// ---- 导出 ----
+function _rlExport(ctx) {
+  var data = {
+    app: 'zikka-chuanxun',
+    version: VERSION,
+    type: 'reply-library',
+    exportedAt: new Date().toISOString(),
+    replies: ctx.pool.slice(),
+    groups: ctx.groups.map(function (g) {
+      return { id: g.id, name: g.name, color: g.color, items: (g.items || []).slice() };
+    })
+  };
+  var d = new Date();
+  var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+  var stamp = '' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate());
+  var fname = ctx.kind === 'pool'
+    ? ('专属字卡库-' + _rlPoolName() + '-' + stamp + '.json')
+    : ('字卡库-' + stamp + '.json');
+  var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = fname;
+  a.click();
+  setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+  toast('已导出 ' + ctx.pool.length + ' 条');
+}
+
+// ---- 工具条 + 列表事件绑定（基础库 / 专属库共用） ----
+function _rlBindListEvents(body, rerender, ctx) {
+  ctx = ctx || _rlCtx();
+
+  var search = body.querySelector('#rl-search-input');
+  if (search) {
+    search.addEventListener('input', function () {
+      _rlSearch = search.value;
+      _rlRenderListOnly(body, ctx);
+    });
+  }
+
+  var chips = body.querySelector('#rl-group-chips');
+  if (chips) {
+    chips.addEventListener('click', function (e) {
+      var chip = e.target.closest('.rl-chip');
+      if (!chip) return;
+      var f = chip.dataset.gfilter;
+      _rlGroupFilter = f === '__all' ? null : f;
+      rerender();
+    });
+  }
+
+  var groupsBtn = body.querySelector('#tb-groups-btn');
+  if (groupsBtn) groupsBtn.addEventListener('click', function () { _rlShowGroupManager(ctx, rerender); });
+
+  var exportBtn = body.querySelector('#tb-export-btn');
+  if (exportBtn) exportBtn.addEventListener('click', function () { _rlExport(ctx); });
+
+  var importBtn = body.querySelector('#tb-import-btn');
+  if (importBtn) importBtn.addEventListener('click', function () { _rlImportFile(ctx, rerender); });
+
+  var batchImportBtn = body.querySelector('#tb-batch-import-btn');
+  if (batchImportBtn) {
+    batchImportBtn.addEventListener('click', function () {
+      var title = ctx.kind === 'pool' ? ('批量导入 · ' + _rlPoolName() + ' 的专属库') : '批量导入字卡库';
+      batchImportModal(title, '', function (lines) {
+        lines.forEach(function (l) { ctx.pool.push(l); });
+        saveData(); rerender();
+        toast('已导入 ' + lines.length + ' 条');
+      });
+    });
+  }
+
+  var batchBtn = body.querySelector('#tb-batch-btn');
+  if (batchBtn) {
+    batchBtn.addEventListener('click', function () {
+      _rlBatchMode = !_rlBatchMode;
+      _rlBatchSelected = [];
+      rerender();
+    });
+  }
+
+  body.querySelectorAll('[data-batch]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var act = btn.dataset.batch;
+      if (act === 'cancel') { _rlBatchMode = false; _rlBatchSelected = []; rerender(); return; }
+      if (!_rlBatchSelected.length) { toast('请先选择字卡'); return; }
+      if (act === 'disable') {
+        var allDisabled = _rlBatchSelected.every(function (t) { return ctx.disabled.indexOf(t) !== -1; });
+        _rlBatchSelected.forEach(function (t) {
+          var i = ctx.disabled.indexOf(t);
+          if (allDisabled) { if (i !== -1) ctx.disabled.splice(i, 1); }
+          else if (i === -1) ctx.disabled.push(t);
+        });
+        toast(allDisabled ? '已启用 ' + _rlBatchSelected.length + ' 条' : '已屏蔽 ' + _rlBatchSelected.length + ' 条');
+        saveData(); rerender();
+      } else if (act === 'delete') {
+        confirmModal('批量删除', '确定删除选中的 ' + _rlBatchSelected.length + ' 条字卡？', function () {
+          var sel = _rlBatchSelected.slice();
+          sel.forEach(function (t) { _rlDeleteItem(t, ctx); });
+          _rlBatchSelected = [];
+          _rlBatchMode = false;
+          saveData(); rerender();
+        }, { danger: true });
+      }
+    });
+  });
+
+  var list = body.querySelector('#rl-list');
+  if (list) {
+    list.addEventListener('click', function (e) {
+      var card = e.target.closest('.rl-card');
+      if (!card) return;
+      var item = card.dataset.item;
+      if (_rlBatchMode) {
+        var i = _rlBatchSelected.indexOf(item);
+        if (i === -1) _rlBatchSelected.push(item); else _rlBatchSelected.splice(i, 1);
+        rerender();
+        return;
+      }
+      var btn = e.target.closest('.rl-act-btn');
+      if (!btn) return;
+      var action = btn.dataset.action;
+      if (action === 'disable') _rlToggleDisable(item, ctx, rerender);
+      else if (action === 'delete') { _rlDeleteItem(item, ctx); saveData(); rerender(); }
+      else if (action === 'edit') _rlEditItem(item, ctx, rerender);
+      else if (action === 'tag') _rlOpenItemGroupPicker(item, ctx, rerender);
+    });
+  }
 }
 
 // ---------- 二级子页：回复设置（chat 功能 + 节奏，去除真实语音） ----------
@@ -247,26 +780,26 @@ function renderReplySettings() {
     '<div class="sub-back" id="sub-back">‹ 返回设置</div>' +
 
     sGroup('消息交互', [
-      sRow({ ico: '↩️', label: '引用回复', sub: '长按/点消息可引用回复', toggle: settings.quoteReplyEnabled, key: 'quoteReplyEnabled' }),
-      sRow({ ico: '✔️', label: '已读回执', toggle: settings.readReceiptEnabled, key: 'readReceiptEnabled' }),
-      '<div class="set-row sub-row"><span class="row-ico">🎨</span>' +
+      sRow({ ico: '<i class="fas fa-reply"></i>', label: '引用回复', sub: '长按/点消息可引用回复', toggle: settings.quoteReplyEnabled, key: 'quoteReplyEnabled' }),
+      sRow({ ico: '<i class="fas fa-check"></i>', label: '已读回执', toggle: settings.readReceiptEnabled, key: 'readReceiptEnabled' }),
+      '<div class="set-row sub-row"><span class="row-ico"><i class="fas fa-palette"></i></span>' +
         '<span class="row-txt"><span class="row-label">已读样式</span></span>' +
         '<span class="seg">' +
-          '<button class="seg-btn' + (settings.readReceiptStyle === 'icon' ? ' active' : '') + '" data-rr="icon">✓✓ 图形</button>' +
+          '<button class="seg-btn' + (settings.readReceiptStyle === 'icon' ? ' active' : '') + '" data-rr="icon"><i class="fas fa-check-double"></i> 图形</button>' +
           '<button class="seg-btn' + (settings.readReceiptStyle === 'text' ? ' active' : '') + '" data-rr="text">文字</button>' +
         '</span></div>',
-      sRow({ ico: '🙈', label: '已读不回', sub: '当前 ' + Math.round((settings.readNoReplyChance || 0) * 100) + '% 概率只已读不回复',
+      sRow({ ico: '<i class="fas fa-eye-slash"></i>', label: '已读不回', sub: '当前 ' + Math.round((settings.readNoReplyChance || 0) * 100) + '% 概率只已读不回复',
         rightHtml: '<input type="number" class="row-num" id="readNoReply-input" min="0" max="100" value="' +
           Math.round((settings.readNoReplyChance || 0) * 100) + '"><span class="row-unit">%</span>' }),
-      sRow({ ico: '⌨️', label: '正在输入', sub: '回复前显示微信式「对方正在输入」', toggle: settings.typingIndicatorEnabled, key: 'typingIndicatorEnabled' }),
-      sRow({ ico: '↩︎', label: '梦角撤回消息', sub: '偶尔撤回刚发的消息（3%）', toggle: settings.partnerRecallEnabled, key: 'partnerRecallEnabled' }),
-      sRow({ ico: '👋', label: '拍一拍', sub: '偶尔触发拍一拍（3%）', toggle: settings.pokeEnabled, key: 'pokeEnabled' }),
-      sRow({ ico: '🌙', label: '状态变化', sub: '梦角的状态偶尔自动变化（5%）', toggle: settings.statusChangeEnabled, key: 'statusChangeEnabled' }),
-      sRow({ ico: '🧧', label: '梦角主动发红包', sub: '开启后偶尔给你发红包，点气泡拆开', toggle: settings.redPacketEnabled, key: 'redPacketEnabled' })
+      sRow({ ico: '<i class="fas fa-keyboard"></i>', label: '正在输入', sub: '回复前显示微信式「对方正在输入」', toggle: settings.typingIndicatorEnabled, key: 'typingIndicatorEnabled' }),
+      sRow({ ico: '<i class="fas fa-reply"></i>', label: '梦角撤回消息', sub: '偶尔撤回刚发的消息（3%）', toggle: settings.partnerRecallEnabled, key: 'partnerRecallEnabled' }),
+      sRow({ ico: '<i class="fas fa-hand-paper"></i>', label: '拍一拍', sub: '偶尔触发拍一拍（3%）', toggle: settings.pokeEnabled, key: 'pokeEnabled' }),
+      sRow({ ico: '<i class="fas fa-moon"></i>', label: '状态变化', sub: '梦角的状态偶尔自动变化（5%）', toggle: settings.statusChangeEnabled, key: 'statusChangeEnabled' }),
+      sRow({ ico: '<i class="fas fa-gift"></i>', label: '梦角主动发红包', sub: '开启后偶尔给你发红包，点气泡拆开', toggle: settings.redPacketEnabled, key: 'redPacketEnabled' })
     ].join('')) +
 
     sGroup('拍一拍', [
-      '<div class="set-row"><span class="row-ico">👋</span>' +
+      '<div class="set-row"><span class="row-ico"><i class="fas fa-hand-paper"></i></span>' +
         '<span class="row-txt"><span class="row-label">我拍一拍的默认动作</span>' +
         '<span class="row-sub">预览：你 ' + escapeHtml(settings.myPokeText || '拍了拍') + ' 梦角</span></span>' +
         '<input type="text" class="row-input" id="myPokeText-input" value="' + escapeHtml(settings.myPokeText || '拍了拍') + '">' +
@@ -276,37 +809,37 @@ function renderReplySettings() {
     sGroup('时间戳', '<div class="ts-grid">' + tsBtns + '</div>') +
 
     sGroup('回复速度', [
-      '<div class="set-row slider-row"><span class="row-ico">⚡</span>' +
+      '<div class="set-row slider-row"><span class="row-ico"><i class="fas fa-bolt"></i></span>' +
         '<span class="row-txt"><span class="row-label">最短等待</span></span>' +
         '<input type="range" min="1000" max="30000" step="500" value="' + settings.replyDelayMin + '" id="dly-min">' +
         '<span class="slider-val" id="dly-min-val">' + (settings.replyDelayMin / 1000).toFixed(1) + 's</span></div>',
-      '<div class="set-row slider-row"><span class="row-ico">🐢</span>' +
+      '<div class="set-row slider-row"><span class="row-ico"><i class="fas fa-tachometer-alt"></i></span>' +
         '<span class="row-txt"><span class="row-label">最长等待</span></span>' +
         '<input type="range" min="1000" max="60000" step="500" value="' + settings.replyDelayMax + '" id="dly-max">' +
         '<span class="slider-val" id="dly-max-val">' + (settings.replyDelayMax / 1000).toFixed(1) + 's</span></div>'
     ].join('')) +
 
     sGroup('主动发送', [
-      sRow({ ico: '📨', label: '主动发消息给我', sub: '开启后梦角按间隔主动找你（页面打开时）', toggle: settings.autoSendEnabled, key: 'autoSendEnabled' }),
+      sRow({ ico: '<i class="fas fa-envelope"></i>', label: '主动发消息给我', sub: '开启后梦角按间隔主动找你（页面打开时）', toggle: settings.autoSendEnabled, key: 'autoSendEnabled' }),
       '<div class="set-row slider-row" id="auto-send-row"' + (settings.autoSendEnabled ? '' : ' style="display:none"') + '>' +
-        '<span class="row-ico">⏲</span>' +
+        '<span class="row-ico"><i class="fas fa-clock"></i></span>' +
         '<span class="row-txt"><span class="row-label">间隔</span></span>' +
         '<input type="range" min="1" max="180" step="1" value="' + settings.autoSendInterval + '" id="auto-send-slider">' +
         '<span class="slider-val" id="auto-send-val">' + settings.autoSendInterval + '分钟</span></div>'
     ].join('')) +
 
     sGroup('消息节奏', [
-      sRow({ ico: '😀', label: '表情混入消息', sub: '开启后表情与文字同条发送', toggle: settings.emojiMixEnabled, key: 'emojiMixEnabled' }),
-      sRow({ ico: '🃏', label: '回复拼接字卡', sub: '开启后单条消息有概率拼接多张字卡', toggle: settings.combineCardsEnabled, key: 'combineCardsEnabled' }),
+      sRow({ ico: '<i class="fas fa-smile"></i>', label: '表情混入消息', sub: '开启后表情与文字同条发送', toggle: settings.emojiMixEnabled, key: 'emojiMixEnabled' }),
+      sRow({ ico: '<i class="fas fa-clone"></i>', label: '回复拼接字卡', sub: '开启后单条消息有概率拼接多张字卡', toggle: settings.combineCardsEnabled, key: 'combineCardsEnabled' }),
       '<div class="set-row slider-row" id="combine-row"' + (settings.combineCardsEnabled ? '' : ' style="display:none"') + '>' +
-        '<span class="row-ico">🔢</span>' +
+        '<span class="row-ico"><i class="fas fa-hashtag"></i></span>' +
         '<span class="row-txt"><span class="row-label">最多拼接</span></span>' +
         '<input type="range" min="2" max="5" step="1" value="' + settings.combineCardsMax + '" id="combine-slider">' +
         '<span class="slider-val" id="combine-val">' + settings.combineCardsMax + '句</span></div>'
     ].join('')) +
 
     sGroup('后台运行', [
-      sRow({ ico: '🔔', label: '后台消息推送', sub: '页面在后台时收到消息弹系统通知（需授权）', toggle: settings.bgNotifyEnabled, key: 'bgNotifyEnabled' })
+      sRow({ ico: '<i class="fas fa-bell"></i>', label: '后台消息推送', sub: '页面在后台时收到消息弹系统通知（需授权）', toggle: settings.bgNotifyEnabled, key: 'bgNotifyEnabled' })
     ].join(''));
 
   bindReplySettingsEvents();
@@ -333,7 +866,7 @@ function renderSfxSettings() {
     }).join('');
     var status = preset === 'mute' ? '已关闭' : (customUrl ? '自定义音频' : (preset === 'kakaotalk' ? 'kakaotalk' : '内置'));
     return '<div class="sfx-card">' +
-      '<div class="sfx-head"><span class="sfx-ico">🔊</span>' +
+      '<div class="sfx-head"><span class="sfx-ico"><i class="fas fa-volume-up"></i></span>' +
         '<span class="sfx-name">' + c.label + '</span>' +
         '<span class="sfx-status">' + status + '</span></div>' +
       '<div class="sfx-body">' +
@@ -344,7 +877,7 @@ function renderSfxSettings() {
         '<div class="sfx-row">' +
           '<input type="text" class="sfx-url" data-sfxu="' + c.key + '" value="' + escapeHtml(customUrl) +
             '" placeholder="自定义URL（留空用内置预设）">' +
-          '<button class="sfx-upload" data-sfxup="' + c.key + '" title="上传本地音频">⬆</button>' +
+          '<button class="sfx-upload" data-sfxup="' + c.key + '" title="上传本地音频"><i class="fas fa-upload"></i></button>' +
         '</div>' +
         (customUrl ? '<button class="sfx-clear" data-sfxclr="' + c.key + '">清除自定义音频</button>' : '') +
       '</div>' +
@@ -354,8 +887,8 @@ function renderSfxSettings() {
   body.innerHTML =
     '<div class="sub-back" id="sub-back">‹ 返回设置</div>' +
     sGroup('消息音效', [
-      sRow({ ico: '🔊', label: '开启音效', toggle: settings.soundEnabled, key: 'soundEnabled' }),
-      '<div class="set-row slider-row"><span class="row-ico">🔉</span>' +
+      sRow({ ico: '<i class="fas fa-volume-up"></i>', label: '开启音效', toggle: settings.soundEnabled, key: 'soundEnabled' }),
+      '<div class="set-row slider-row"><span class="row-ico"><i class="fas fa-volume-down"></i></span>' +
         '<span class="row-txt"><span class="row-label">音量</span></span>' +
         '<input type="range" min="0" max="100" step="5" value="' + Math.round((settings.soundVolume || 0) * 100) + '" id="sfx-volume">' +
         '<span class="slider-val" id="sfx-volume-val">' + Math.round((settings.soundVolume || 0) * 100) + '%</span></div>'
@@ -370,24 +903,6 @@ function renderSfxSettings() {
 // ---------- 事件 ----------
 function bindSettingsEvents() {
   var body = DOMElements.settingsBody;
-
-  // 分组标签切换
-  var tabs = body.querySelector('#set-tabs');
-  if (tabs) {
-    tabs.addEventListener('click', function (e) {
-      var tab = e.target.closest('.set-tab');
-      if (!tab) return;
-      _settingsTab = tab.dataset.tab;
-      tabs.querySelectorAll('.set-tab').forEach(function (t) {
-        t.classList.toggle('active', t.dataset.tab === _settingsTab);
-      });
-      body.querySelectorAll('.set-sec').forEach(function (s) {
-        s.classList.toggle('active', s.dataset.sec === _settingsTab);
-      });
-      var si = body.querySelector('#set-search-input');
-      if (si) { si.value = ''; filterSettingsRows(''); }
-    });
-  }
 
   // 搜索过滤（跨分组显示匹配行）
   var search = body.querySelector('#set-search-input');
@@ -415,6 +930,16 @@ function bindSettingsEvents() {
         renderReplySettings();
       } else if (act === 'openSfx') {
         renderSfxSettings();
+      } else if (act === 'openAppearance') {
+        if (window.renderAppearance) window.renderAppearance();
+      } else if (act === 'cardReply') {
+        renderCardReply();
+      } else if (act === 'cardPool') {
+        renderCardPoolList();
+      } else if (act === 'cardPoke') {
+        renderCardPoke();
+      } else if (act === 'cardFav') {
+        renderCardFav();
       } else if (act === 'homeDream') {
         openHomeDreamPicker();
       } else if (act === 'exportData') exportData();
@@ -443,19 +968,25 @@ function bindSettingsEvents() {
   var wxBtn = body.querySelector('#weather-refresh-btn');
   if (wxBtn) wxBtn.addEventListener('click', function () { refreshWeather(true); });
 
-  // 通用 · 外观
-  body.querySelectorAll('[data-set]').forEach(function (el) {
-    var key = el.dataset.set;
-    if (key === 'mono') {
-      el.addEventListener('change', function () {
-        settings.bubbleTheme = el.checked ? 'mono' : 'wechat';
-        saveData();
-        applyBubbleTheme();
-      });
-    }
+  bindCardListEvents(body, renderSettings);
+}
+
+// 卡片列表类事件（基础库 / 专属库 / 拍一拍 / 收藏）；rerender 为「当前页重渲染」回调
+function bindCardListEvents(body, rerender) {
+  rerender = rerender || renderSettings;
+
+  var back = body.querySelector('#sub-back');
+  if (back) back.addEventListener('click', function () { settingsBack(); });
+
+  // 专属字卡库的梦角列表（联系人式排布）：点某位梦角进入其专属字卡库
+  Array.prototype.forEach.call(body.querySelectorAll('.contact-row[data-pid]'), function (row) {
+    row.addEventListener('click', function () {
+      _poolSelContact = row.getAttribute('data-pid');
+      renderCardPool();
+    });
   });
 
-  bindPoolListEvents(body);
+  bindPoolListEvents(body, rerender);
 
   // 语料增删（基础库）
   var addReplyBtn = body.querySelector('#add-reply-btn');
@@ -466,58 +997,12 @@ function bindSettingsEvents() {
       if (!val) return;
       replyPool.push(val);
       saveData();
-      renderSettings();
+      rerender();
       toast('已添加');
     });
   }
-  var replyBatchBtn = body.querySelector('#reply-batch-btn');
-  if (replyBatchBtn) {
-    replyBatchBtn.addEventListener('click', function () {
-      batchImportModal('批量导入基础字卡库', '', function (lines) {
-        lines.forEach(function (l) { replyPool.push(l); });
-        saveData();
-        renderSettings();
-        toast('已导入 ' + lines.length + ' 条');
-      });
-    });
-  }
-  var replyList = body.querySelector('#reply-list');
-  if (replyList) {
-    replyList.addEventListener('click', function (e) {
-      var del = e.target.closest('.kar-del');
-      if (!del) return;
-      replyPool.splice(Number(del.dataset.idx), 1);
-      saveData();
-      renderSettings();
-    });
-  }
-
-  // 关键词规则
-  var addKwBtn = body.querySelector('#add-kw-btn');
-  if (addKwBtn) {
-    addKwBtn.addEventListener('click', function () {
-      var keysVal = body.querySelector('#kw-keys-input').value.trim();
-      var repsVal = body.querySelector('#kw-replies-input').value.trim();
-      if (!keysVal || !repsVal) { toast('关键词和回复都要填'); return; }
-      var keywords = keysVal.split(/[、,，\s]+/).filter(Boolean);
-      var replies = repsVal.split(/[、,，|]+/).filter(Boolean);
-      if (!keywords.length || !replies.length) { toast('格式不对哦'); return; }
-      keywordRules.push({ id: 'kw-' + Date.now(), keywords: keywords, replies: replies });
-      saveData();
-      renderSettings();
-      toast('规则已添加');
-    });
-  }
-  var kwList = body.querySelector('#kw-list');
-  if (kwList) {
-    kwList.addEventListener('click', function (e) {
-      var del = e.target.closest('.kw-del');
-      if (!del) return;
-      keywordRules.splice(Number(del.dataset.idx), 1);
-      saveData();
-      renderSettings();
-    });
-  }
+  // 字卡库工具条 + 列表（基础库 / 专属库共用）
+  _rlBindListEvents(body, rerender);
 
   // 拍一拍池
   var addPokeBtn = body.querySelector('#add-poke-btn');
@@ -528,7 +1013,7 @@ function bindSettingsEvents() {
       if (!val) return;
       customPokes.push(val);
       saveData();
-      renderSettings();
+      rerender();
     });
   }
   var pokeList = body.querySelector('#poke-list');
@@ -538,7 +1023,7 @@ function bindSettingsEvents() {
       if (!del) return;
       customPokes.splice(Number(del.dataset.idx), 1);
       saveData();
-      renderSettings();
+      rerender();
     });
   }
 
@@ -551,25 +1036,16 @@ function bindSettingsEvents() {
       var cid = btn.dataset.cid, mid = Number(btn.dataset.id);
       var msg = (messagesByContact[cid] || []).find(function (m) { return m.id === mid; });
       if (msg) { msg.favorited = false; saveData(); }
-      renderSettings();
+      rerender();
       if (activeContactId) renderAllMessages();
     });
   }
 }
 
-// 专属库分区的事件（选择梦角 / 增删 / 批量导入）
-function bindPoolListEvents(body) {
-  var picker = body.querySelector('#pool-picker');
-  if (picker) {
-    picker.addEventListener('click', function (e) {
-      var chip = e.target.closest('.pool-chip');
-      if (!chip) return;
-      _poolSelContact = chip.dataset.pid;
-      renderSettings();
-      var el = document.getElementById('pool-list');
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-  }
+// 专属库手动添加一条的事件；rerender 为「当前页重渲染」回调
+function bindPoolListEvents(body, rerender) {
+  rerender = rerender || renderSettings;
+
   var addBtn = body.querySelector('#add-pool-btn');
   if (addBtn) {
     addBtn.addEventListener('click', function () {
@@ -579,31 +1055,8 @@ function bindPoolListEvents(body) {
       if (!contactReplyPools[_poolSelContact]) contactReplyPools[_poolSelContact] = [];
       contactReplyPools[_poolSelContact].push(val);
       saveData();
-      renderSettings();
+      rerender();
       toast('已添加到专属库');
-    });
-  }
-  var list = body.querySelector('#pool-list');
-  if (list) {
-    list.addEventListener('click', function (e) {
-      var del = e.target.closest('.kar-del');
-      if (!del) return;
-      (contactReplyPools[_poolSelContact] || []).splice(Number(del.dataset.pidx), 1);
-      saveData();
-      renderSettings();
-    });
-  }
-  var batchBtn = body.querySelector('#pool-batch-btn');
-  if (batchBtn) {
-    batchBtn.addEventListener('click', function () {
-      var sel = memberById(_poolSelContact);
-      batchImportModal('批量导入 · ' + (sel ? sel.name : '') + ' 的专属库', '', function (lines) {
-        if (!contactReplyPools[_poolSelContact]) contactReplyPools[_poolSelContact] = [];
-        lines.forEach(function (l) { contactReplyPools[_poolSelContact].push(l); });
-        saveData();
-        renderSettings();
-        toast('已导入 ' + lines.length + ' 条');
-      });
     });
   }
 }
@@ -659,8 +1112,7 @@ function filterSettingsRows(kw) {
       grp.style.display = grpVisible ? '' : 'none';
       if (grpVisible) anyVisible = true;
     });
-    sec.style.display = (lower || sec.dataset.sec === _settingsTab) && anyVisible ? 'block' : 'none';
-    if (lower && anyVisible) sec.style.display = 'block';
+    sec.style.display = anyVisible ? 'block' : 'none';
   });
 }
 
@@ -876,8 +1328,14 @@ function bindSfxSettingsEvents() {
   });
 }
 
-// 设置页返回（子页先回主设置）
+// 设置页返回（分级返回：外观三级页 → 外观设置 → 主设置 → 主页）
 function settingsBack() {
+  if (_settingsSub === 'ap-theme' || _settingsSub === 'ap-bg' ||
+      _settingsSub === 'ap-font' || _settingsSub === 'ap-avatar') {
+    if (window.renderAppearance) window.renderAppearance();
+    return;
+  }
+  if (_settingsSub === 'card-pool') { renderCardPoolList(); return; }
   if (_settingsSub) { renderSettings(); return; }
   showView('home');
   renderHome();
@@ -897,16 +1355,21 @@ function exportData() {
     contacts: contacts,
     messagesByContact: messagesByContact,
     settings: settings,
-    keywordRules: keywordRules,
     customPokes: customPokes,
     customReplies: replyPool.filter(function (r) { return BUILTIN_REPLIES.indexOf(r) === -1; }),
     contactReplyPools: contactReplyPools,
+    replyGroups: replyGroups,
+    poolGroups: poolGroups,
+    disabledReplies: disabledReplies,
+    disabledPoolReplies: disabledPoolReplies,
     homeProfile: homeProfile,
     anniversaries: anniversaries,
     musicTracks: musicTracks,
     photoWall: photoWall,
     homeBoxBg: homeBoxBg,
-    weatherNow: weatherNow
+    weatherNow: weatherNow,
+    momentsData: momentsData,
+    momentsCover: momentsCover
   };
   var blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
   var a = document.createElement('a');
@@ -933,11 +1396,15 @@ function importData() {
           contacts = data.contacts || contacts.slice();
           messagesByContact = data.messagesByContact || {};
           settings = Object.assign({}, DEFAULT_SETTINGS, data.settings || {});
-          keywordRules = data.keywordRules || BUILTIN_KEYWORD_RULES.slice();
           customPokes = data.customPokes || POKE_ACTIONS.slice();
           replyPool = BUILTIN_REPLIES.concat(data.customReplies || []);
           contactReplyPools = (data.contactReplyPools && typeof data.contactReplyPools === 'object')
             ? data.contactReplyPools : {};
+          replyGroups = Array.isArray(data.replyGroups) ? data.replyGroups : [];
+          poolGroups = (data.poolGroups && typeof data.poolGroups === 'object') ? data.poolGroups : {};
+          disabledReplies = Array.isArray(data.disabledReplies) ? data.disabledReplies : [];
+          disabledPoolReplies = (data.disabledPoolReplies && typeof data.disabledPoolReplies === 'object')
+            ? data.disabledPoolReplies : {};
           homeProfile = Object.assign({}, DEFAULT_HOME, data.homeProfile || {});
           anniversaries = Array.isArray(data.anniversaries) ? data.anniversaries : [];
           musicTracks = Array.isArray(data.musicTracks) && data.musicTracks.length
@@ -946,6 +1413,15 @@ function importData() {
             ? data.photoWall : [null, null, null, null, null, null];
           homeBoxBg = data.homeBoxBg || null;
           weatherNow = data.weatherNow || null;
+          momentsData = (data.momentsData && typeof data.momentsData === 'object') ? data.momentsData : {};
+          if (!Array.isArray(momentsData.posts)) momentsData.posts = [];
+          if (typeof momentsData.partnerNext === 'undefined') momentsData.partnerNext = null;
+          momentsData.posts.forEach(function (p) {
+            if (!p || typeof p !== 'object') return;
+            if (!Array.isArray(p.comments)) p.comments = [];
+            if (!Array.isArray(p.images)) p.images = [];
+          });
+          momentsCover = data.momentsCover || null;
           contacts.forEach(function (c) {
             if (!Array.isArray(messagesByContact[c.id])) messagesByContact[c.id] = [];
             if (!Array.isArray(contactReplyPools[c.id])) contactReplyPools[c.id] = [];
@@ -958,6 +1434,7 @@ function importData() {
           renderContactList();
           renderSettings();
           renderHome();
+          if (typeof renderMoments === 'function') renderMoments();
           toast('导入成功');
         }, { danger: true });
       } catch (e) {

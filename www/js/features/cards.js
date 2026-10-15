@@ -30,23 +30,23 @@ function openActionSheet(msg) {
   var items;
   if (msg.recalled) {
     items = [
-      { label: '🗑 删除', act: 'delete', danger: true },
+      { label: '<i class="fas fa-trash-alt"></i> 删除', act: 'delete', danger: true },
       { label: '取消', act: 'cancel', cancel: true }
     ];
   } else if (msg.type === 'system') {
     items = [
-      { label: '⧉ 复制', act: 'copy' },
-      { label: '🗑 删除', act: 'delete', danger: true },
+      { label: '<i class="fas fa-copy"></i> 复制', act: 'copy' },
+      { label: '<i class="fas fa-trash-alt"></i> 删除', act: 'delete', danger: true },
       { label: '取消', act: 'cancel', cancel: true }
     ];
   } else {
     items = [
       { label: '↩ 引用回复', act: 'quote' },
-      { label: (msg.favorited ? '取消收藏' : '♥ 收藏'), act: 'fav' },
-      { label: '⧉ 复制', act: 'copy' },
+      { label: (msg.favorited ? '取消收藏' : '<i class="fas fa-heart"></i> 收藏'), act: 'fav' },
+      { label: '<i class="fas fa-copy"></i> 复制', act: 'copy' },
       { label: '↗ 保存/分享图片', act: 'share' },
       { label: '撤回', act: 'recall' },
-      { label: '🗑 删除', act: 'delete', danger: true },
+      { label: '<i class="fas fa-trash-alt"></i> 删除', act: 'delete', danger: true },
       { label: '取消', act: 'cancel', cancel: true }
     ];
   }
