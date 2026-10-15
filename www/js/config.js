@@ -11,20 +11,20 @@ var DEFAULT_SETTINGS = {
   quoteReplyEnabled: true,     // 引用回复
   readReceiptEnabled: true,    // 已读回执
   readReceiptStyle: 'icon',    // 已读样式：icon=图形 ✓✓ / text=文字 已读
-  readNoReplyChance: 0.12,     // 已读不回概率
+  readNoReplyChance: 0.2,     // 已读不回概率（对齐 chat）
   typingIndicatorEnabled: true,// 正在输入
   partnerRecallEnabled: true,  // 梦角撤回消息（3% 概率）
   pokeEnabled: true,           // 拍一拍（3% 概率）
-  statusChangeEnabled: true,   // 状态自动变化
-  redPacketEnabled: false,     // 梦角主动发红包
+  statusChangeEnabled: true,   // 状态自动变化（chat 无此项，按要求保留）
+  redPacketEnabled: true,     // 梦角主动发红包（定时 8% 概率 + 每日上限 10，对齐 chat）
   myPokeText: '拍了拍',        // 我拍一拍的默认动作
   timestampFormat: 'HH:mm',    // 时间戳：HH:mm / HH:mm:ss / h:mm A / h:mm:ss A / off
   // —— 回复设置 · 消息节奏（chat 的"节奏"） ——
-  replyDelayMin: 1500,
-  replyDelayMax: 6500,
+  replyDelayMin: 3000,
+  replyDelayMax: 7000,
   autoSendEnabled: false,      // 梦角主动发消息给我
   autoSendInterval: 5,         // 主动发送间隔（分钟，1~180）
-  emojiMixEnabled: true,       // 表情混入消息（与文字同条发送）
+  emojiMixEnabled: true,       // 表情混入消息（与文字同条发送，20% 概率，对齐 chat）
   combineCardsEnabled: false,  // 回复拼接字卡（单条消息拼接多张）
   combineCardsMax: 3,          // 最多拼接几句话
   bgNotifyEnabled: false,      // 后台消息推送（Notification）
@@ -45,28 +45,28 @@ var DEFAULT_SETTINGS = {
   homeContactId: null,         // 首页梦角展示（梦角 id）
   // —— 外观 ——
   theme: 'light',              // light=浅色 / dark=深色（html[data-theme]）
-  customGlobalCss: '',         // 全局主题 CSS（作用于 <style id="custom-global-css">）
-  globalCssLive: false,        // 全局 CSS 实时应用
-  chatFontSize: 15,            // 聊天字号（px，作用于 .chat-stream）
-  bubbleStyle: 'standard',     // standard / rounded / rounded-large / square
-  showChatAvatar: true,        // 聊天中显示头像
-  showEveryAvatar: false,      // 每条消息都显示头像（关闭=仅首条显示）
-  showPartnerName: false,      // 消息旁显示对方名字（单聊）
-  avatarSize: 38,              // 聊天头像尺寸（px）
-  avatarShape: 'square',       // circle / square
   chatBg: '',                  // 聊天流背景（dataURL 或 CSS 渐变）
   headerBg: '',                // 聊天页顶部栏背景
   redpacketCover: '',          // 红包封面（颜色 / 渐变 / dataURL）
-  // —— 外观设置弹窗（chat 参考） ——
-  appearanceAccent: '#111111', // 主题强调色（快捷换肤）
   chatBgImage: '',             // 聊天背景图（dataURL，叠加遮罩保证气泡可读）
+  bubblePreset: 'classic',     // 聊天气泡画廊预设 id（见 bubblecss.js）
+  bubbleUserColor: '',        // 我的气泡颜色（留空=跟随主题，深色下为深灰）
+  bubbleCss: '',               // 手写的气泡 CSS（在预设之上叠加）
+  callBgImage: '',             // 通话背景图（dataURL，与聊天背景对称）
   fontScale: 1,                // 字体缩放（0.85~1.25）
   showMsgAvatar: true,         // 每条消息都显示头像（applyAppearance 同步 showEveryAvatar）
   avatarAlign: 'left',         // 头像对齐 left / right
   globalCss: '',               // 全局主题 CSS（<style id="kc-global-css">）
   // —— 正在输入（微信式） ——
   typingText: '正在输入…',     // 正在输入提示文案
-  typingShowAvatar: true       // 正在输入时显示对方头像
+  typingShowAvatar: true,      // 正在输入时显示对方头像
+  // —— 梦角自主更换（头像 / 朋友圈背景） ——
+  partnerAutoSwapEnabled: true,// 梦角隔一段时间自己换一张图
+  partnerAutoSwapMinDays: 3,   // 间隔下限（天）
+  partnerAutoSwapMaxDays: 30,  // 间隔上限（天）
+  partnerAutoSwapChance: 30,   // 到点后真正更换的概率（0~100）
+  partnerRecAcceptMin: 20,     // 收到推荐时同意的概率下限（%）
+  partnerRecAcceptMax: 80      // 收到推荐时同意的概率上限（%）
 };
 
 // 音效预设（同 chat：无 / kakaoTalk / 内置合成 6 种）
@@ -90,19 +90,7 @@ var TIMESTAMP_FORMATS = [
   { v: 'off', label: '关闭时间戳' }
 ];
 
-// 气泡样式（chat「字体 & 气泡」同款）
-var BUBBLE_STYLES = [
-  { v: 'standard', label: '标准尖角', ico: 'fa-comment' },
-  { v: 'rounded', label: '圆角', ico: 'fa-comment-dots' },
-  { v: 'rounded-large', label: '大圆角胶囊', ico: 'fa-circle' },
-  { v: 'square', label: '方形直角', ico: 'fa-square' }
-];
-
-// 聊天头像形状
-var AVATAR_SHAPES = [
-  { v: 'circle', label: '圆形' },
-  { v: 'square', label: '方形' }
-];
+// 气泡样式预设已迁到「聊天信息 → 修改聊天气泡」的画廊（见 bubblecss.js）
 
 // 主页个人信息卡默认值
 var DEFAULT_HOME = {

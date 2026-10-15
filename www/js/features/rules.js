@@ -131,12 +131,6 @@ function renderSettings(focusSection) {
         sRow({ ico: '<i class="fas fa-user"></i>', label: '首页梦角展示', sub: '主页头像对与展示栏显示哪位梦角',
           val: homeContactDisplay(), act: 'homeDream' })
       ].join('')) +
-    '</div>' +
-
-    // 5) 外观设置（1 行下钻入口）
-    '<div class="set-sec active" data-sec="appearance">' +
-      sGroup('外观设置',
-        sRow({ ico: '<i class="fas fa-palette"></i>', label: '外观设置', sub: '主题配色 · 背景 · 字体 & 气泡 · 聊天头像', arrow: true, act: 'openAppearance' })) +
     '</div>';
 
   bindSettingsEvents();
@@ -182,7 +176,7 @@ function renderCardPoolList() {
       var groups = poolGroups[c.id] || [];
       var disabled = disabledPoolReplies[c.id] || [];
       return '<div class="contact-row" data-pid="' + c.id + '">' +
-        '<div class="contact-avatar">' + escapeHtml(c.avatar || ' ') + '</div>' +
+        '<div class="contact-avatar">' + avatarHtml(c.avatar || ' ') + '</div>' +
         '<div class="contact-mid">' +
           '<div class="contact-name">' + escapeHtml(c.name) + '</div>' +
           '<div class="contact-last">' + pool.length + ' 条字卡 · ' + groups.length + ' 个分组' +
@@ -917,7 +911,7 @@ function bindSettingsEvents() {
       if (act === 'pName') {
         promptModal('昵称', '', homeProfile.name, function (v) { homeProfile.name = v; saveData(); renderSettings(); renderHome(); });
       } else if (act === 'pAvatar') {
-        promptModal('头像', '输入一个 emoji（如 🐧）', homeProfile.avatar, function (v) { homeProfile.avatar = v; saveData(); renderSettings(); renderHome(); });
+        pickMyAvatar(function () { renderSettings(); renderHome(); });
       } else if (act === 'pSign') {
         confirmModal('个性签名', '一句话介绍自己（留空清空）', function (v) {
           homeProfile.signature = (v || '').trim(); saveData(); renderSettings(); renderHome();
@@ -930,8 +924,6 @@ function bindSettingsEvents() {
         renderReplySettings();
       } else if (act === 'openSfx') {
         renderSfxSettings();
-      } else if (act === 'openAppearance') {
-        if (window.renderAppearance) window.renderAppearance();
       } else if (act === 'cardReply') {
         renderCardReply();
       } else if (act === 'cardPool') {
@@ -1075,7 +1067,7 @@ function openHomeDreamPicker() {
   var singles = contacts.filter(function (c) { return !isGroupContact(c); });
   if (!singles.length) { toast('先新建一位梦角'); return; }
   var items = singles.map(function (c) {
-    return { label: (c.id === settings.homeContactId ? '✓ ' : '　') + (c.avatar || ' ') + ' ' + c.name, act: 'hc_' + c.id };
+    return { label: (c.id === settings.homeContactId ? '✓ ' : '　') + avatarText(c.avatar, ' ') + ' ' + c.name, act: 'hc_' + c.id };
   });
   items.push({ label: '取消', act: 'cancel', cancel: true });
   showSheet('首页梦角展示', items, function (act) {
@@ -1328,14 +1320,19 @@ function bindSfxSettingsEvents() {
   });
 }
 
-// 设置页返回（分级返回：外观三级页 → 外观设置 → 主设置 → 主页）
+// 设置页返回（分级返回：三级页 → 二级页 → 主设置 → 主页）
 function settingsBack() {
-  if (_settingsSub === 'ap-theme' || _settingsSub === 'ap-bg' ||
-      _settingsSub === 'ap-font' || _settingsSub === 'ap-avatar') {
-    if (window.renderAppearance) window.renderAppearance();
+  if (_settingsSub === 'card-pool') { renderCardPoolList(); return; }
+  // 从梦角资料页跳进来的：再往上一级就直接回梦角资料页的「聊天设置」，
+  // 不停在设置主页面，做到"从哪进从哪出"
+  if (_settingsReturnView === 'contactinfo') {
+    _settingsReturnView = null;
+    if (typeof renderContactInfo === 'function') {
+      renderContactInfo('settings');
+      showView('contactinfo');
+    }
     return;
   }
-  if (_settingsSub === 'card-pool') { renderCardPoolList(); return; }
   if (_settingsSub) { renderSettings(); return; }
   showView('home');
   renderHome();

@@ -4,7 +4,7 @@ function groupAvatarHtml(c) {
   var ids = getGroupMemberIds(c);
   var cells = ids.slice(0, 4).map(function (id) {
     var m = memberById(id);
-    return '<span>' + escapeHtml((m && m.avatar) || '🌷') + '</span>';
+    return '<span>' + avatarHtml((m && m.avatar) || '🌷') + '</span>';
   }).join('');
   return '<div class="contact-avatar group-ava"><div class="ga-grid">' + cells + '</div></div>';
 }
@@ -50,7 +50,7 @@ function renderContactList() {
     var row = document.createElement('div');
     row.className = 'contact-row';
     row.innerHTML =
-      (group ? groupAvatarHtml(c) : '<div class="contact-avatar">' + escapeHtml(c.avatar || '🌷') + '</div>') +
+      (group ? groupAvatarHtml(c) : '<div class="contact-avatar">' + avatarHtml(c.avatar || '🌷') + '</div>') +
       '<div class="contact-mid">' +
         '<div class="contact-name">' + escapeHtml(c.name) + '</div>' +
         '<div class="contact-last">' + escapeHtml(preview) + '</div>' +
@@ -67,6 +67,9 @@ function renderContactList() {
 function openChat(contactId) {
   activeContactId = contactId;
   var contact = getActiveContact();
+
+  // 梦角各自独立的概率活动：头像/背景自主更换、红包、来电（每位梦角各自排期）
+  if (typeof partnerActivityTick === 'function') partnerActivityTick();
 
   // 清除未读
   contact.unread = 0;
@@ -108,8 +111,10 @@ function initContacts() {
     if (typeof updateNavBadge === 'function') updateNavBadge();
   });
 
-  // 聊天页右上角 ⋯ → 梦角/群聊设置弹层
-  document.getElementById('btn-chat-info').addEventListener('click', openChatInfoSheet);
+  // 聊天页右上角 ⋯ → 梦角资料次级页（contactinfo.js）
+  document.getElementById('btn-chat-info').addEventListener('click', function () {
+    if (typeof openContactInfo === 'function') openContactInfo();
+  });
 }
 
 function createNewContact() {
@@ -152,7 +157,7 @@ function openGroupCreateModal() {
         singles.map(function (c) {
           return '<label class="gc-item">' +
             '<input type="checkbox" value="' + c.id + '">' +
-            '<span class="gc-ava">' + escapeHtml(c.avatar || '🌷') + '</span>' +
+            '<span class="gc-ava">' + avatarHtml(c.avatar || '🌷') + '</span>' +
             '<span class="gc-nm">' + escapeHtml(c.name) + '</span>' +
           '</label>';
         }).join('') +
@@ -195,88 +200,83 @@ function openGroupCreateModal() {
   };
 }
 
-function openChatInfoSheet() {
+// 梦角/群聊的操作集合（梦角资料页「聊天设置」分组逐行调用）
+function chatInfoAction(act) {
   var contact = getActiveContact();
   if (!contact) return;
-  var msgs = activeMessages();
-  var favCount = msgs.filter(function (m) { return m.favorited; }).length;
   var group = isGroupContact(contact);
+  // 操作后重绘梦角资料页（改名/换头像/清空后副标题与统计会变）
+  var refresh = function () {
+    if (typeof renderContactInfo === 'function') renderContactInfo();
+  };
 
-  var items = [];
-  if (group) {
-    items.push({ label: '<i class="fas fa-users"></i> 群成员（' + getGroupMemberIds(contact).length + '）', act: 'members' });
-    items.push({ label: '<i class="fas fa-pen"></i> 修改群聊名称', act: 'rename' });
-    items.push({ label: '<i class="fas fa-folder"></i> 收藏的字卡（' + favCount + '）', act: 'favs' });
-    items.push({ label: '<i class="fas fa-broom"></i> 清空此聊天记录', act: 'clear', danger: true });
-    items.push({ label: '解散群聊', act: 'del', danger: true });
-  } else {
-    items.push({ label: '<i class="fas fa-folder"></i> 收藏的字卡（' + favCount + '）', act: 'favs' });
-    items.push({ label: '<i class="fas fa-book"></i> 专属字卡库', act: 'pool' });
-    items.push({ label: '<i class="fas fa-pen"></i> 修改昵称', act: 'rename' });
-    items.push({ label: '<i class="fas fa-image"></i> 更换头像', act: 'avatar' });
-    items.push({ label: '<i class="fas fa-broom"></i> 清空此聊天记录', act: 'clear', danger: true });
-    items.push({ label: '删除梦角', act: 'del', danger: true });
-  }
-  items.push({ label: '取消', act: 'cancel', cancel: true });
-
-  showSheet(group ? ('群聊 · ' + contact.name) : ('与 ' + contact.name + ' 的聊天'), items, function (act) {
-    if (act === 'favs') {
-      showView('settings');
-      renderSettings('favs');
-    } else if (act === 'pool') {
-      showView('settings');
-      renderSettings('pool:' + contact.id);
-    } else if (act === 'members') {
-      var ids = getGroupMemberIds(contact);
-      showSheet('群成员（' + ids.length + '）', ids.map(function (id, i) {
-        var m = memberById(id);
-        return { label: (m ? (m.avatar || ' ') + ' ' + m.name : '已删除'), act: 'm_' + id };
-      }).concat([{ label: '取消', act: 'cancel', cancel: true }]), function (ma) {
-        if (ma.indexOf('m_') === 0) openChat(ma.slice(2));
-      });
-    } else if (act === 'rename') {
-      promptModal(group ? '修改群聊名称' : '修改昵称', '', contact.name, function (v) {
-        if (!v) return;
-        contact.name = v;
+  if (act === 'favs') {
+    _settingsReturnView = 'contactinfo';      // 记住来路，返回时回梦角资料页而不是主页
+    showView('settings');
+    renderSettings('favs');
+  } else if (act === 'pool') {
+    _settingsReturnView = 'contactinfo';
+    showView('settings');
+    renderSettings('pool:' + contact.id);
+  } else if (act === 'members') {
+    var ids = getGroupMemberIds(contact);
+    showSheet('群成员（' + ids.length + '）', ids.map(function (id) {
+      var m = memberById(id);
+      return { label: m ? (avatarText(m.avatar, ' ') + ' ' + m.name) : '已删除', act: 'm_' + id };
+    }).concat([{ label: '取消', act: 'cancel', cancel: true }]), function (ma) {
+      if (ma.indexOf('m_') === 0) openChat(ma.slice(2));
+    });
+  } else if (act === 'rename') {
+    promptModal(group ? '修改群聊名称' : '修改昵称', '', contact.name, function (v) {
+      if (!v) return;
+      contact.name = v;
+      saveData();
+      DOMElements.chatHeadName.textContent = v;
+      renderContactList();
+      refresh();
+      toast('已修改');
+    });
+  } else if (act === 'avatar') {
+    promptModal('更换头像', '输入一个emoji', contact.avatar || '', function (v) {
+      contact.avatar = v || contact.avatar;
+      saveData();
+      renderAllMessages();
+      renderContactList();
+      if (typeof _resetDreamSign === 'function') _resetDreamSign();
+      refresh();
+      toast('已更换');
+    });
+  } else if (act === 'clear') {
+    confirmModal('清空聊天记录', '将清空与「' + contact.name + '」的全部聊天记录，确定吗？', function () {
+      messagesByContact[contact.id] = [];
+      saveData();
+      renderAllMessages();
+      refresh();
+      toast('已清空');
+    }, { danger: true });
+  } else if (act === 'del') {
+    confirmModal(group ? '解散群聊' : '删除梦角',
+      group
+        ? '将解散「' + contact.name + '」并删除群聊记录（各位梦角保留）'
+        : '将删除「' + contact.name + '」、其全部聊天记录与专属字卡库，确定吗？',
+      function () {
+        contacts = contacts.filter(function (c) { return c.id !== contact.id; });
+        delete messagesByContact[contact.id];
+        delete contactReplyPools[contact.id];
+        delete callLogs[contact.id];
+        delete contactAvatars[contact.id];
+        delete contactCovers[contact.id];
+        delete autoSwapNext[contact.id];
+        delete partnerActivities[contact.id];
+        delete momentsCovers[contact.id];
+        if (settings.homeContactId === contact.id) { settings.homeContactId = null; }
         saveData();
-        DOMElements.chatHeadName.textContent = v;
-        renderContactList();
-        toast('已修改');
-      });
-    } else if (act === 'avatar') {
-      promptModal('更换头像', '输入一个emoji', contact.avatar || '', function (v) {
-        contact.avatar = v || contact.avatar;
-        saveData();
-        renderAllMessages();
+        activeContactId = null;
+        showView('contacts');
         renderContactList();
         if (typeof _resetDreamSign === 'function') _resetDreamSign();
-        toast('已更换');
-      });
-    } else if (act === 'clear') {
-      confirmModal('清空聊天记录', '将清空与「' + contact.name + '」的全部聊天记录，确定吗？', function () {
-        messagesByContact[contact.id] = [];
-        saveData();
-        renderAllMessages();
-        toast('已清空');
+        if (typeof updateNavBadge === 'function') updateNavBadge();
+        toast(group ? '已解散' : '已删除');
       }, { danger: true });
-    } else if (act === 'del') {
-      confirmModal(group ? '解散群聊' : '删除梦角',
-        group
-          ? '将解散「' + contact.name + '」并删除群聊记录（各位梦角保留）'
-          : '将删除「' + contact.name + '」、其全部聊天记录与专属字卡库，确定吗？',
-        function () {
-          contacts = contacts.filter(function (c) { return c.id !== contact.id; });
-          delete messagesByContact[contact.id];
-          delete contactReplyPools[contact.id];
-          if (settings.homeContactId === contact.id) { settings.homeContactId = null; }
-          saveData();
-          activeContactId = null;
-          showView('contacts');
-          renderContactList();
-          if (typeof _resetDreamSign === 'function') _resetDreamSign();
-          if (typeof updateNavBadge === 'function') updateNavBadge();
-          toast(group ? '已解散' : '已删除');
-        }, { danger: true });
-    }
-  });
+  }
 }

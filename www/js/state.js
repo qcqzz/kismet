@@ -13,6 +13,7 @@ var disabledReplies = [];   // 基础库被屏蔽文本 [str...]（屏蔽后 poo
 var disabledPoolReplies = {}; // 专属库被屏蔽 { contactId: [str...] }
 var customPokes = [];     // 拍一拍动作池
 var partnerStatus = '在线';
+var callLogs = {};             // 通话记录 { contactId: [{id, kind, ts, duration, missed}] }（历史通话）
 
 var isReplying = false;
 var replyQueue = [];
@@ -33,6 +34,14 @@ var _annivRotateTimer = null; // 重要日 10s 轮换定时器
 
 // 朋友圈状态
 var momentsData = { posts: [], partnerNext: null }; // 动态流数据（对齐 chat 的 momentsData）
-var momentsCover = null;      // 朋友圈自定义背景图（dataURL）
+var momentsCover = null;      // 朋友圈自定义背景图（dataURL，我自己的）
+var momentsCovers = {};       // 各梦角的朋友圈封面 { contactId: dataURL }（在梦角朋友圈下查看/设置）
+var contactAvatars = {};      // 头像图库（每个梦角独立）{ contactId: [dataURL...] }
+var contactCovers = {};       // 朋友圈背景图库（每个梦角独立）{ contactId: [dataURL...] }
+var autoSwapNext = {};        // 梦角下次自主更换的时间 { contactId: { avatar: ts, cover: ts } }
+// 每位梦角各自独立的概率活动排期 { contactId: { 活动key: 下次触发时间戳 } }
+// key 统一由 registerPartnerActivity 登记，新增活动只需注册，自动按梦角隔离
+var partnerActivities = {};
+var _settingsReturnView = null; // 从梦角资料页跳进设置时的返回目标（'contactinfo'），走完返回要回原处
 
 var DOMElements = {};

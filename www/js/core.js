@@ -66,6 +66,144 @@ function getActiveContact() {
   return contacts.find(function (c) { return c.id === activeContactId; }) || contacts[0];
 }
 
+// ---------- 头像渲染 ----------
+// 头像可以是 emoji，也可以是上传的图片（dataURL / http）；凡是输出 HTML 的地方都要走这里，
+// 否则 dataURL 会被当成一串文字直接显示出来
+function isImageSrc(v) {
+  return typeof v === 'string' && /^(data:image\/|https?:|blob:)/.test(v);
+}
+
+function avatarHtml(v, fallback) {
+  if (isImageSrc(v)) return '<img src="' + escapeHtml(v) + '" alt="">';
+  return escapeHtml(v || fallback || '🌷');
+}
+
+// 纯文本场景（弹层条目等）没有 img 可用，图片用一个符号占位
+function avatarText(v, fallback) {
+  if (isImageSrc(v)) return '🖼';
+  return v || fallback || '';
+}
+
+// ---------- 梦角的图库行为（头像 / 朋友圈背景） ----------
+// 图库按梦角各自独立：'avatar' = 头像库，'cover' = 朋友圈背景库
+function galleryFor(kind, contactId) {
+  var lib = (kind === 'avatar' ? contactAvatars : contactCovers)[contactId];
+  return Array.isArray(lib) ? lib : [];
+}
+
+// 把图库里的某张图应用给梦角
+function applyGalleryImage(contact, kind, dataUrl) {
+  if (!contact || !dataUrl) return;
+  if (kind === 'avatar') {
+    contact.avatar = dataUrl;
+    if (typeof _resetDreamSign === 'function') _resetDreamSign();
+  } else {
+    momentsCovers[contact.id] = dataUrl;
+  }
+  saveData();
+}
+
+// 发推荐：梦角按 20%~80% 浮动概率同意；无论同意与否，这张图都留在图库里可以再发
+function sendImageRecommend(contact, kind, dataUrl) {
+  if (!contact || !dataUrl) return;
+  var min = Number(settings.partnerRecAcceptMin) || 20;
+  var max = Number(settings.partnerRecAcceptMax) || 80;
+  var chance = randomBetween(min, max);
+  var accepted = Math.random() * 100 < chance;
+  var what = kind === 'avatar' ? '头像' : '朋友圈背景';
+
+  if (accepted) {
+    applyGalleryImage(contact, kind, dataUrl);
+    toast(contact.name + ' 接受了你的推荐 · 换上了新' + what);
+  } else {
+    toast(contact.name + ' 婉拒了这次推荐 · 图还在图库里');
+  }
+  if (typeof renderContactList === 'function') renderContactList();
+  if (typeof renderAllMessages === 'function') renderAllMessages();
+  if (typeof renderMoments === 'function' && momentsFilterId === contact.id) renderMoments();
+}
+
+// 梦角自主更换头像 / 朋友圈背景：登记为两条独立活动，各自排期
+// 间隔在 3~30 天之间随机（由用户设置），到点后按 0~100% 概率真正换
+function _swapIntervalMs() {
+  var min = Math.max(3, Math.min(30, Number(settings.partnerAutoSwapMinDays) || 3));
+  var max = Math.max(min, Math.min(30, Number(settings.partnerAutoSwapMaxDays) || 30));
+  return Math.round(randomBetween(min, max) * 86400000);
+}
+// ---------- 每位梦角各自独立的概率活动（登记表） ----------
+// 原则：任何"梦角自发"的行为都走这里。每位梦角的排期、冷却、计数完全独立，
+// 新增活动只需 registerPartnerActivity 注册一条，自动按梦角隔离，无需改别处。
+var _partnerActivities = [];
+
+function registerPartnerActivity(spec) {
+  // key 唯一；重复注册视为覆盖（便于开发期热调）
+  _partnerActivities = _partnerActivities.filter(function (a) { return a.key !== spec.key; });
+  _partnerActivities.push(spec);
+}
+
+function partnerActivityState(contactId) {
+  if (!partnerActivities[contactId]) partnerActivities[contactId] = {};
+  return partnerActivities[contactId];
+}
+
+// 到期判定 + 概率 + 重新排期（无论是否触发都排下一轮，与 chat 一致）
+function partnerActivityTick() {
+  var now = Date.now();
+  var fired = [];
+  contacts.forEach(function (c) {
+    if (isGroupContact(c)) return;                 // 群聊没有"梦角自发"行为
+    var st = partnerActivityState(c.id);
+    _partnerActivities.forEach(function (a) {
+      if (a.enabled && !a.enabled(c)) return;
+      if (!st[a.key]) { st[a.key] = a.nextAt(); saveData(); return; }
+      if (now < st[a.key]) return;
+      if (Math.random() * 100 < a.chance(c)) {
+        try { a.run(c); fired.push(c.name + ':' + a.key); } catch (e) { console.warn('[activity]', a.key, e); }
+      }
+      st[a.key] = a.nextAt();
+    });
+  });
+  if (fired.length) saveData();
+  return fired;
+}
+
+// ---------- 梦角自主更换头像 / 朋友圈背景 ----------
+// 登记为两条独立活动，各自排期；间隔在 3~30 天之间随机，到点后按 0~100% 概率真正换
+function _swapIntervalMs() {
+  var min = Math.max(3, Math.min(30, Number(settings.partnerAutoSwapMinDays) || 3));
+  var max = Math.max(min, Math.min(30, Number(settings.partnerAutoSwapMaxDays) || 30));
+  return Math.round(randomBetween(min, max) * 86400000);
+}
+function _swapChance() {
+  return Math.max(0, Math.min(100, Number(settings.partnerAutoSwapChance) || 0));
+}
+
+registerPartnerActivity({
+  key: 'autoswap-avatar',
+  nextAt: function () { return Date.now() + _swapIntervalMs(); },
+  chance: function () { return _swapChance(); },
+  enabled: function () { return settings.partnerAutoSwapEnabled; },
+  run: function (c) {
+    var lib = galleryFor('avatar', c.id);
+    if (lib.length < 2) return;                     // 少于 2 张没有"换"的意义
+    applyGalleryImage(c, 'avatar', randomOf(lib));  // 完全随机，可能选回当前这张
+  }
+});
+
+registerPartnerActivity({
+  key: 'autoswap-cover',
+  nextAt: function () { return Date.now() + _swapIntervalMs(); },
+  chance: function () { return _swapChance(); },
+  enabled: function () { return settings.partnerAutoSwapEnabled; },
+  run: function (c) {
+    var lib = galleryFor('cover', c.id);
+    if (lib.length < 2) return;
+    applyGalleryImage(c, 'cover', randomOf(lib));
+  }
+});
+
+window.partnerActivityTick = partnerActivityTick;
+
 function activeMessages() {
   return messagesByContact[activeContactId] || [];
 }
@@ -225,6 +363,18 @@ function buildMsgRow(msg) {
   var row = document.createElement('div');
   var contact = getActiveContact();
 
+  if (msg.type === 'call') {
+    var callRow = document.createElement('div');
+    callRow.className = 'msg-row system call-row';
+    callRow.dataset.id = msg.id;
+    callRow.innerHTML = '<div class="call-chip">' +
+      '<i class="fas ' + escapeHtml(msg.icon || 'fa-video') + '"></i>' +
+      '<span>' + escapeHtml(msg.text || '') + '</span>' +
+      (msg.detail ? '<em>' + escapeHtml(msg.detail) + '</em>' : '') +
+      '</div>';
+    return callRow;
+  }
+
   if (msg.type === 'system') {
     row.className = 'msg-row system';
     row.innerHTML = '<div class="sys-text">' + escapeHtml(msg.text) + '</div>';
@@ -251,10 +401,10 @@ function buildMsgRow(msg) {
       if (prev && prev.sender === msg.sender && prev.senderId === msg.senderId) showAvatar = false;
     }
   }
-  var avatarHtml = showAvatar
+  var avatarHtml_ = showAvatar
     ? (isUser
         ? '<div class="msg-avatar">🙂</div>'
-        : '<div class="msg-avatar">' + escapeHtml((senderContact && senderContact.avatar) || '🌷') + '</div>')
+        : '<div class="msg-avatar">' + avatarHtml((senderContact && senderContact.avatar) || '🌷') + '</div>')
     : '<div class="msg-avatar msg-avatar-hidden"></div>';
 
   var nameLine = (!isUser && (isGroupContact(contact) || settings.showPartnerName))
@@ -296,7 +446,7 @@ function buildMsgRow(msg) {
     }
   }
 
-  row.innerHTML = avatarHtml +
+  row.innerHTML = avatarHtml_ +
     '<div class="bubble-wrap">' + nameLine + body +
       '<div class="msg-meta">' + favMark +
         '<span class="ts">' + formatTimeHM(msg.timestamp) + '</span>' + readMark +
@@ -430,7 +580,7 @@ function sendMessage(textOverride, type) {
   DOMElements.messageInput.style.height = 'auto';
 
   // 表情混入消息：概率追加一个表情（与文字同条发送，chat 节奏同款）
-  if (type === 'normal' && text && settings.emojiMixEnabled && Math.random() < 0.25) {
+  if (type === 'normal' && text && settings.emojiMixEnabled && Math.random() < 0.2) {
     text += ' ' + EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
   }
 
@@ -530,19 +680,10 @@ window.simulateReply = function () {
     triggerPartnerPoke();
     drainReplyQueue(); return;
   }
-  // 状态变化：5% 概率（chat 同款；群聊无状态，跳过）
-  if (!group && settings.statusChangeEnabled && Math.random() < 0.05) {
-    changePartnerStatus();
-  }
-  // 梦角主动发红包：2% 概率（功能开启时）
-  if (settings.redPacketEnabled && Math.random() < 0.02) {
-    deliverPartnerMsg('给你发了个红包', group ? randomOf(memberIds) : null, { type: 'redpacket' });
-    drainReplyQueue(); return;
-  }
-
-  // 回复条数：75% 一条，22% 两条，3% 三条（chat 同款）
-  var roll = Math.random();
-  var replyCount = roll < 0.75 ? 1 : (roll < 0.97 ? 2 : 3);
+  // 状态变化：chat 的回复链里没有这一项（kismet 独有），保持默认关闭
+  // 梦角主动发红包：chat 是"定时 20~50 分钟检查、8% 概率、每自然日上限 10 次"，
+  // 不是"每次回复 2%"。这里改为定时调度，金额分布同样照抄 chat 的四档。
+  var replyCount = Math.random() < 0.75 ? 1 : (Math.random() < 0.95 ? 2 : 3);
 
   var totalDelay = 0;
   for (var i = 0; i < replyCount; i++) {
@@ -621,11 +762,61 @@ function pickReply(poolContactId) {
   }
 
   // 表情混入消息：概率与文字同条发送
-  if (settings.emojiMixEnabled && text && Math.random() < 0.25) {
+  if (settings.emojiMixEnabled && text && Math.random() < 0.2) {
     text += ' ' + EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
   }
   return text;
 }
+
+// ---------- 梦角主动发红包（对齐 chat transfer.js 的调度规则） ----------
+// chat：每 20~50 分钟检查一次 → 8% 概率触发 → 每自然日上限 10 次 → 金额四档随机
+// 这里登记为"每位梦角各自独立"的活动：每位梦角有自己的排期和自己的每日计数。
+var RP_LIMIT_PER_DAY = 10;
+var _rpCounters = {};            // { contactId: { date: 'YYYY-M-D', count: n } }
+
+function _rpToday() {
+  var d = new Date();
+  return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+}
+function _rpCountToday(contactId) {
+  var rec = _rpCounters[contactId];
+  return (rec && rec.date === _rpToday()) ? rec.count : 0;
+}
+function _rpBumpToday(contactId) {
+  var cur = _rpCountToday(contactId);
+  _rpCounters[contactId] = { date: _rpToday(), count: cur + 1 };
+}
+
+// 金额四档（与 chat _randomAmount 完全一致）
+function _rpRandomAmount() {
+  var x = Math.random(), amt;
+  if (x < 0.40) amt = 0.5 + Math.random() * 9.5;            // 0.50~9.99
+  else if (x < 0.75) amt = 5 + Math.random() * 995;         // 5~1000
+  else if (x < 0.91) amt = 50 + Math.random() * 1950;       // 50~2000
+  else amt = 2000 + Math.random() * 18000;                  // 2000~20000
+  return Math.round(amt * 100) / 100;
+}
+
+registerPartnerActivity({
+  key: 'redpacket',
+  nextAt: function () { return Date.now() + (20 + Math.random() * 30) * 60000; },  // 20~50 分钟
+  chance: function () { return 8; },
+  enabled: function () { return settings.redPacketEnabled; },
+  run: function (c) {
+    if (_rpCountToday(c.id) >= RP_LIMIT_PER_DAY) return;    // 该梦角今日已满
+    _rpBumpToday(c.id);
+    var amt = _rpRandomAmount();
+    setTimeout(function () {
+      addMessage({
+        id: newId(), contactId: c.id, sender: 'partner', senderId: null,
+        text: '恭喜发财，大吉大利', image: null, voice: null,
+        timestamp: Date.now(), status: 'read', favorited: false,
+        recalled: false, replyTo: null, type: 'redpacket', amount: amt
+      });
+      notifyBackground({ contactId: c.id, type: 'redpacket', text: '🧧 收到一个红包' });
+    }, 900);                                                // chat 里也是延后 900ms 再投递
+  }
+});
 
 // ---------- 对方拍一拍 / 撤回 / 状态（chat 同款事件） ----------
 function triggerPartnerPoke() {
