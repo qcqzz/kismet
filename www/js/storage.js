@@ -67,6 +67,8 @@ function loadAllData() {
   contactAvatars = (savedAvas && typeof savedAvas === 'object') ? savedAvas : {};
   var savedCGalleries = Storage.get('contactCovers');
   contactCovers = (savedCGalleries && typeof savedCGalleries === 'object') ? savedCGalleries : {};
+  var savedBub = Storage.get('contactBubbles');
+  contactBubbles = (savedBub && typeof savedBub === 'object') ? savedBub : {};
   var savedSwap = Storage.get('autoSwapNext');
   autoSwapNext = (savedSwap && typeof savedSwap === 'object') ? savedSwap : {};
   var savedActs = Storage.get('partnerActivities');
@@ -150,6 +152,7 @@ function saveData() {
     Storage.set('momentsCovers', momentsCovers);
     Storage.set('contactAvatars', contactAvatars);
     Storage.set('contactCovers', contactCovers);
+    Storage.set('contactBubbles', contactBubbles);
     Storage.set('autoSwapNext', autoSwapNext);
     Storage.set('partnerActivities', partnerActivities);
   }, 300);

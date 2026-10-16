@@ -88,13 +88,51 @@ function bubblePresetCss(v) {
   return p ? p.css : '';
 }
 
+// ---------- 每个梦角独立的气泡配置 ----------
+// contactBubbles[contactId] 存在就用它，不存在就回落到全局 settings.bubble*。
+// 这样老用户改动之前行为完全不变；只有在「修改聊天气泡」页面上动过，
+// 才会给该梦角落下独立条目，从此与其他梦角彻底隔离。
+function bubbleCfg(contactId) {
+  var own = (contactId && contactBubbles && contactBubbles[contactId]) || null;
+  if (own) {
+    return {
+      mode: own.mode === 'custom' ? 'custom' : 'preset',
+      preset: own.preset || 'classic',
+      css: own.css || '',
+      userColor: own.userColor || ''
+    };
+  }
+  return {
+    mode: settings.bubbleMode === 'custom' ? 'custom' : 'preset',
+    preset: settings.bubblePreset || 'classic',
+    css: settings.bubbleCss || '',
+    userColor: settings.bubbleUserColor || ''
+  };
+}
+
+// 写某位梦角的配置。先用当前生效值播种，再覆盖改动的字段，
+// 避免只写一个字段时把其余字段清空。
+function setBubbleCfg(contactId, patch) {
+  if (!contactId) return;
+  var cur = bubbleCfg(contactId);
+  contactBubbles[contactId] = {
+    mode: cur.mode,
+    preset: cur.preset,
+    css: cur.css,
+    userColor: cur.userColor
+  };
+  Object.keys(patch).forEach(function (k) { contactBubbles[contactId][k] = patch[k]; });
+}
+
 // 预设与手写 CSS 二选一：预设就是最终样式，不再垫在手写 CSS 底下
 // （早前把预设当底层、用户 CSS 叠在上面，但因为预设选择器特异性更高，
 //   用户写的永远不生效——已改为互斥）
-function applyBubbleCss() {
+function applyBubbleCss(contactId) {
   if (typeof settings === 'undefined' || !settings) return;
-  var custom = settings.bubbleMode === 'custom';
-  var css = custom ? (settings.bubbleCss || '') : bubblePresetCss(settings.bubblePreset);
+  var cid = contactId === undefined ? (typeof activeContactId !== 'undefined' ? activeContactId : null) : contactId;
+  var cfg = bubbleCfg(cid);
+  var custom = cfg.mode === 'custom';
+  var css = custom ? cfg.css : bubblePresetCss(cfg.preset);
   var el = document.getElementById('kc-bubble-css');
   if (!el) {
     el = document.createElement('style');
@@ -105,7 +143,7 @@ function applyBubbleCss() {
 
   // 我的气泡颜色：没选就退回主题默认（清掉内联，深色主题才不会被盖掉）
   var root = document.documentElement;
-  var col = settings.bubbleUserColor;
+  var col = cfg.userColor;
   if (col) {
     root.style.setProperty('--bubble-user', col);
     root.style.setProperty('--bubble-user-ink',
@@ -199,7 +237,10 @@ function renderCiBubbleCss() {
   var titleEl = document.getElementById('contactinfo-title');
   if (titleEl) titleEl.textContent = '修改聊天气泡';
 
-  var cur = settings.bubblePreset || 'classic';
+  // 这一页操作的是当前梦角自己的气泡配置，不是全局 settings
+  var cid = activeContactId;
+  var cfg = bubbleCfg(cid);
+  var cur = cfg.preset;
 
   var cards = BUBBLE_CSS_PRESETS.map(function (p) {
     return '<button class="bub-card' + (p.v === cur ? ' active' : '') + '" data-preset="' + p.v + '">' +
@@ -209,13 +250,13 @@ function renderCiBubbleCss() {
       '</button>';
   }).join('');
 
-  var myCol = settings.bubbleUserColor || '';
+  var myCol = cfg.userColor;
   var swatches = BUBBLE_USER_COLORS.map(function (c) {
     return '<button class="bub-sw' + (myCol.toLowerCase() === c.v.toLowerCase() ? ' active' : '') +
       '" data-color="' + c.v + '" title="' + c.label + '" style="background:' + c.v + '"></button>';
   }).join('');
 
-  var mode = settings.bubbleMode === 'custom' ? 'custom' : 'preset';
+  var mode = cfg.mode;
   var usePreset = mode === 'preset';
 
   var presetBlock = usePreset
@@ -229,7 +270,7 @@ function renderCiBubbleCss() {
       '<div class="set-card">' +
         '<textarea id="bubble-css-input" class="modal-textarea bub-code" spellcheck="false" ' +
           'placeholder=".chat-stream .bubble{\n  border-radius: 20px;\n  background: #ffeef5;\n}">' +
-          escapeHtml(settings.bubbleCss || '') + '</textarea>' +
+          escapeHtml(cfg.css) + '</textarea>' +
         '<div class="bub-live-row">' +
           '<label class="bub-live"><input type="checkbox" id="bubble-css-live" checked>边写边预览</label>' +
           '<button class="bub-err" id="bubble-css-err" hidden></button>' +
@@ -282,50 +323,47 @@ function renderCiBubbleCss() {
         '<code>:not(.rp-card-bubble):not(.question-bubble)</code>。') +
     '</div>';
 
+  // 改完统一走 refresh：写入该梦角的独立条目 → 存盘 → 重新应用 → 重绘本页
+  function refresh() {
+    saveData();
+    applyBubbleCss(cid);
+    renderCiBubbleCss();
+    if (activeContactId) renderAllMessages();
+  }
+
   body.querySelectorAll('.bub-mode-btn').forEach(function (b) {
     b.addEventListener('click', function () {
-      settings.bubbleMode = b.dataset.mode;
-      saveData();
-      applyBubbleCss();
-      renderCiBubbleCss();
-      if (activeContactId) renderAllMessages();
+      setBubbleCfg(cid, { mode: b.dataset.mode });
+      refresh();
     });
   });
 
   body.querySelectorAll('.bub-sw').forEach(function (sw) {
     sw.addEventListener('click', function () {
-      settings.bubbleUserColor = sw.dataset.color;
-      saveData();
-      applyBubbleCss();
-      renderCiBubbleCss();
-      if (activeContactId) renderAllMessages();
+      setBubbleCfg(cid, { userColor: sw.dataset.color });
+      refresh();
     });
   });
 
   var picker = body.querySelector('#bubble-user-color');
   if (picker) picker.addEventListener('input', function () {
-    settings.bubbleUserColor = picker.value;
+    setBubbleCfg(cid, { userColor: picker.value });
     saveData();
-    applyBubbleCss();
+    applyBubbleCss(cid);
   });
   var clr = body.querySelector('#bubble-color-clear');
   if (clr) clr.addEventListener('click', function () {
-    settings.bubbleUserColor = '';
-    saveData();
-    applyBubbleCss();
-    renderCiBubbleCss();
-    if (activeContactId) renderAllMessages();
+    setBubbleCfg(cid, { userColor: '' });
+    refresh();
     toast('我的气泡颜色已恢复默认');
   });
 
   body.querySelectorAll('[data-preset]').forEach(function (el) {
     el.addEventListener('click', function () {
-      settings.bubblePreset = el.dataset.preset;
-      saveData();
-      applyBubbleCss();
-      renderCiBubbleCss();
-      toast('已套用「' + presetName(settings.bubblePreset) + '」');
-      if (activeContactId) renderAllMessages();
+      var v = el.dataset.preset;
+      setBubbleCfg(cid, { preset: v });
+      refresh();
+      toast('已套用「' + presetName(v) + '」');
     });
   });
 
@@ -343,9 +381,9 @@ function renderCiBubbleCss() {
 
   // 预览和真实聊天共用同一份 <style>，所以这里 apply 一次两边同时变
   function push(alsoSave) {
-    settings.bubbleCss = ta.value;
+    setBubbleCfg(cid, { css: ta.value });
     if (alsoSave) saveData();
-    applyBubbleCss();
+    applyBubbleCss(cid);
     showErr(checkCssError(ta.value, pv));
     if (activeContactId) renderAllMessages();
   }
@@ -379,8 +417,9 @@ function presetName(v) {
   return p ? p.name : '原生';
 }
 
-// 主列表里「修改聊天气泡」那一行的副标题
-function bubbleModeLabel() {
-  if (settings.bubbleMode === 'custom') return '自定义 CSS';
-  return '预设 · ' + presetName(settings.bubblePreset);
+// 主列表里「修改聊天气泡」那一行的副标题（跟着当前梦角走）
+function bubbleModeLabel(cid) {
+  var cfg = bubbleCfg(cid === undefined ? activeContactId : cid);
+  if (cfg.mode === 'custom') return '自定义 CSS';
+  return '预设 · ' + presetName(cfg.preset);
 }

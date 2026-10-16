@@ -38,6 +38,9 @@ var momentsCover = null;      // 朋友圈自定义背景图（dataURL，我自�
 var momentsCovers = {};       // 各梦角的朋友圈封面 { contactId: dataURL }（在梦角朋友圈下查看/设置）
 var contactAvatars = {};      // 头像图库（每个梦角独立）{ contactId: [dataURL...] }
 var contactCovers = {};       // 朋友圈背景图库（每个梦角独立）{ contactId: [dataURL...] }
+// 聊天气泡样式（每个梦角独立）{ contactId: { mode, preset, css, userColor } }
+// 该梦角没有条目时回落到全局 settings.bubble* ；一旦在这个页面上动过就写成独立条目
+var contactBubbles = {};
 var autoSwapNext = {};        // 梦角下次自主更换的时间 { contactId: { avatar: ts, cover: ts } }
 // 每位梦角各自独立的概率活动排期 { contactId: { 活动key: 下次触发时间戳 } }
 // key 统一由 registerPartnerActivity 登记，新增活动只需注册，自动按梦角隔离

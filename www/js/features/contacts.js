@@ -85,6 +85,8 @@ function openChat(contactId) {
   }
 
   showView('chat');
+  // 每位梦角的气泡样式各自独立，切到谁就套谁的
+  if (typeof applyBubbleCss === 'function') applyBubbleCss(contactId);
   renderAllMessages();
   if (typeof hideAllPopups === 'function') hideAllPopups();
 }
@@ -266,6 +268,7 @@ function chatInfoAction(act) {
         delete callLogs[contact.id];
         delete contactAvatars[contact.id];
         delete contactCovers[contact.id];
+        delete contactBubbles[contact.id];
         delete autoSwapNext[contact.id];
         delete partnerActivities[contact.id];
         delete momentsCovers[contact.id];
