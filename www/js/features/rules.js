@@ -106,7 +106,7 @@ function renderSettings(focusSection) {
       sGroup('通用设置', [
         sRow({ ico: '<i class="fas fa-comment"></i>', label: '个性签名', val: homeProfile.signature || '未填写', act: 'pSign' }),
         sRow({ ico: '<i class="fas fa-location-dot"></i>', label: '位置', val: homeProfile.location || '未设置', act: 'pLoc' }),
-        sRow({ ico: '<i class="fas fa-smile"></i>', label: '状态表情', val: homeProfile.expression || '', act: 'pExpr' }),
+        sRow({ ico: '<i class="fas fa-smile"></i>', label: '状态', val: homeProfile.expression || '', act: 'pExpr' }),
         '<div class="set-row"><span class="row-ico"><i class="fas fa-cloud"></i></span>' +
           '<span class="row-txt"><span class="row-label">天气城市</span>' +
           '<span class="row-sub">' + (settings.weatherCity ? '当前：' + escapeHtml(settings.weatherCity) : '填城市名自动查询，如：上海') + '</span></span>' +
@@ -919,7 +919,7 @@ function bindSettingsEvents() {
       } else if (act === 'pLoc') {
         promptModal('位置', '如：维多利亚港', homeProfile.location || '', function (v) { homeProfile.location = v; saveData(); renderSettings(); renderHome(); });
       } else if (act === 'pExpr') {
-        promptModal('状态表情', '', homeProfile.expression || '', function (v) { homeProfile.expression = v; saveData(); renderSettings(); renderHome(); });
+        promptModal('状态', '', homeProfile.expression || '', function (v) { homeProfile.expression = v; saveData(); renderSettings(); renderHome(); });
       } else if (act === 'openReply') {
         renderReplySettings();
       } else if (act === 'openSfx') {
