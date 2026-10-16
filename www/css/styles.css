@@ -250,6 +250,78 @@ body.avatar-align-right .msg-row.partner { flex-direction: row-reverse; }
 body.no-chat-avatar .msg-avatar { display: none; }
 .msg-avatar-hidden { visibility: hidden; }
 
+/* ============ 字卡库：分页 / 表情包 / 拍一拍 / 语音条 ============ */
+.card-tabs {
+  display: flex; gap: 4px; padding: 4px; margin: 0 0 10px;
+  background: var(--primary-bg); border-radius: 10px;
+}
+.card-tab {
+  flex: 1; padding: 8px 4px; border: none; border-radius: 8px;
+  background: transparent; color: var(--text-secondary);
+  font-size: 13px; font-family: inherit; cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.card-tab.active {
+  background: var(--secondary-bg); color: var(--text-primary);
+  font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
+}
+
+.stk-head { font-size: 12px; color: var(--text-secondary); margin: 2px 0 8px; }
+.stk-note {
+  margin: 10px 14px 4px; font-size: 11px; line-height: 1.6;
+  color: var(--text-secondary);
+}
+.stk-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.stk-cell { position: relative; aspect-ratio: 1; }
+.stk-cell img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+  border-radius: 10px; background: var(--primary-bg); cursor: pointer;
+}
+.stk-del {
+  position: absolute; top: -5px; right: -5px;
+  width: 19px; height: 19px; padding: 0; border: none; border-radius: 50%;
+  background: rgba(0, 0, 0, .55); color: #fff; font-size: 9px;
+  cursor: pointer; line-height: 1;
+}
+.kar-add-wide {
+  flex: 1; padding: 10px; border: 1px dashed var(--border-color);
+  border-radius: 9px; background: transparent; color: var(--text-secondary);
+  font-size: 13px; font-family: inherit; cursor: pointer;
+}
+.kar-add-wide:active { background: var(--secondary-bg); }
+
+.poke-wrap { display: block; }
+.poke-sec { margin-bottom: 16px; }
+.poke-sec .sg-lab { margin-bottom: 6px; }
+.voice-items { display: block; }
+.voice-item-play {
+  flex: 0 0 auto; width: 30px; height: 30px; border: none; border-radius: 50%;
+  background: var(--primary-bg); color: var(--text-primary);
+  font-size: 12px; cursor: pointer;
+}
+.voice-item-dur { margin-left: 6px; font-style: normal; opacity: .55; font-size: 11px; }
+
+/* 语音条消息：上方一条可点击播放的条，下方是上传时填的文字 */
+.voice-msg { min-width: 148px; user-select: none; }
+.voice-bar {
+  position: relative; display: flex; align-items: center; gap: 7px;
+  padding: 6px 10px; border-radius: 9px; cursor: pointer;
+  background: rgba(255, 255, 255, .38); overflow: hidden;
+}
+.msg-row.user .voice-bar { background: rgba(255, 255, 255, .3); }
+.voice-bar i { font-size: 14px; opacity: .8; }
+.voice-dur { font-size: 12px; opacity: .85; }
+.voice-prog {
+  position: absolute; left: 0; top: 0; height: 100%; width: 0;
+  background: rgba(0, 0, 0, .1); transition: width .12s linear; pointer-events: none;
+}
+.voice-msg.playing .voice-bar i { animation: voice-pulse .9s ease-in-out infinite; }
+@keyframes voice-pulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+.voice-text {
+  margin-top: 5px; font-size: 12px; line-height: 1.5;
+  opacity: .78; word-break: break-word;
+}
+
 /* 气泡基础样式：刻意保持"零装饰"——没有圆角、没有小三角、没有投影。
    以前这里写死了 6px 圆角 + ::before 小三角（微信经典样式），等于不管选哪个
    预设、或者完全不套预设，底下永远垫着一层经典样式，看起来就像"预设没生效"。

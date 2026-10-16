@@ -249,6 +249,24 @@ function poolFor(contactId) {
   return pool.filter(function (t) { return blocked.indexOf(t) === -1; });
 }
 
+// 表情包池：基础（全员通用）+ 该梦角专属，与主字卡同样两级合并
+function stickersFor(contactId) {
+  return stickerLibrary.concat((contactStickers && contactStickers[contactId]) || []);
+}
+
+// 语音条池：只做专属，基础库没有语音条
+function voiceFor(contactId) {
+  return (voiceLibrary && Array.isArray(voiceLibrary[contactId])) ? voiceLibrary[contactId] : [];
+}
+
+// 拍一拍池：side = 'partner'（TA的拍一拍，梦角拍用户）| 'mine'（我的拍一拍，用户拍梦角）
+// 同样两级合并；专属那份只对对应梦角生效。
+function pokesFor(contactId, side) {
+  var base = side === 'mine' ? myPokes : partnerPokes;
+  var own = ((contactPokes && contactPokes[contactId]) || {})[side] || [];
+  return (base || []).concat(own);
+}
+
 // 首页展示的梦角（设置里"首页梦角展示"，未选则第一个）
 function getHomeContact() {
   if (settings.homeContactId) {
@@ -426,7 +444,7 @@ function buildMsgRow(msg) {
     } else if (msg.image) {
       inner += '<img class="chat-img" src="' + msg.image + '" alt="">';
     } else if (msg.voice) {
-      inner += '<span class="voice-dot"><i class="fas fa-microphone"></i></span><span>' + msg.voice + '"</span>';
+      inner += voiceHtml(msg);
     } else {
       inner += escapeHtml(msg.text);
     }
@@ -481,6 +499,22 @@ function buildMsgRow(msg) {
     img.addEventListener('click', function (e) {
       e.stopPropagation();
       openImageViewer(msg.image);
+    });
+  }
+  // 语音条点击播放
+  var vbar = row.querySelector('.voice-bar');
+  if (vbar) {
+    vbar.addEventListener('click', function (e) {
+      e.stopPropagation();
+      playVoiceMsg(vbar);
+    });
+  }
+  // 双击梦角头像 → 我的拍一拍（拍的是这条消息的发送者，群里即那一位成员）
+  if (!isUser && msg.sender === 'partner') {
+    var ava = row.querySelector('.msg-avatar');
+    if (ava) ava.addEventListener('dblclick', function (e) {
+      e.stopPropagation();
+      doMyPoke(null, msg.senderId || null);
     });
   }
   return row;
@@ -670,10 +704,14 @@ window.simulateReply = function () {
   var memberIds = group ? getGroupMemberIds(group) : [];
 
   // 候选池：单聊=当前梦角（基础+专属）；群聊=各位成员
+  // 语音条也能撑起一次回复，所以"有没有内容"要把语音算进去，
+  // 否则只配了语音条、没配字卡的梦角会被这里直接挡掉。
   var candidates = group ? memberIds : [activeContactId];
-  var anyPool = candidates.some(function (id) { return poolFor(id).length > 0; });
+  var anyPool = candidates.some(function (id) {
+    return poolFor(id).length > 0 || voiceFor(id).length > 0;
+  });
   if (!anyPool) {
-    toast('字卡库为空，请到设置中添加');
+    toast('字卡库和语音条都是空的，请到设置中添加');
     drainReplyQueue(); return;
   }
   if (group && memberIds.length === 0) { drainReplyQueue(); return; }
@@ -684,7 +722,7 @@ window.simulateReply = function () {
     drainReplyQueue(); return;
   }
   // 拍一拍：3% 概率（群聊由随机成员拍）
-  if (settings.pokeEnabled && customPokes.length && Math.random() < 0.03) {
+  if (settings.pokeEnabled && (pokesFor(activeContactId, 'partner').length || partnerPokes.length) && Math.random() < 0.03) {
     triggerPartnerPoke();
     drainReplyQueue(); return;
   }
@@ -698,13 +736,36 @@ window.simulateReply = function () {
     totalDelay += Math.round(randomBetween(settings.replyDelayMin, settings.replyDelayMax));
     var senderId = group ? randomOf(memberIds) : null;
     (function (index, delay, sId) {
+      var target = sId || activeContactId;
+
+      // 本条是否改发语音条（照搬 chat）：
+      // 语音池非空，且（这条没有文字字卡可用 → 必发语音，或 35% 概率改发语音）
+      var vPool = voiceFor(target);
+      var textAvail = poolFor(target).length > 0;
+      var slotIsVoice = vPool.length > 0 && (!textAvail || Math.random() < 0.35);
+      var slotVoice = slotIsVoice ? randomOf(vPool) : null;
+
+      // 表情包：20% 概率，作为独立一条消息跟在正文后面（照搬 chat）
+      var sPool = stickersFor(target);
+      var slotSticker = (sPool.length > 0 && Math.random() < 0.2) ? randomOf(sPool) : null;
+
       setTimeout(function () {
         // 微信式正在输入：每次回复前显示（群聊显示该成员头像）
         if (index === 0) showTyping(sId ? memberById(sId) : null);
         setTimeout(function () {
           hideTyping();
-          var text = pickReply(sId || activeContactId);
-          if (text) deliverPartnerMsg(text, sId);
+          if (slotVoice) {
+            deliverPartnerVoice(slotVoice, sId);
+          } else {
+            var text = pickReply(target);
+            if (text) deliverPartnerMsg(text, sId);
+          }
+          if (slotSticker) {
+            // 400~1000ms 后补一条纯图片消息
+            setTimeout(function () {
+              deliverPartnerSticker(slotSticker, sId);
+            }, Math.round(randomBetween(400, 1000)));
+          }
           if (index === replyCount - 1) drainReplyQueue();
         }, Math.round(randomBetween(900, 2200)));
       }, delay);
@@ -736,6 +797,124 @@ function deliverPartnerMsg(text, senderId, opts) {
   addMessage(msg);
   if (opts.type !== 'redpacket') playSound('partner_message');
   notifyBackground(msg);
+}
+
+// 投递语音条消息。消息里只存 audioId（指向 IndexedDB 里的音频），
+// 不存音频本体，否则 localStorage 5MB 会被音频迅速撑爆。
+function deliverPartnerVoice(vItem, senderId) {
+  if (!vItem) return;
+  var msg = {
+    id: newId(),
+    contactId: activeContactId,
+    sender: 'partner',
+    senderId: senderId || null,
+    text: '',
+    image: null,
+    voice: {
+      audioId: vItem.audioId || '',
+      duration: Number(vItem.duration) || 0,
+      text: vItem.text || ''
+    },
+    timestamp: Date.now(),
+    status: 'read',
+    favorited: false,
+    recalled: false,
+    replyTo: null,
+    type: 'normal'
+  };
+  addMessage(msg);
+  playSound('partner_message');
+  notifyBackground({ sender: 'partner', text: '[语音]' });
+}
+
+// 投递表情包消息（就是一条普通图片消息）
+function deliverPartnerSticker(sticker, senderId) {
+  if (!sticker) return;
+  var msg = {
+    id: newId(),
+    contactId: activeContactId,
+    sender: 'partner',
+    senderId: senderId || null,
+    text: '',
+    image: sticker.url || sticker.dataUrl || '',
+    voice: null,
+    timestamp: Date.now(),
+    status: 'read',
+    favorited: false,
+    recalled: false,
+    replyTo: null,
+    type: 'normal'
+  };
+  addMessage(msg);
+  playSound('message');
+  notifyBackground({ sender: 'partner', text: '[表情]' });
+}
+
+// ---------- 语音条：渲染 + 播放 ----------
+var _voiceAudio = null;      // 当前正在播放的 <audio>
+var _voiceUrls = {};         // audioId -> objectURL 缓存
+
+function voiceHtml(msg) {
+  var v = msg.voice;
+  // 旧消息：voice 就是个时长字符串，没有音频
+  if (typeof v === 'string') {
+    return '<span class="voice-dot"><i class="fas fa-microphone"></i></span><span>' + escapeHtml(v) + '"</span>';
+  }
+  if (!v) return '';
+  return '<div class="voice-msg" data-voice-id="' + escapeHtml(v.audioId || '') + '">' +
+      '<div class="voice-bar" role="button">' +
+        '<i class="fas fa-volume-up"></i>' +
+        '<span class="voice-dur">' + (v.duration ? escapeHtml(String(v.duration)) + '"' : '语音') + '</span>' +
+        '<div class="voice-prog"></div>' +
+      '</div>' +
+      (v.text ? '<div class="voice-text">' + escapeHtml(v.text) + '</div>' : '') +
+    '</div>';
+}
+
+function playVoiceMsg(el) {
+  var wrap = el.closest ? el.closest('.voice-msg') : null;
+  if (!wrap) return;
+  var audioId = wrap.getAttribute('data-voice-id');
+  if (!audioId || typeof AudioStore === 'undefined') { toast('这条语音没有音频文件'); return; }
+
+  if (_voiceAudio) {
+    var same = _voiceAudio.getAttribute('data-audio-id') === audioId;
+    _voiceAudio.pause();
+    if (same) { resetVoiceBars(); return; }
+    _voiceAudio = null;
+  }
+  resetVoiceBars();
+
+  function attach(blob) {
+    if (!blob) { toast('语音文件已丢失'); return; }
+    if (!_voiceUrls[audioId]) _voiceUrls[audioId] = URL.createObjectURL(blob);
+    var a = new Audio(_voiceUrls[audioId]);
+    a.setAttribute('data-audio-id', audioId);
+    a.addEventListener('ended', function () { resetVoiceBars(); _voiceAudio = null; });
+    a.addEventListener('timeupdate', function () {
+      if (!a.duration) return;
+      var bar = wrap.querySelector('.voice-bar');
+      var prog = bar && bar.querySelector('.voice-prog');
+      if (prog) prog.style.width = (a.currentTime / a.duration * 100) + '%';
+    });
+    a.play().then(function () {
+      _voiceAudio = a;
+      wrap.classList.add('playing');
+    }).catch(function () { toast('播放失败'); });
+  }
+  if (_voiceUrls[audioId]) { attach(null); } else {
+    AudioStore.get(audioId).then(attach).catch(function () { toast('读取语音失败'); });
+  }
+}
+
+function resetVoiceBars() {
+  var stream = DOMElements.chatStream;
+  if (!stream) return;
+  Array.prototype.forEach.call(stream.querySelectorAll('.voice-msg.playing'), function (n) {
+    n.classList.remove('playing');
+    var p = n.querySelector('.voice-prog');
+    if (p) p.style.width = '0%';
+  });
 }
 
 // 后台消息推送（Notification，chat 后台推送同用途）
@@ -827,13 +1006,15 @@ registerPartnerActivity({
 });
 
 // ---------- 对方拍一拍 / 撤回 / 状态（chat 同款事件） ----------
-function triggerPartnerPoke() {
-  if (!customPokes.length) return;
-  var action = customPokes[Math.floor(Math.random() * customPokes.length)];
+// TA的拍一拍：梦角拍用户。动作取「基础 + 该梦角专属」两级合并
+function triggerPartnerPoke(pokeContactId) {
   var contact = getActiveContact();
   var group = isGroupContact(contact) ? contact : null;
-  var member = group ? memberById(randomOf(getGroupMemberIds(group))) : contact;
+  var member = group ? memberById(pokeContactId || randomOf(getGroupMemberIds(group))) : contact;
   if (!member) return;
+  var pool = pokesFor(member.id, 'partner');
+  if (!pool.length) return;
+  var action = randomOf(pool);
   var msg = {
     id: newId(), contactId: activeContactId, sender: 'system',
     senderId: group ? member.id : null,

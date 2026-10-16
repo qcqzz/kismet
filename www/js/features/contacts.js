@@ -269,6 +269,17 @@ function chatInfoAction(act) {
         delete contactAvatars[contact.id];
         delete contactCovers[contact.id];
         delete contactBubbles[contact.id];
+        // 表情包 / 语音条 / 拍一拍也是按梦角存的，删干净（含 IndexedDB 里的音频）
+        if (Array.isArray(contactStickers[contact.id])) delete contactStickers[contact.id];
+        if (Array.isArray(voiceLibrary[contact.id])) {
+          (voiceLibrary[contact.id] || []).forEach(function (v) {
+            if (v && v.audioId && typeof AudioStore !== 'undefined' && AudioStore.del) {
+              try { AudioStore.del(v.audioId); } catch (e) {}
+            }
+          });
+        }
+        delete voiceLibrary[contact.id];
+        delete contactPokes[contact.id];
         delete autoSwapNext[contact.id];
         delete partnerActivities[contact.id];
         delete momentsCovers[contact.id];

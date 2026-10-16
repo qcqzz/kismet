@@ -21,7 +21,6 @@ function loadAllData() {
   var savedContacts = Storage.get('contacts');
   var savedMsgs = Storage.get('messagesByContact');
   var savedReplyPool = Storage.get('replyPool');
-  var savedPokes = Storage.get('customPokes');
 
   settings = Object.assign({}, DEFAULT_SETTINGS, savedSettings || {});
 
@@ -96,7 +95,23 @@ function loadAllData() {
   var savedDisabledPool = Storage.get('disabledPoolReplies');
   disabledPoolReplies = (savedDisabledPool && typeof savedDisabledPool === 'object') ? savedDisabledPool : {};
 
-  customPokes = Array.isArray(savedPokes) ? savedPokes : POKE_ACTIONS.slice();
+  // 表情包：基础（全员）+ 专属（只对对应梦角）
+  var savedStk = Storage.get('stickerLibrary');
+  stickerLibrary = Array.isArray(savedStk) ? savedStk : [];
+  var savedCStk = Storage.get('contactStickers');
+  contactStickers = (savedCStk && typeof savedCStk === 'object') ? savedCStk : {};
+
+  // 语音条（只做专属；音频本体在 IndexedDB 的 AudioStore，这里只存元数据）
+  var savedVoice = Storage.get('voiceLibrary');
+  voiceLibrary = (savedVoice && typeof savedVoice === 'object') ? savedVoice : {};
+
+  // 拍一拍：TA的 / 我的，基础 + 专属两级
+  var savedPP = Storage.get('partnerPokes');
+  partnerPokes = Array.isArray(savedPP) ? savedPP : [];
+  var savedMP = Storage.get('myPokes');
+  myPokes = Array.isArray(savedMP) ? savedMP : [];
+  var savedCP = Storage.get('contactPokes');
+  contactPokes = (savedCP && typeof savedCP === 'object') ? savedCP : {};
 
   // 通话记录（梦角资料页 → 历史通话）
   var savedCalls = Storage.get('callLogs');
@@ -111,6 +126,11 @@ function loadAllData() {
     if (!Array.isArray(callLogs[c.id])) callLogs[c.id] = [];
     if (!Array.isArray(contactAvatars[c.id])) contactAvatars[c.id] = [];
     if (!Array.isArray(contactCovers[c.id])) contactCovers[c.id] = [];
+    if (!Array.isArray(contactStickers[c.id])) contactStickers[c.id] = [];
+    if (!Array.isArray(voiceLibrary[c.id])) voiceLibrary[c.id] = [];
+    if (!contactPokes[c.id]) contactPokes[c.id] = { partner: [], mine: [] };
+    if (!Array.isArray(contactPokes[c.id].partner)) contactPokes[c.id].partner = [];
+    if (!Array.isArray(contactPokes[c.id].mine)) contactPokes[c.id].mine = [];
     if (!autoSwapNext[c.id]) autoSwapNext[c.id] = { avatar: 0, cover: 0 };
     if (!partnerActivities[c.id]) partnerActivities[c.id] = {};
   });
@@ -130,7 +150,6 @@ function saveData() {
       trimmed[cid] = messagesByContact[cid].slice(-300);
     });
     Storage.set('messagesByContact', trimmed);
-    Storage.set('customPokes', customPokes);
     Storage.set('callLogs', callLogs);
     var custom = replyPool.filter(function (r) { return BUILTIN_REPLIES.indexOf(r) === -1; });
     Storage.set('customReplies', custom);
@@ -139,6 +158,12 @@ function saveData() {
     Storage.set('poolGroups', poolGroups);
     Storage.set('disabledReplies', disabledReplies);
     Storage.set('disabledPoolReplies', disabledPoolReplies);
+    Storage.set('stickerLibrary', stickerLibrary);
+    Storage.set('contactStickers', contactStickers);
+    Storage.set('voiceLibrary', voiceLibrary);
+    Storage.set('partnerPokes', partnerPokes);
+    Storage.set('myPokes', myPokes);
+    Storage.set('contactPokes', contactPokes);
     // 主页数据
     Storage.set('homeProfile', homeProfile);
     Storage.set('anniversaries', anniversaries);

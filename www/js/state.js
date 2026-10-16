@@ -11,7 +11,20 @@ var replyGroups = [];       // 基础字卡库分组 [{id,name,color,items:[str.
 var poolGroups = {};        // 专属库分组 { contactId: [{id,name,color,items:[]}] }
 var disabledReplies = [];   // 基础库被屏蔽文本 [str...]（屏蔽后 poolFor 不再抽取）
 var disabledPoolReplies = {}; // 专属库被屏蔽 { contactId: [str...] }
-var customPokes = [];     // 拍一拍动作池
+
+// ---- 表情包（两级合并：基础全员通用 + 专属只给对应梦角）----
+// 表情包本身就是普通图片消息（image 字段），不需要新的消息类型
+var stickerLibrary = [];    // 基础表情包 [{id, url}]
+var contactStickers = {};   // 专属表情包 { contactId: [{id, url}] }
+
+// ---- 语音条（只做专属；音频文件本体存 IndexedDB，这里只存元数据 + audioId）----
+var voiceLibrary = {};      // 专属语音条 { contactId: [{id, text, duration, audioId}] }
+
+// ---- 拍一拍（分 TA的 / 我的；基础 + 专属两级合并，专属只对对应梦角生效）----
+// partner = TA的拍一拍（梦角拍用户）/ mine = 我的拍一拍（用户拍梦角）
+var partnerPokes = [];      // 基础「TA的拍一拍」[str...]
+var myPokes = [];           // 基础「我的拍一拍」[str...]
+var contactPokes = {};      // 专属拍一拍 { contactId: { partner: [str], mine: [str] } }
 var partnerStatus = '在线';
 var callLogs = {};             // 通话记录 { contactId: [{id, kind, ts, duration, missed}] }（历史通话）
 

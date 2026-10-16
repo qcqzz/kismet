@@ -129,19 +129,31 @@ function sendImageMessage(dataUrl) {
   triggerDelayedReply(true);
 }
 
-// 我拍一拍对方（拍一拍动作若由其它入口复用）
-function doMyPoke(action) {
-  var act = action || settings.myPokeText || customPokes[Math.floor(Math.random() * customPokes.length)];
-  var contact = getActiveContact();
+// 我的拍一拍：用户拍梦角。入口是双击梦角消息旁的头像（见 core.js buildMsgRow）。
+// targetId 传入具体梦角（群里即那条消息的发送者），专属拍一拍只对对应梦角生效。
+function doMyPoke(action, targetId) {
+  var cid = targetId || activeContactId;
+  var pool = pokesFor(cid, 'mine');
+  if (!pool.length) {
+    toast('还没有「我的拍一拍」动作，去设置里添加');
+    return;
+  }
+  var act = action || randomOf(pool);
+  var member = targetId ? memberById(targetId) : getActiveContact();
+  if (!member) member = getActiveContact();
+  if (!member) return;
   var msg = {
     id: newId(), contactId: activeContactId, sender: 'system',
-    text: '你 ' + act + ' ' + (contact ? contact.name : '对方'),
+    senderId: targetId || null,
+    text: '你 ' + act + ' ' + (member ? member.name : '对方'),
     timestamp: Date.now(), status: 'read', favorited: false, recalled: false,
     replyTo: null, type: 'system'
   };
   addMessage(msg);
   playSound('my_poke');
-  if (Math.random() < 0.5) setTimeout(triggerPartnerPoke, randomBetween(800, 2000));
+  if (Math.random() < 0.5) {
+    setTimeout(function () { triggerPartnerPoke(targetId || null); }, randomBetween(800, 2000));
+  }
 }
 
 // 让对方继续说：跳过已读不回，直接排队一条回复（群聊由随机成员接着说）

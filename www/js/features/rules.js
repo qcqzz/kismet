@@ -91,12 +91,11 @@ function renderSettings(focusSection) {
       '<div class="set-group">' + settingsProfileCardHtml() + '</div>' +
     '</div>' +
 
-    // 2) 字卡库（4 行下钻入口）
+    // 2) 字卡库（3 行下钻入口；拍一拍已并入字卡库内的分页）
     '<div class="set-sec active" data-sec="cards">' +
       sGroup('字卡库', [
-        sRow({ ico: '<i class="fas fa-comment-dots"></i>', label: '基础字卡库', sub: replyPool.length + ' 条 · 全员可用', arrow: true, act: 'cardReply' }),
-        sRow({ ico: '<i class="fas fa-user-group"></i>', label: '专属字卡库', sub: '单人可用，按梦角分库', arrow: true, act: 'cardPool' }),
-        sRow({ ico: '<i class="fas fa-hand-paper"></i>', label: '拍一拍动作', sub: customPokes.length + ' 个', arrow: true, act: 'cardPoke' }),
+        sRow({ ico: '<i class="fas fa-comment-dots"></i>', label: '基础字卡库', sub: _cardLibSummary(null), arrow: true, act: 'cardReply' }),
+        sRow({ ico: '<i class="fas fa-user-group"></i>', label: '专属字卡库', sub: _cardLibSummary('pool'), arrow: true, act: 'cardPool' }),
         sRow({ ico: '<i class="fas fa-star"></i>', label: '收藏的字卡', sub: favCount + ' 条', arrow: true, act: 'cardFav' })
       ].join('')) +
     '</div>' +
@@ -136,16 +135,17 @@ function renderSettings(focusSection) {
   bindSettingsEvents();
 }
 
-// ---------- 二级子页：基础字卡库 ----------
+// ---------- 二级子页：基础字卡库（主字卡 / 表情包 / 拍一拍） ----------
 function renderCardReply() {
   _settingsSub = 'card-reply';
   var body = DOMElements.settingsBody;
   if (!body) return;
   setSettingsHeader('基础字卡库');
   var ctx = _rlCtx();
+  _cardTab = _cardTab || 'main';
+  var tab = _cardTab;
 
-  body.innerHTML =
-    '<div class="sub-back" id="sub-back">‹ 返回设置</div>' +
+  var mainHtml =
     sGroup('基础字卡库 · 全员可用（' + replyPool.length + ' 条）',
       '<div class="kar-list" id="reply-list">' +
         _rlToolbarHtml(ctx) +
@@ -156,7 +156,15 @@ function renderCardReply() {
         '</div>' +
       '</div>');
 
-  bindCardListEvents(body, renderCardReply);
+  var other = cardTabContent('base', tab, null);
+  body.innerHTML =
+    '<div class="sub-back" id="sub-back">‹ 返回设置</div>' +
+    cardTabBar('base', tab) +
+    (other || mainHtml);
+
+  // 分页条任何时候都要能点；只有主字卡那一页才需要绑列表事件
+  bindCardTabs(body, 'base', null, renderCardReply);
+  if (!other) bindCardListEvents(body, renderCardReply);
 }
 
 // ---------- 二级子页：专属字卡库（梦角列表，联系人式排布） ----------
@@ -175,11 +183,17 @@ function renderCardPoolList() {
       var pool = contactReplyPools[c.id] || [];
       var groups = poolGroups[c.id] || [];
       var disabled = disabledPoolReplies[c.id] || [];
+      var stk = (contactStickers[c.id] || []).length;
+      var voi = (voiceLibrary[c.id] || []).length;
+      var pk = contactPokes[c.id] || {};
+      var pkN = (pk.partner || []).length + (pk.mine || []).length;
       return '<div class="contact-row" data-pid="' + c.id + '">' +
         '<div class="contact-avatar">' + avatarHtml(c.avatar || ' ') + '</div>' +
         '<div class="contact-mid">' +
           '<div class="contact-name">' + escapeHtml(c.name) + '</div>' +
-          '<div class="contact-last">' + pool.length + ' 条字卡 · ' + groups.length + ' 个分组' +
+          '<div class="contact-last">' + pool.length + ' 条字卡 · 表情包 ' + stk +
+            ' · 语音条 ' + voi + ' · 拍一拍 ' + pkN +
+            (groups.length ? ' · ' + groups.length + ' 个分组' : '') +
             (disabled.length ? ' · ' + disabled.length + ' 条已屏蔽' : '') + '</div>' +
         '</div>' +
         '<span class="row-arrow">›</span>' +
@@ -208,10 +222,11 @@ function renderCardPool() {
   _settingsSub = 'card-pool';
   var sel = memberById(_poolSelContact);
   setSettingsHeader(sel ? sel.name : '专属字卡库');
+  _cardTab = _cardTab || 'main';
+  var tab = _cardTab;
 
   var ctx = _rlCtx();
-  body.innerHTML =
-    '<div class="sub-back" id="sub-back">‹ 返回专属字卡库</div>' +
+  var mainHtml =
     sGroup('「' + escapeHtml(sel ? sel.name : '') + '」专属（' + ctx.pool.length + ' 条）',
       '<div class="kar-list" id="pool-list">' +
         _rlToolbarHtml(ctx) +
@@ -222,27 +237,14 @@ function renderCardPool() {
         '</div>' +
       '</div>');
 
-  bindCardListEvents(body, renderCardPool);
-}
-
-// ---------- 二级子页：拍一拍动作 ----------
-function renderCardPoke() {
-  _settingsSub = 'card-poke';
-  var body = DOMElements.settingsBody;
-  if (!body) return;
-  setSettingsHeader('拍一拍动作');
-
+  var other = cardTabContent('pool', tab, _poolSelContact);
   body.innerHTML =
-    '<div class="sub-back" id="sub-back">‹ 返回设置</div>' +
-    sGroup('拍一拍动作（' + customPokes.length + ' 个）',
-      '<div class="kar-list" id="poke-list">' + pokeListHtml() +
-        '<div class="kar-add-row">' +
-          '<input type="text" id="new-poke-input" placeholder="添加拍一拍动作…（对方拍你时随机用）">' +
-          '<button id="add-poke-btn">添加</button>' +
-        '</div>' +
-      '</div>');
+    '<div class="sub-back" id="sub-back">‹ 返回专属字卡库</div>' +
+    cardTabBar('pool', tab) +
+    (other || mainHtml);
 
-  bindCardListEvents(body, renderCardPoke);
+  bindCardTabs(body, 'pool', _poolSelContact, renderCardPool);
+  if (!other) bindCardListEvents(body, renderCardPool);
 }
 
 // ---------- 二级子页：收藏的字卡 ----------
@@ -259,6 +261,23 @@ function renderCardFav() {
   bindCardListEvents(body, renderCardFav);
 }
 
+// 字卡库入口的副标题：把四个分页的规模都报出来
+function _cardLibSummary(kind) {
+  if (kind === 'pool') {
+    var singles = contacts.filter(function (c) { return !isGroupContact(c); });
+    var stk = 0, voi = 0, pk = 0;
+    singles.forEach(function (c) {
+      stk += (contactStickers[c.id] || []).length;
+      voi += (voiceLibrary[c.id] || []).length;
+      var rec = contactPokes[c.id] || {};
+      pk += (rec.partner || []).length + (rec.mine || []).length;
+    });
+    return singles.length + ' 位梦角 · 表情包 ' + stk + ' · 语音条 ' + voi + ' · 拍一拍 ' + pk;
+  }
+  return replyPool.length + ' 条字卡 · 表情包 ' + stickerLibrary.length +
+    ' · 拍一拍 ' + partnerPokes.length + '/' + myPokes.length;
+}
+
 function homeContactDisplay() {
   var hc = getHomeContact();
   return hc ? hc.name : '暂无梦角';
@@ -273,14 +292,6 @@ function setSettingsHeader(title, backIsSub) {
 // 基础字卡库列表 HTML（委托给共用渲染器，上下文=基础库）
 function replyListHtml() {
   return _rlListHtml(_rlCtx());
-}
-
-function pokeListHtml() {
-  if (customPokes.length === 0) return '<div class="empty-hint">没有拍一拍动作</div>';
-  return customPokes.map(function (p, i) {
-    return '<div class="kar-item"><span class="kar-text">' + escapeHtml(p) + '</span>' +
-      '<button class="kar-del" data-idx="' + i + '"><i class="fas fa-times"></i></button></div>';
-  }).join('');
 }
 
 function favListHtml() {
@@ -925,11 +936,11 @@ function bindSettingsEvents() {
       } else if (act === 'openSfx') {
         renderSfxSettings();
       } else if (act === 'cardReply') {
+        _cardTab = 'main';
         renderCardReply();
       } else if (act === 'cardPool') {
+        _cardTab = 'main';
         renderCardPoolList();
-      } else if (act === 'cardPoke') {
-        renderCardPoke();
       } else if (act === 'cardFav') {
         renderCardFav();
       } else if (act === 'homeDream') {
@@ -995,29 +1006,6 @@ function bindCardListEvents(body, rerender) {
   }
   // 字卡库工具条 + 列表（基础库 / 专属库共用）
   _rlBindListEvents(body, rerender);
-
-  // 拍一拍池
-  var addPokeBtn = body.querySelector('#add-poke-btn');
-  if (addPokeBtn) {
-    addPokeBtn.addEventListener('click', function () {
-      var input = body.querySelector('#new-poke-input');
-      var val = input.value.trim();
-      if (!val) return;
-      customPokes.push(val);
-      saveData();
-      rerender();
-    });
-  }
-  var pokeList = body.querySelector('#poke-list');
-  if (pokeList) {
-    pokeList.addEventListener('click', function (e) {
-      var del = e.target.closest('.kar-del');
-      if (!del) return;
-      customPokes.splice(Number(del.dataset.idx), 1);
-      saveData();
-      rerender();
-    });
-  }
 
   // 收藏取消
   var favList = body.querySelector('#fav-list');
@@ -1352,7 +1340,12 @@ function exportData() {
     contacts: contacts,
     messagesByContact: messagesByContact,
     settings: settings,
-    customPokes: customPokes,
+    stickerLibrary: stickerLibrary,
+    contactStickers: contactStickers,
+    voiceLibrary: voiceLibrary,
+    partnerPokes: partnerPokes,
+    myPokes: myPokes,
+    contactPokes: contactPokes,
     customReplies: replyPool.filter(function (r) { return BUILTIN_REPLIES.indexOf(r) === -1; }),
     contactReplyPools: contactReplyPools,
     replyGroups: replyGroups,
@@ -1393,7 +1386,15 @@ function importData() {
           contacts = data.contacts || contacts.slice();
           messagesByContact = data.messagesByContact || {};
           settings = Object.assign({}, DEFAULT_SETTINGS, data.settings || {});
-          customPokes = data.customPokes || POKE_ACTIONS.slice();
+          stickerLibrary = Array.isArray(data.stickerLibrary) ? data.stickerLibrary : [];
+          contactStickers = (data.contactStickers && typeof data.contactStickers === 'object')
+            ? data.contactStickers : {};
+          voiceLibrary = (data.voiceLibrary && typeof data.voiceLibrary === 'object')
+            ? data.voiceLibrary : {};
+          partnerPokes = Array.isArray(data.partnerPokes) ? data.partnerPokes : [];
+          myPokes = Array.isArray(data.myPokes) ? data.myPokes : [];
+          contactPokes = (data.contactPokes && typeof data.contactPokes === 'object')
+            ? data.contactPokes : {};
           replyPool = BUILTIN_REPLIES.concat(data.customReplies || []);
           contactReplyPools = (data.contactReplyPools && typeof data.contactReplyPools === 'object')
             ? data.contactReplyPools : {};
