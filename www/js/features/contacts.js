@@ -96,7 +96,7 @@ function initContacts() {
   document.getElementById('btn-add-contact').addEventListener('click', function () {
     showSheet('添加', [
       { label: '<i class="fas fa-user-plus"></i> 新建梦角', act: 'new' },
-      { label: '<i class="fas fa-users"></i> 发起群聊（邀请多位梦角）', act: 'group' },
+      { label: '<i class="fas fa-users"></i> 发起群聊', act: 'group' },
       { label: '取消', act: 'cancel', cancel: true }
     ], function (act) {
       if (act === 'new') createNewContact();

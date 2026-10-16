@@ -391,8 +391,8 @@ function openAnnivSheet() {
   if (anniversaries.length > 1) {
     items.push({ label: '⏭ 换下一个（当前：' + (main ? main.name : '无') + '）', act: 'next' });
   }
-  items.push({ label: '<i class="fas fa-plus"></i> 添加纪念日（正数天数）', act: 'addAnniv' });
-  items.push({ label: '⏳ 添加倒数日（倒计时）', act: 'addCount' });
+  items.push({ label: '<i class="fas fa-plus"></i> 添加纪念日', act: 'addAnniv' });
+  items.push({ label: '⏳ 添加倒数日', act: 'addCount' });
   if (main) items.push({ label: '<i class="fas fa-trash-alt"></i> 删除这个重要日', act: 'del', danger: true });
   items.push({ label: '取消', act: 'cancel', cancel: true });
 

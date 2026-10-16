@@ -482,7 +482,7 @@ function _rlOpenItemGroupPicker(item, ctx, rerender) {
     return;
   }
   var current = _rlItemGroup(ctx, item);
-  var items = [{ label: (current ? '　' : '✓ ') + '未分组（移出所有分组）', act: 'grp_none' }];
+  var items = [{ label: (current ? '　' : '✓ ') + '未分组', act: 'grp_none' }];
   ctx.groups.forEach(function (g) {
     items.push({ label: (current && current.id === g.id ? '✓ ' : '　') + escapeHtml(g.name), act: 'grp_' + g.id });
   });
@@ -786,9 +786,9 @@ function renderReplySettings() {
         rightHtml: '<input type="number" class="row-num" id="readNoReply-input" min="0" max="100" value="' +
           Math.round((settings.readNoReplyChance || 0) * 100) + '"><span class="row-unit">%</span>' }),
       sRow({ ico: '<i class="fas fa-keyboard"></i>', label: '正在输入', sub: '回复前显示微信式「对方正在输入」', toggle: settings.typingIndicatorEnabled, key: 'typingIndicatorEnabled' }),
-      sRow({ ico: '<i class="fas fa-reply"></i>', label: '梦角撤回消息', sub: '偶尔撤回刚发的消息（3%）', toggle: settings.partnerRecallEnabled, key: 'partnerRecallEnabled' }),
-      sRow({ ico: '<i class="fas fa-hand-paper"></i>', label: '拍一拍', sub: '偶尔触发拍一拍（3%）', toggle: settings.pokeEnabled, key: 'pokeEnabled' }),
-      sRow({ ico: '<i class="fas fa-moon"></i>', label: '状态变化', sub: '梦角的状态偶尔自动变化（5%）', toggle: settings.statusChangeEnabled, key: 'statusChangeEnabled' }),
+      sRow({ ico: '<i class="fas fa-reply"></i>', label: '梦角撤回消息', sub: '偶尔撤回刚发的消息', toggle: settings.partnerRecallEnabled, key: 'partnerRecallEnabled' }),
+      sRow({ ico: '<i class="fas fa-hand-paper"></i>', label: '拍一拍', sub: '偶尔触发拍一拍', toggle: settings.pokeEnabled, key: 'pokeEnabled' }),
+      sRow({ ico: '<i class="fas fa-moon"></i>', label: '状态变化', sub: '梦角的状态偶尔自动变化', toggle: settings.statusChangeEnabled, key: 'statusChangeEnabled' }),
       sRow({ ico: '<i class="fas fa-gift"></i>', label: '梦角主动发红包', sub: '开启后偶尔给你发红包，点气泡拆开', toggle: settings.redPacketEnabled, key: 'redPacketEnabled' })
     ].join('')) +
 
@@ -814,7 +814,7 @@ function renderReplySettings() {
     ].join('')) +
 
     sGroup('主动发送', [
-      sRow({ ico: '<i class="fas fa-envelope"></i>', label: '主动发消息给我', sub: '开启后梦角按间隔主动找你（页面打开时）', toggle: settings.autoSendEnabled, key: 'autoSendEnabled' }),
+      sRow({ ico: '<i class="fas fa-envelope"></i>', label: '主动发消息给我', sub: '开启后梦角按间隔主动找你', toggle: settings.autoSendEnabled, key: 'autoSendEnabled' }),
       '<div class="set-row slider-row" id="auto-send-row"' + (settings.autoSendEnabled ? '' : ' style="display:none"') + '>' +
         '<span class="row-ico"><i class="fas fa-clock"></i></span>' +
         '<span class="row-txt"><span class="row-label">间隔</span></span>' +
@@ -833,7 +833,7 @@ function renderReplySettings() {
     ].join('')) +
 
     sGroup('后台运行', [
-      sRow({ ico: '<i class="fas fa-bell"></i>', label: '后台消息推送', sub: '页面在后台时收到消息弹系统通知（需授权）', toggle: settings.bgNotifyEnabled, key: 'bgNotifyEnabled' })
+      sRow({ ico: '<i class="fas fa-bell"></i>', label: '后台消息推送', sub: '页面在后台时收到消息弹系统通知', toggle: settings.bgNotifyEnabled, key: 'bgNotifyEnabled' })
     ].join(''));
 
   bindReplySettingsEvents();
@@ -889,7 +889,7 @@ function renderSfxSettings() {
     ].join('')) +
     '<div class="sfx-list">' + cardsHtml + '</div>' +
     '<div class="set-note">预设为内置合成音；「kakaotalk」与自定义URL/上传的音频在下一次触发时生效。' +
-    'iOS 需先点一下页面才能出声（浏览器自动播放限制）。</div>';
+    'iOS 需先点一下页面才能出声。</div>';
 
   bindSfxSettingsEvents();
 }
