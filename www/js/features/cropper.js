@@ -4,11 +4,16 @@
 
    用途预设的比例与输出尺寸见 CROP_PRESETS。                            */
 
+// ratioText 只是标题上给人看的比例写法，不参与任何计算，
+// 所以直接写死最简整数比，别用浮点去反推，免得出现 8.9998 这种。
 var CROP_PRESETS = {
-  avatar: { ratio: 1,     w: 480,  h: 480,  label: '头像' },      // 1:1 方图
-  photo:  { ratio: 1,     w: 400,  h: 400,  label: '照片墙' },    // 1:1 方图
-  cover:  { ratio: 16 / 9, w: 1200, h: 675,  label: '封面' },     // 16:9
-  bg:     { ratio: 16 / 9, w: 1200, h: 675,  label: '背景' }      // 16:9
+  avatar: { ratio: 1,     w: 480,  h: 480,  label: '头像',     ratioText: '1:1' },
+  photo:  { ratio: 1,     w: 400,  h: 400,  label: '照片墙',   ratioText: '1:1' },
+  cover:  { ratio: 16 / 9, w: 1200, h: 675,  label: '封面',     ratioText: '16:9' },
+  bg:     { ratio: 16 / 9, w: 1200, h: 675,  label: '背景',     ratioText: '16:9' },
+  // 桌面背景单独一个预设：它是铺满整屏的手机背景，用横向比例会裁掉大半个画面，
+  // 所以改成竖屏 9:16。朋友圈背景库仍然走 bg（横幅本来就该是横的）。
+  homebg: { ratio: 9 / 16, w: 1080, h: 1920, label: '桌面背景', ratioText: '9:16' }
 };
 
 // 打开裁剪器。file 选好的原图，kind 取 CROP_PRESETS 的键，
@@ -38,7 +43,7 @@ function openCropper(file, kind, onDone) {
     mask.innerHTML =
       '<div class="cropper">' +
         '<div class="cropper-t">' + escapeHtml(preset.label) + ' · ' +
-          (preset.ratio === 1 ? '1:1' : '16:9') + '</div>' +
+          escapeHtml(preset.ratioText || '') + '</div>' +
         '<div class="cropper-stage" id="cr-stage" ' +
           'style="width:' + FW + 'px;height:' + FH + 'px">' +
           '<img class="cropper-img" id="cr-img" alt="">' +

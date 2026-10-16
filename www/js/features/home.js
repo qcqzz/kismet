@@ -369,7 +369,8 @@ function openHomeBgEditor() {
     input.value = '';
     if (!file) return;
     if (file.size > MAX_IMAGE_SIZE) { toast('图片请小于 5MB'); return; }
-    openCropper(file, 'bg', function (dataUrl) {
+    // 桌面背景铺满整屏，用竖屏 9:16 预设，不跟朋友圈背景的 16:9 混用
+    openCropper(file, 'homebg', function (dataUrl) {
       settings.homeBgImage = dataUrl;
       saveData();
       thumb.innerHTML = '<img src="' + escapeHtml(dataUrl) + '" alt="">';

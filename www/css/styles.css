@@ -64,7 +64,9 @@ html[data-theme="light"] {
 
 .home-scroll {
   flex: 1; overflow-y: auto;
-  padding: calc(12px + env(safe-area-inset-top)) 16px calc(68px + env(safe-area-inset-bottom));
+  /* 底部 86px：悬浮导航占 68px 高 + 14px 底边距 = 82px，留 4px 余量。
+     照片墙是本区最后一个元素，padding 给不够会被导航盖住。 */
+  padding: calc(12px + env(safe-area-inset-top)) 16px calc(86px + env(safe-area-inset-bottom));
 }
 
 /* 顶部个人信息卡 */
@@ -145,7 +147,10 @@ html[data-theme="light"] {
 .polaroid-top .polaroid { width: 76px; height: 92px; }
 .polaroid-top .p1 { transform: rotate(-6deg); }
 .polaroid-top .p2 { transform: rotate(5deg) translateY(12px); }
-.photo-row { display: flex; justify-content: space-between; gap: 8px; margin-top: 16px; padding: 0 6px; }
+/* margin-bottom 不是装饰：照片墙是旋转着摆的（rotate + translateY），
+   视觉底边会比布局底边低最多 12px（第 4 张 rotate(3deg) translateY(7px)）。
+   不给它留这段余量，滚到底时最下面那张会被悬浮导航压住。 */
+.photo-row { display: flex; justify-content: space-between; gap: 8px; margin-top: 16px; margin-bottom: 14px; padding: 0 6px; }
 .photo-row .polaroid { width: calc((100% - 24px) / 4); height: 88px; }
 .photo-row .polaroid:nth-child(1) { transform: rotate(-3deg); }
 .photo-row .polaroid:nth-child(2) { transform: rotate(2deg) translateY(5px); }
@@ -187,7 +192,9 @@ html[data-theme="light"] {
 /* ============ 微信式头部 ============ */
 .wx-header {
   flex-shrink: 0; display: flex; align-items: center; gap: 6px;
-  padding: calc(10px + env(safe-area-inset-top)) 10px 10px;
+  /* 顶部只留 4px 额外留白，安全区（刘海/状态栏那一段）必须原样保留，
+     再减内容会被系统 UI 遮住 */
+  padding: calc(4px + env(safe-area-inset-top)) 10px 10px;
   background: var(--card-bg); border-bottom: 1px solid var(--line);
 }
 .wx-back {
@@ -762,8 +769,8 @@ html[data-theme="dark"] .bub-err { color: #ff8a80; border-color: rgba(255, 120, 
   bottom: calc(14px + env(safe-area-inset-bottom));
   display: none; z-index: 50;
   justify-content: space-evenly;
-  /* 跟着桌面组件透明度走，但留 0.62 的下限：再透就没法看清图标和文字了 */
-  background: rgba(var(--home-card-tint, 255, 255, 255), max(var(--home-card-alpha, .76), .62));
+  /* 与其它桌面组件同用 --home-card-bg，透明度完全跟着滑块走，不再单设 0.62 下限 */
+  background: var(--home-card-bg, var(--card-bg));
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border: 1px solid var(--line); border-radius: 20px;
