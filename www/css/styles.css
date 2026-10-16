@@ -101,21 +101,23 @@ html[data-theme="light"] {
 }
 .anniv-block { flex: 1; text-align: center; cursor: pointer; min-width: 0; padding-top: 2px; }
 /* 用户头像 + 梦角头像交错（左上角） */
-.anniv-faces { display: flex; justify-content: center; align-items: center; margin-bottom: 6px; }
+.anniv-faces { display: flex; justify-content: center; align-items: center; margin-bottom: 8px; }
 .af-ava {
-  width: 34px; height: 34px; border-radius: 50%;
+  width: 44px; height: 44px; border-radius: 50%;
   background: var(--bg); border: 2px solid var(--card-bg);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.16);
+  box-shadow: 0 1px 5px rgba(0,0,0,0.18);
   display: flex; align-items: center; justify-content: center;
-  font-size: 17px; overflow: hidden;
+  font-size: 22px; overflow: hidden;
 }
-.af-dream { margin-left: -11px; }
+.af-dream { margin-left: -14px; }
+/* 天数收了一档，给头像和下面的字让位；「天 / 天后 / 天前」与名字适当放大，
+   整体从"一个巨大数字 + 两行小字"变成上下层次更均匀。 */
 .anniv-num {
   font-family: Georgia, "Times New Roman", "Songti SC", serif;
-  font-size: 56px; font-weight: 700; line-height: 1; letter-spacing: 1px;
+  font-size: 48px; font-weight: 700; line-height: 1; letter-spacing: 1px;
 }
-.anniv-unit { font-size: 13px; color: var(--ink-2); margin-top: 4px; }
-.anniv-name { font-size: 12px; color: var(--ink-3); margin-top: 7px; }
+.anniv-unit { font-size: 15px; color: var(--ink-2); margin-top: 5px; }
+.anniv-name { font-size: 13px; color: var(--ink-3); margin-top: 8px; }
 /* 10 秒轮换动画 */
 .anniv-block.anniv-fade { opacity: 0; transition: opacity 0.25s ease; }
 .anniv-block.rot-in { animation: annivIn 0.4s ease; }
@@ -859,6 +861,52 @@ body.show-nav .empty-state { padding-bottom: 70px; }
   background: rgba(255,255,255,0.92); border: 2px solid #fff;
   box-shadow: 0 2px 10px rgba(0,0,0,0.16);
   display: flex; align-items: center; justify-content: center; font-size: 30px;
+}
+
+/* ============ 日期滚轮（见 datewheel.js） ============ */
+.dw-box { width: 100%; max-width: 340px; }
+.dw-wrap { position: relative; height: 190px; margin: 6px 0 4px; }
+.dw-cols {
+  position: relative; z-index: 2; display: flex;
+  height: 190px; justify-content: space-around;
+}
+.dw-col {
+  position: relative; flex: 1; height: 100%;
+  overflow: hidden; cursor: grab; touch-action: none;
+}
+.dw-col:active { cursor: grabbing; }
+.dw-list { position: absolute; left: 0; right: 0; top: 0; will-change: transform; }
+.dw-item {
+  height: 38px; line-height: 38px; text-align: center;
+  font-size: 15px; color: var(--text-secondary);
+  transition: color .12s, transform .12s, opacity .12s;
+  opacity: .35;
+}
+.dw-list.drag .dw-item { transition: none; }
+.dw-item.near { opacity: .6; }
+.dw-item.on { opacity: 1; color: var(--text-primary); font-size: 19px; font-weight: 600; }
+.dw-item.off { opacity: .13; color: var(--text-secondary); }
+.dw-item.on-off { opacity: .3; }
+/* 上下渐隐，提示还能继续滚 */
+.dw-mask {
+  position: absolute; inset: 0; z-index: 3; pointer-events: none;
+  background: linear-gradient(to bottom,
+    var(--secondary-bg) 0%, rgba(255,255,255,0) 34%,
+    rgba(255,255,255,0) 66%, var(--secondary-bg) 100%);
+}
+/* 中间选中条 */
+.dw-sel {
+  position: absolute; left: 0; right: 0; top: 50%; z-index: 1;
+  height: 38px; margin-top: -19px; border-radius: 8px;
+  background: rgba(var(--accent-color-rgb), .07);
+  border-top: 1px solid rgba(var(--accent-color-rgb), .18);
+  border-bottom: 1px solid rgba(var(--accent-color-rgb), .18);
+}
+.dw-quick { display: flex; gap: 8px; margin: 2px 0 4px; }
+.dw-q {
+  flex: 1; padding: 7px 0; border-radius: 10px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--primary-bg);
+  color: var(--text-secondary); font-size: 12px; font-family: inherit;
 }
 
 /* ============ 图片裁剪器（见 cropper.js） ============ */

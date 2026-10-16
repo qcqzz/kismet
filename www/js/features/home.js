@@ -554,20 +554,7 @@ function openAnnivSheet() {
 }
 
 function askAnnivDate(onOk, prefill) {
-  var today = new Date();
-  var def = prefill || (today.getFullYear() + '-' +
-    String(today.getMonth() + 1).padStart(2, '0') + '-' +
-    String(today.getDate()).padStart(2, '0'));
-  confirmModal('日期', '格式 2026-01-01（也可以写 2026/1/1）', function (v) {
-    var d = new Date(v.replace(/\//g, '-'));
-    var norm = d.getFullYear() + '-' +
-      String(d.getMonth() + 1).padStart(2, '0') + '-' +
-      String(d.getDate()).padStart(2, '0');
-    onOk(norm);
-  }, {
-    input: def,
-    validate: function (v) { return !isNaN(new Date(v.replace(/\//g, '-')).getTime()); }
-  });
+  openDateWheel(onOk, prefill);
 }
 
 // ---------- 照片（2-5 拍立得照片墙；纪念日旁已换为链接状态小组件） ----------
