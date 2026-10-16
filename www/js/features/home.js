@@ -322,6 +322,107 @@ function pickBoxBgFile() {
   input.click();
 }
 
+// ---------- 桌面背景 + 组件透明度 ----------
+// 设置页和首页资料弹层共用这一个弹窗，避免两处各写一套
+function openHomeBgEditor() {
+  var old = document.getElementById('home-bg-modal');
+  if (old) old.remove();
+
+  var cur = settings.homeBgImage || '';
+  var alpha = Number(settings.homeCardAlpha);
+  if (!(alpha > 0)) alpha = 0.76;
+
+  var mask = document.createElement('div');
+  mask.className = 'modal-mask';
+  mask.id = 'home-bg-modal';
+  mask.innerHTML =
+    '<div class="modal-box home-bg-box">' +
+      '<div class="m-title">桌面背景</div>' +
+      '<div class="hbg-thumb">' +
+        (cur ? '<img src="' + escapeHtml(cur) + '" alt="">' : '<i class="fas fa-image"></i>') +
+      '</div>' +
+      '<div class="hbg-btns">' +
+        '<button class="row-btn" id="hbg-upload"><i class="fas fa-plus"></i> 上传图片</button>' +
+        (cur ? '<button class="row-btn" id="hbg-clear">清除背景</button>' : '') +
+      '</div>' +
+      '<div class="hbg-alpha">' +
+        '<div class="hbg-alpha-lab">组件透明度 <b id="hbg-alpha-val">' +
+          Math.round(alpha * 100) + '%</b></div>' +
+        '<input type="range" id="hbg-alpha" min="40" max="100" step="1" value="' +
+          Math.round(alpha * 100) + '">' +
+        '<div class="hbg-alpha-foot">数值越小卡片越透，桌面背景越明显</div>' +
+      '</div>' +
+      '<div class="m-actions"><button class="m-btn-ok">完成</button></div>' +
+    '</div>';
+  document.body.appendChild(mask);
+
+  var thumb = mask.querySelector('.hbg-thumb');
+  function apply() { applyAppearance(); renderHome(); }
+
+  var input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = function () {
+    var file = input.files && input.files[0];
+    if (!file) return;
+    if (file.size > MAX_IMAGE_SIZE) { toast('图片请小于 5MB'); return; }
+    compressPhoto(file).then(function (dataUrl) {
+      settings.homeBgImage = dataUrl;
+      saveData();
+      thumb.innerHTML = '<img src="' + escapeHtml(dataUrl) + '" alt="">';
+      var clearBtn = mask.querySelector('#hbg-clear');
+      if (clearBtn) clearBtn.remove();
+      var b = mask.querySelector('#hbg-btns-holder') || mask.querySelector('.hbg-btns');
+      if (b && !mask.querySelector('#hbg-clear')) {
+        var nb = document.createElement('button');
+        nb.className = 'row-btn'; nb.id = 'hbg-clear';
+        nb.innerHTML = '清除背景';
+        nb.onclick = clearBg;
+        b.appendChild(nb);
+      }
+      apply();
+      toast('桌面背景已更换');
+    }).catch(function () { toast('图片读取失败'); });
+  };
+
+  function clearBg() {
+    settings.homeBgImage = '';
+    saveData();
+    thumb.innerHTML = '<i class="fas fa-image"></i>';
+    var c = mask.querySelector('#hbg-clear');
+    if (c) c.remove();
+    apply();
+    toast('已清除桌面背景');
+  }
+
+  mask.querySelector('#hbg-upload').onclick = function () { input.click(); };
+  var clear0 = mask.querySelector('#hbg-clear');
+  if (clear0) clear0.onclick = clearBg;
+
+  var slider = mask.querySelector('#hbg-alpha');
+  var valEl = mask.querySelector('#hbg-alpha-val');
+  slider.addEventListener('input', function () {
+    var v = Number(slider.value) / 100;
+    valEl.textContent = slider.value + '%';
+    // 先只刷 CSS 变量，拖动过程不重绘整个首页，避免卡
+    document.documentElement.style.setProperty('--home-card-alpha', v);
+  });
+  slider.addEventListener('change', function () {
+    settings.homeCardAlpha = Number(slider.value) / 100;
+    saveData();
+    applyAppearance();
+  });
+
+  mask.querySelector('.m-btn-ok').onclick = function () {
+    settings.homeCardAlpha = Number(slider.value) / 100;
+    saveData();
+    applyAppearance();
+    renderHome();
+    mask.remove();
+  };
+  mask.addEventListener('click', function (e) { if (e.target === mask) mask.remove(); });
+}
+
 // ---------- 底部拍立得照片墙 ----------
 function polaroidHtml(slot, extraClass) {
   var src = photoWall[slot];
@@ -349,6 +450,7 @@ function openProfileSheet() {
     { label: '<i class="fas fa-comment"></i> 改个性签名', act: 'sign' },
     { label: '<i class="fas fa-location-dot"></i> 改位置', act: 'loc' },
     { label: '<i class="fas fa-smile"></i> 改状态', act: 'expr' },
+    { label: '<i class="fas fa-image"></i> 桌面背景', act: 'homebg' },
     { label: '<i class="fas fa-cloud"></i> 设置天气城市', act: 'city' },
     { label: '取消', act: 'cancel', cancel: true }
   ], function (act) {
@@ -371,6 +473,9 @@ function openProfileSheet() {
       promptModal('状态', '如：(*^^*)  (｡♥‿♥｡)', homeProfile.expression || '', function (v) {
         homeProfile.expression = v; saveData(); renderHome();
       });
+    } else if (act === 'homebg') {
+      closeSheet();
+      openHomeBgEditor();
     } else if (act === 'city') {
       promptWeatherCity();
     }

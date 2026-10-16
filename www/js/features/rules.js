@@ -128,7 +128,11 @@ function renderSettings(focusSection) {
         sRow({ ico: '<i class="fas fa-sliders"></i>', label: '回复设置', sub: '功能与节奏：引用/已读/撤回/红包/速度/主动发送/拼接', arrow: true, act: 'openReply' }),
         sRow({ ico: '<i class="fas fa-volume-up"></i>', label: '音效设置', sub: '消息与拍一拍音效、音量、自定义音频', arrow: true, act: 'openSfx' }),
         sRow({ ico: '<i class="fas fa-user"></i>', label: '首页梦角展示', sub: '主页头像对与展示栏显示哪位梦角',
-          val: homeContactDisplay(), act: 'homeDream' })
+          val: homeContactDisplay(), act: 'homeDream' }),
+        sRow({ ico: '<i class="fas fa-image"></i>', label: '桌面背景', act: 'homeBg',
+          sub: settings.homeBgImage
+            ? '已自定义 · 组件 ' + Math.round((Number(settings.homeCardAlpha) || 0.76) * 100) + '% 不透明'
+            : '未设置 · 组件 ' + Math.round((Number(settings.homeCardAlpha) || 0.76) * 100) + '% 不透明' })
       ].join('')) +
     '</div>';
 
@@ -933,6 +937,9 @@ function bindSettingsEvents() {
       } else if (act === 'cardPool') {
         _cardTab = 'main';
         renderCardPoolList();
+      } else if (act === 'homeBg') {
+        openHomeBgEditor();
+        renderSettings();
       } else if (act === 'cardFav') {
         renderCardFav();
       } else if (act === 'homeDream') {

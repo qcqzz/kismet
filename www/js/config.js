@@ -50,6 +50,8 @@ var DEFAULT_SETTINGS = {
   headerBg: '',                // 聊天页顶部栏背景
   redpacketCover: '',          // 红包封面（颜色 / 渐变 / dataURL）
   chatBgImage: '',             // 聊天背景图（dataURL，叠加遮罩保证气泡可读）
+  homeBgImage: '',             // 桌面（主页）背景图（dataURL，叠加遮罩保证文字可读）
+  homeCardAlpha: 0.76,         // 桌面各组件的不透明度 0.4~1（越低越透，能透出背景）
   bubblePreset: 'classic',     // 聊天气泡画廊预设 id（见 bubblecss.js）
   bubbleMode: 'preset',       // preset=套用预设（预设即最终样式） / custom=自定义 CSS（完全不套用预设）
   bubbleCss: '',              // 手写的气泡 CSS（仅 bubbleMode==='custom' 时生效）

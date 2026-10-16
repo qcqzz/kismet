@@ -63,7 +63,20 @@ function applyAppearance() {
   // 同步核心渲染开关（core.js buildMsgRow 读 showEveryAvatar）
   settings.showEveryAvatar = (s.showMsgAvatar !== false);
 
-  // 6) 气泡 CSS（预设 + 手写）
+  // 6) 桌面（主页）背景图 + 各组件不透明度
+  // 组件透明度用一个 CSS 变量下发，桌面上的卡片统一读它，所以滑块实时可调
+  var homeOverlay = (s.theme === 'dark') ? 'rgba(17,17,17,0.6)' : 'rgba(255,255,255,0.5)';
+  var homeBg = s.homeBgImage
+    ? 'linear-gradient(' + homeOverlay + ',' + homeOverlay + '), url("' + s.homeBgImage + '")'
+    : 'none';
+  root.style.setProperty('--home-bg-image', homeBg);
+  body.classList.toggle('home-has-bg', !!s.homeBgImage);
+  var alpha = Number(s.homeCardAlpha);
+  if (!(alpha > 0)) alpha = 0.76;
+  if (alpha > 1) alpha = 1;
+  root.style.setProperty('--home-card-alpha', alpha);
+
+  // 7) 气泡 CSS（预设 + 手写）
   if (typeof applyBubbleCss === 'function') applyBubbleCss();
 }
 
