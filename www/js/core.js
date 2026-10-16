@@ -444,7 +444,8 @@ function buildMsgRow(msg) {
   }
   var avatarHtml_ = showAvatar
     ? (isUser
-        ? '<div class="msg-avatar">🙂</div>'
+        // 用户自己的头像跟首页资料设置走（homeProfile.avatar），别再写死 emoji
+        ? '<div class="msg-avatar">' + avatarHtml((homeProfile && homeProfile.avatar) || '🐧') + '</div>'
         : '<div class="msg-avatar">' + avatarHtml(contactAvatar(senderContact)) + '</div>')
     : '<div class="msg-avatar msg-avatar-hidden"></div>';
 
