@@ -192,7 +192,7 @@ function renderCardPoolList() {
       var pk = contactPokes[c.id] || {};
       var pkN = (pk.partner || []).length + (pk.mine || []).length;
       return '<div class="contact-row" data-pid="' + c.id + '">' +
-        '<div class="contact-avatar">' + avatarHtml(c.avatar || ' ') + '</div>' +
+        '<div class="contact-avatar">' + avatarHtml(contactAvatar(c)) + '</div>' +
         '<div class="contact-mid">' +
           '<div class="contact-name">' + escapeHtml(c.name) + '</div>' +
           '<div class="contact-last">' + pool.length + ' 条字卡 · 表情包 ' + stk +
@@ -1054,7 +1054,7 @@ function openHomeDreamPicker() {
   var singles = contacts.filter(function (c) { return !isGroupContact(c); });
   if (!singles.length) { toast('先新建一位梦角'); return; }
   var items = singles.map(function (c) {
-    return { label: (c.id === settings.homeContactId ? '✓ ' : '　') + avatarText(c.avatar, ' ') + ' ' + c.name, act: 'hc_' + c.id };
+    return { label: (c.id === settings.homeContactId ? '✓ ' : '　') + avatarText(contactAvatar(c), ' ') + ' ' + c.name, act: 'hc_' + c.id };
   });
   items.push({ label: '取消', act: 'cancel', cancel: true });
   showSheet('首页梦角展示', items, function (act) {

@@ -40,8 +40,7 @@ function _mCName(id) {
   return (c && c.name) ? c.name : '梦角';
 }
 function _mCAvatar(id) {
-  var c = _mContact(id);
-  return (c && c.avatar) ? c.avatar : '🌷';
+  return contactAvatar(_mContact(id));
 }
 // 当前可用的梦角：优先聊天中的对象，否则退回首页展示的梦角
 function _mContactId() {
@@ -222,7 +221,7 @@ function renderMoments(filter) {
 function _mIdentity() {
   if (momentsFilterId) {
     var c = _mContact(momentsFilterId);
-    if (c) return { name: c.name || '梦角', avatar: c.avatar || '🌷', cover: momentsCovers[c.id] || null };
+    if (c) return { name: c.name || '梦角', avatar: contactAvatar(c), cover: momentsCovers[c.id] || null };
   }
   return { name: _mMeName(), avatar: (homeProfile && homeProfile.avatar) || '', cover: momentsCover };
 }

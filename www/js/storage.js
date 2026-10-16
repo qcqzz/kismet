@@ -145,6 +145,9 @@ function loadAllData() {
     if (!Array.isArray(contactPokes[c.id].mine)) contactPokes[c.id].mine = [];
     if (!autoSwapNext[c.id]) autoSwapNext[c.id] = { avatar: 0, cover: 0 };
     if (!partnerActivities[c.id]) partnerActivities[c.id] = {};
+    // 头像只认图库：老存档里的 emoji 头像在这里被清掉，图库为空就落到灰色占位图。
+    // 这里只改内存，不存盘，等下次正常 saveData() 一起落盘。
+    if (typeof syncAvatarToLibrary === 'function') syncAvatarToLibrary(c, false);
   });
 
   partnerStatus = PARTNER_STATUSES[Math.floor(Math.random() * PARTNER_STATUSES.length)];

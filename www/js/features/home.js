@@ -122,7 +122,7 @@ function annivHtml(animate) {
   var main = anniversaries[_selAnniv];
   var hc = getHomeContact();
   var faceA = avatarHtml(homeProfile.avatar || '🐧');
-  var faceB = hc ? avatarHtml(hc.avatar || '🌷') : '🌷';
+  var faceB = avatarHtml(contactAvatar(hc));
 
   var inner = '<div class="anniv-faces">' +
     '<span class="af-ava af-me">' + faceA + '</span>' +
@@ -258,7 +258,7 @@ function showcaseHtml() {
   if (hc) {
     html +=
       '<div class="sc-bar sc-dream" data-act="scDream">' +
-        '<div class="sc-avatar">' + avatarHtml(hc.avatar || '🌷') + '</div>' +
+        '<div class="sc-avatar">' + avatarHtml(contactAvatar(hc)) + '</div>' +
         '<div class="sc-info">' +
           '<div class="sc-name">' + escapeHtml(hc.name) + '</div>' +
           '<div class="sc-sign">' + escapeHtml(_dreamSignCache || '专属字卡库空空的，导入字卡后这里随机换一条') + '</div>' +
@@ -284,7 +284,7 @@ function homeBoxHtml() {
   var hc = getHomeContact();
   var bgStyle = homeBoxBg ? ' style="background-image:url(' + homeBoxBg + ')"' : '';
   return '<div class="home-box' + (homeBoxBg ? ' has-bg' : '') + '" data-act="box"' + bgStyle + '>' +
-    '<div class="hb-face">' + (hc ? avatarHtml(hc.avatar || '🌷') : '🌷') + '</div>' +
+    '<div class="hb-face">' + avatarHtml(contactAvatar(hc)) + '</div>' +
     '</div>';
 }
 

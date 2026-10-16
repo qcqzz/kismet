@@ -4,6 +4,15 @@ var APP_PREFIX = 'KISMET_ZK2_';
 var MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 var VERSION = 2;
 
+// 梦角头像库为空时的默认头像：灰色人形占位图。
+// 内联成 SVG data URL，理由是 isImageSrc() 只认 data:image/ / http(s) / blob:，
+// 放成独立的 .svg 文件会被当成 emoji 文本直接显示出来。
+var DREAM_AVATAR_PLACEHOLDER = 'data:image/svg+xml,' +
+  "%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512' viewBox='0 0 512 512'%3E" +
+  "%3Ccircle cx='256' cy='192' r='106' fill='%23c8c8c8'/%3E" +
+  "%3Cpath d='M48 512v-72c0-74 84-120 208-120s208 46 208 120v72z' fill='%23c8c8c8'/%3E" +
+  '%3C/svg%3E';
+
 // 默认设置（对齐 chat：功能 + 节奏 + 音效，去除真实语音相关）
 var DEFAULT_SETTINGS = {
   // —— 回复设置 · 消息交互（chat 的"功能"） ——

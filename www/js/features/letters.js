@@ -256,7 +256,7 @@ function renderLetters() {
   var picker = '<div class="env-people">' + singles.map(function (c) {
     var n = envelopeUnread(c.id);
     return '<button class="env-person' + (c.id === _envSel ? ' active' : '') + '" data-pid="' + c.id + '">' +
-      '<span class="env-person-ava">' + avatarHtml(c.avatar || ' ') + '</span>' +
+      '<span class="env-person-ava">' + avatarHtml(contactAvatar(c)) + '</span>' +
       '<span class="env-person-name">' + escapeHtml(c.name) + '</span>' +
       (n ? '<span class="env-person-dot">' + (n > 99 ? '99+' : n) + '</span>' : '') +
     '</button>';

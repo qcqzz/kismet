@@ -181,7 +181,7 @@
 
   function fillAv(id) {
     var el = document.getElementById(id);
-    if (el) el.innerHTML = avatarHtml((theContact() || {}).avatar || '🌷');
+    if (el) el.innerHTML = avatarHtml(contactAvatar(theContact()));
   }
   function fillNm(id) {
     var el = document.getElementById(id);

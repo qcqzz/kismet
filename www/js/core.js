@@ -103,6 +103,29 @@ function applyGalleryImage(contact, kind, dataUrl) {
   saveData();
 }
 
+// 梦角头像只来自图库：图库里挑一张，图库空就是灰色占位图。
+// 所有要显示梦角头像的地方都必须走这里，不要直接读 c.avatar ——
+// c.avatar 只是"当前戴着库里哪张"的记号，可能为空、也可能是老存档里的 emoji。
+function contactAvatar(c) {
+  if (!c || isGroupContact(c)) return DREAM_AVATAR_PLACEHOLDER;
+  var lib = galleryFor('avatar', c.id);
+  if (!lib.length) return DREAM_AVATAR_PLACEHOLDER;
+  // 当前记号还指着库里某张就用它，否则回落到第一张
+  return lib.indexOf(c.avatar) >= 0 ? c.avatar : lib[0];
+}
+
+// 图库增删之后把 c.avatar 对齐到库里（传 true 一并存盘）。
+// 图库空了就把记号清空，渲染时自然落到占位图。
+function syncAvatarToLibrary(contact, doSave) {
+  if (!contact || isGroupContact(contact)) return;
+  var lib = galleryFor('avatar', contact.id);
+  if (!lib.length) contact.avatar = '';
+  else if (lib.indexOf(contact.avatar) < 0) contact.avatar = lib[0];
+  else return;                       // 已经指着库里某张，不用动
+  if (doSave && typeof _resetDreamSign === 'function') _resetDreamSign();
+  if (doSave) saveData();
+}
+
 // 发推荐：梦角按 20%~80% 浮动概率同意；无论同意与否，这张图都留在图库里可以再发
 function sendImageRecommend(contact, kind, dataUrl) {
   if (!contact || !dataUrl) return;
@@ -422,7 +445,7 @@ function buildMsgRow(msg) {
   var avatarHtml_ = showAvatar
     ? (isUser
         ? '<div class="msg-avatar">🙂</div>'
-        : '<div class="msg-avatar">' + avatarHtml((senderContact && senderContact.avatar) || '🌷') + '</div>')
+        : '<div class="msg-avatar">' + avatarHtml(contactAvatar(senderContact)) + '</div>')
     : '<div class="msg-avatar msg-avatar-hidden"></div>';
 
   var nameLine = (!isUser && (isGroupContact(contact) || settings.showPartnerName))

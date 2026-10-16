@@ -84,14 +84,12 @@ function _mIdentityCoverHint(c) {
 
 // 顶部资料区（参考图：大头像 + 昵称 + 编辑笔 + 个签徽标）
 function ciProfileHtml(c) {
-  var ava = /^(data:|https?:|blob:)/.test(String(c.avatar || ''))
-    ? '<img src="' + escapeHtml(c.avatar) + '" alt="">'
-    : escapeHtml(c.avatar || '🌷');
+  var ava = avatarHtml(contactAvatar(c));
   var sign = c.signature
     ? '<div class="ci-profile-sign"><span class="ci-sign-dot"></span>' + escapeHtml(c.signature) + '</div>'
     : '';
   return '<div class="ci-profile">' +
-      '<div class="ci-profile-avatar" data-act="' + (isGroupContact(c) ? 'none' : 'ci-avatar') + '">' + ava + '</div>' +
+      '<div class="ci-profile-avatar" data-act="' + (isGroupContact(c) ? 'none' : 'ci-avatarlib') + '">' + ava + '</div>' +
       '<div class="ci-profile-main">' +
         '<div class="ci-profile-name" data-act="ci-rename">' + escapeHtml(c.name) +
           '<span class="ci-profile-edit"><i class="fas fa-pen"></i></span>' +
@@ -152,7 +150,6 @@ function handleCiAct(act) {
     // 以下沿用原 ⋯ 弹层的动作
     case 'ci-members': chatInfoAction('members'); break;
     case 'ci-rename':  chatInfoAction('rename'); break;
-    case 'ci-avatar':  chatInfoAction('avatar'); break;
     case 'ci-pool':    chatInfoAction('pool'); break;
     case 'ci-favs':    chatInfoAction('favs'); break;
     case 'ci-clear':   chatInfoAction('clear'); break;
@@ -171,7 +168,7 @@ function renderCiGallery(kind) {
   var store = isAva ? contactAvatars : contactCovers;
   if (!Array.isArray(store[c.id])) store[c.id] = [];
   var lib = store[c.id];
-  var current = isAva ? c.avatar : (momentsCovers[c.id] || null);
+  var current = isAva ? contactAvatar(c) : (momentsCovers[c.id] || null);
   var what = isAva ? '头像' : '朋友圈背景';
 
   var cells = lib.map(function (src, i) {
@@ -198,7 +195,9 @@ function renderCiGallery(kind) {
     '<div class="set-note">' + (lib.length
       ? '点图库里的任意一张 = 发送给 ' + escapeHtml(c.name) + ' 推荐（对方 ' +
         settings.partnerRecAcceptMin + '%~' + settings.partnerRecAcceptMax + '% 会同意）；右上角 × 删除这张。'
-      : '上传 2 张及以上后，' + escapeHtml(c.name) + ' 会隔一段时间自己随机换一张。') + '</div>' +
+      : (isAva
+        ? '上传第一张就会直接换上；图库 ≥2 张时，' + escapeHtml(c.name) + ' 会隔一段时间自己随机换一张。删光则回到灰色占位图。'
+        : '上传 2 张及以上后，' + escapeHtml(c.name) + ' 会隔一段时间自己随机换一张。')) + '</div>' +
 
     ciAutoSwapGroupHtml();
 
@@ -217,6 +216,9 @@ function renderCiGallery(kind) {
     var i = 0;
     (function next() {
       if (i >= files.length) {
+        // 图库空→有、或当前戴的那张已被删掉时，把头像对齐到库里。
+        // 上传第一张就等于"默认换上"，不用再等梦角自主更换那一轮。
+        if (kind === 'avatar') syncAvatarToLibrary(c, false);
         saveData();
         renderContactInfo(kind === 'avatar' ? 'avatarlib' : 'coverlib');
         toast('已加入图库 · 可以点图推荐给 ' + c.name);
@@ -236,6 +238,8 @@ function renderCiGallery(kind) {
         e.stopPropagation();
         var i = Number(del.dataset.del);
         lib.splice(i, 1);
+        // 删掉正戴着的那张时换下一张；整库删空就回到灰色占位图
+        if (kind === 'avatar') syncAvatarToLibrary(c, false);
         saveData();
         renderContactInfo(kind === 'avatar' ? 'avatarlib' : 'coverlib');
         return;
@@ -374,7 +378,7 @@ function ciHitHtml(m, c, q) {
                  : (isGroupContact(c) && m.senderId
                     ? ((memberById(m.senderId) || {}).name || '梦角')
                     : c.name);
-  var ava = mine ? ((homeProfile && homeProfile.avatar) || '🙂') : (c.avatar || '🌷');
+  var ava = mine ? ((homeProfile && homeProfile.avatar) || '🙂') : contactAvatar(c);
   if (/^(data:|https?:|blob:)/.test(String(ava))) {
     ava = '<img src="' + escapeHtml(ava) + '" alt="">';
   } else {

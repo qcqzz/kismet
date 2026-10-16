@@ -4,7 +4,7 @@ function groupAvatarHtml(c) {
   var ids = getGroupMemberIds(c);
   var cells = ids.slice(0, 4).map(function (id) {
     var m = memberById(id);
-    return '<span>' + avatarHtml((m && m.avatar) || '🌷') + '</span>';
+    return '<span>' + avatarHtml(contactAvatar(m)) + '</span>';
   }).join('');
   return '<div class="contact-avatar group-ava"><div class="ga-grid">' + cells + '</div></div>';
 }
@@ -50,7 +50,7 @@ function renderContactList() {
     var row = document.createElement('div');
     row.className = 'contact-row';
     row.innerHTML =
-      (group ? groupAvatarHtml(c) : '<div class="contact-avatar">' + avatarHtml(c.avatar || '🌷') + '</div>') +
+      (group ? groupAvatarHtml(c) : '<div class="contact-avatar">' + avatarHtml(contactAvatar(c)) + '</div>') +
       '<div class="contact-mid">' +
         '<div class="contact-name">' + escapeHtml(c.name) + '</div>' +
         '<div class="contact-last">' + escapeHtml(preview) + '</div>' +
@@ -124,25 +124,24 @@ function initContacts() {
 function createNewContact() {
   promptModal('新建梦角', '给对方起个名字', '', function (name) {
     if (!name) return;
-    promptModal('头像', '输入一个emoji作为头像（如 🌷）', '🌷', function (avatar) {
-      var c = {
-        id: 'c_' + Date.now(),
-        type: 'dream',
-        name: name,
-        avatar: avatar || '🌷',
-        signature: '',
-        unread: 0,
-        lastTime: 0
-      };
-      contacts.push(c);
-      messagesByContact[c.id] = [];
-      // 同步在字卡库生成该梦角的专属分区（初始为空，由用户自定义导入）
-      contactReplyPools[c.id] = [];
-      saveData();
-      renderContactList();
-      if (typeof _resetDreamSign === 'function') _resetDreamSign();
-      toast('已创建梦角「' + name + '」，专属字卡库分区已生成');
-    });
+    var c = {
+      id: 'c_' + Date.now(),
+      type: 'dream',
+      name: name,
+      avatar: '',              // 头像只认图库，图库空 = 灰色占位图；上传第一张会自动换上
+      signature: '',
+      unread: 0,
+      lastTime: 0
+    };
+    contacts.push(c);
+    messagesByContact[c.id] = [];
+    contactAvatars[c.id] = [];
+    // 同步在字卡库生成该梦角的专属分区（初始为空，由用户自定义导入）
+    contactReplyPools[c.id] = [];
+    saveData();
+    renderContactList();
+    if (typeof _resetDreamSign === 'function') _resetDreamSign();
+    toast('已创建梦角「' + name + '」，专属字卡库分区已生成');
   });
 }
 
@@ -161,7 +160,7 @@ function openGroupCreateModal() {
         singles.map(function (c) {
           return '<label class="gc-item">' +
             '<input type="checkbox" value="' + c.id + '">' +
-            '<span class="gc-ava">' + avatarHtml(c.avatar || '🌷') + '</span>' +
+            '<span class="gc-ava">' + avatarHtml(contactAvatar(c)) + '</span>' +
             '<span class="gc-nm">' + escapeHtml(c.name) + '</span>' +
           '</label>';
         }).join('') +
@@ -226,7 +225,7 @@ function chatInfoAction(act) {
     var ids = getGroupMemberIds(contact);
     showSheet('群成员（' + ids.length + '）', ids.map(function (id) {
       var m = memberById(id);
-      return { label: m ? (avatarText(m.avatar, ' ') + ' ' + m.name) : '已删除', act: 'm_' + id };
+      return { label: m ? (avatarText(contactAvatar(m), ' ') + ' ' + m.name) : '已删除', act: 'm_' + id };
     }).concat([{ label: '取消', act: 'cancel', cancel: true }]), function (ma) {
       if (ma.indexOf('m_') === 0) openChat(ma.slice(2));
     });
@@ -239,16 +238,6 @@ function chatInfoAction(act) {
       renderContactList();
       refresh();
       toast('已修改');
-    });
-  } else if (act === 'avatar') {
-    promptModal('更换头像', '输入一个emoji', contact.avatar || '', function (v) {
-      contact.avatar = v || contact.avatar;
-      saveData();
-      renderAllMessages();
-      renderContactList();
-      if (typeof _resetDreamSign === 'function') _resetDreamSign();
-      refresh();
-      toast('已更换');
     });
   } else if (act === 'clear') {
     confirmModal('清空聊天记录', '将清空与「' + contact.name + '」的全部聊天记录，确定吗？', function () {
