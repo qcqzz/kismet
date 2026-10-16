@@ -250,27 +250,22 @@ body.avatar-align-right .msg-row.partner { flex-direction: row-reverse; }
 body.no-chat-avatar .msg-avatar { display: none; }
 .msg-avatar-hidden { visibility: hidden; }
 
-/* 微信气泡 */
+/* 气泡基础样式：刻意保持"零装饰"——没有圆角、没有小三角、没有投影。
+   以前这里写死了 6px 圆角 + ::before 小三角（微信经典样式），等于不管选哪个
+   预设、或者完全不套预设，底下永远垫着一层经典样式，看起来就像"预设没生效"。
+   现在这些一律下沉到 bubblecss.js 的具体预设里，自定义 CSS 从白纸开始。 */
 .bubble-wrap { max-width: 68%; position: relative; }
 .bubble {
-  position: relative; padding: 10px 12px; border-radius: 6px;
+  position: relative; padding: 10px 12px; border-radius: 0;
   font-size: inherit; line-height: 1.5; word-break: break-word; white-space: pre-wrap;
   background: var(--bubble-partner); color: var(--ink);
-  box-shadow: var(--shadow); cursor: pointer;
+  cursor: pointer;
 }
 /* 用 :where() 把「自己那一侧」的特异性压到 (0,1,0)，与 .bubble 持平。
    否则它会以 (0,3,0) 压过用户手写的 .chat-stream .bubble (0,2,0)，
    导致自定义 CSS 改不动自己气泡的颜色。 */
 :where(.msg-row.user) .bubble { background: var(--bubble-user); color: var(--bubble-user-ink, var(--ink)); }
-/* 气泡小三角 */
-.bubble::before {
-  content: ""; position: absolute; top: 12px; left: -6px;
-  border: 6px solid transparent; border-right-color: var(--bubble-partner); border-left: 0;
-}
-:where(.msg-row.user) .bubble::before {
-  left: auto; right: -6px;
-  border: 6px solid transparent; border-left-color: var(--bubble-user); border-right: 0;
-}
+/* 小三角不再由基础样式提供；想要的话由「经典尖角」预设自己画。 */
 .bubble img.chat-img { max-width: 100%; border-radius: 6px; display: block; }
 
 /* 气泡样式由「修改聊天气泡」的 CSS 画廊接管，见 bubblecss.js */

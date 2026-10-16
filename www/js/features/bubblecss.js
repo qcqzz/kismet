@@ -13,7 +13,19 @@
 // 手写 CSS 请直接写 .chat-stream .bubble，它比基础样式的 .bubble 特异性更高，一定生效。
 var BUBBLE_B = '.chat-stream .bubble:not(.rp-card-bubble):not(.question-bubble)';
 var BUBBLE_U = '.chat-stream .msg-row.user .bubble:not(.rp-card-bubble):not(.question-bubble)';
+var BUBBLE_P = '.chat-stream .msg-row.partner .bubble:not(.rp-card-bubble):not(.question-bubble)';
 var BUBBLE_T = BUBBLE_B + '::before';
+var BUBBLE_UT = BUBBLE_U + '::before';
+var BUBBLE_PT = BUBBLE_P + '::before';
+
+// 小三角的完整画法。以前它是 styles.css 里 .bubble::before 写死的，
+// 等于不管选不选预设都在；现在整体搬进「经典尖角」预设，别的预设一概没有。
+function triangleCss() {
+  return BUBBLE_T + '{ content:""; position:absolute; top:12px; display:block;\n' +
+         '  border:6px solid transparent; }\n' +
+         BUBBLE_PT + '{ left:-6px; right:auto; border-left:0; border-right-color: var(--bubble-partner); }\n' +
+         BUBBLE_UT + '{ left:auto; right:-6px; border-right:0; border-left-color: var(--bubble-user); }';
+}
 
 // 深色主题下的补丁前缀：预设自带，避免每款都去改 styles.css
 var DK = 'html[data-theme="dark"] ';
@@ -25,27 +37,23 @@ var BUBBLE_CSS_PRESETS = [
     css: ''
   },
   {
-    v: 'classic', name: '经典尖角', desc: '默认微信式，带小三角',
-    css: BUBBLE_B + '{ border-radius: 6px; }\n' +
-         BUBBLE_T + '{ display: block; }'
+    v: 'classic', name: '经典尖角', desc: '微信式，带小三角',
+    css: BUBBLE_B + '{ border-radius: 6px; box-shadow: var(--shadow); }\n' + triangleCss()
   },
   {
     v: 'pill', name: '胶囊气泡', desc: '大圆角，像素游戏风',
-    css: BUBBLE_B + '{ border-radius: 22px; padding: 12px 16px; }\n' +
-         BUBBLE_T + '{ display: none; }'
+    css: BUBBLE_B + '{ border-radius: 22px; padding: 12px 16px; box-shadow: var(--shadow); }'
   },
   {
     v: 'glass', name: '玻璃拟态', desc: '半透明 + 背景模糊，聊天背景能透出来',
     css: BUBBLE_B + '{ border-radius: 18px; background: var(--bub-glass); border: 1px solid var(--bub-glass-line); ' +
            'box-shadow: 0 6px 18px rgba(0,0,0,.08); -webkit-backdrop-filter: blur(12px) saturate(1.6); backdrop-filter: blur(12px) saturate(1.6); }\n' +
-         BUBBLE_U + '{ background: rgba(var(--accent-color-rgb),.78); border-color: rgba(255,255,255,.22); color: var(--secondary-bg); }\n' +
-         BUBBLE_T + '{ display: none; }'
+         BUBBLE_U + '{ background: rgba(var(--accent-color-rgb),.78); border-color: rgba(255,255,255,.22); color: var(--secondary-bg); }'
   },
   {
     v: 'stack', name: '硬投影纸片', desc: '错位硬阴影，像叠起来的卡片',
     css: BUBBLE_B + '{ border-radius: 12px 12px 12px 4px; box-shadow: 4px 4px 0 -1px rgba(0,0,0,.14), 8px 8px 0 -3px rgba(0,0,0,.09); }\n' +
          BUBBLE_U + '{ border-radius: 12px 12px 4px 12px; }\n' +
-         BUBBLE_T + '{ display: none; }\n' +
          DK + BUBBLE_B + '{ box-shadow: 4px 4px 0 -1px rgba(255,255,255,.16), 8px 8px 0 -3px rgba(255,255,255,.09); }'
   }
 ];
@@ -263,10 +271,11 @@ function renderCiBubbleCss() {
 
     '<div class="set-note">' + (usePreset
       ? '当前套用预设。预设就是最终样式，不会再叠加自定义 CSS；想自己写样式请切到「自定义 CSS」。'
-      : '当前完全自定义，不会套用任何预设。基础结构是 ' +
-        '<code>.chat-stream &gt; .msg-row.user/.partner &gt; .bubble-wrap &gt; .bubble</code>。<br>' +
-        '写 <code>.chat-stream .bubble{...}</code> 即可覆盖基础样式；' +
-        '去掉对方/自己的小三角要写 <code>.chat-stream .bubble::before{display:none}</code>；' +
+      : '当前完全自定义，不会套用任何预设，基础样式是<b>零装饰</b>的：没有圆角、没有小三角、没有投影，' +
+        '只有必要的内边距和换行行为。<br>' +
+        '结构是 <code>.chat-stream &gt; .msg-row.user/.partner &gt; .bubble-wrap &gt; .bubble</code>，' +
+        '写 <code>.chat-stream .bubble{...}</code> 即可；想要小三角可以自己用 ' +
+        '<code>.bubble::before</code> 加。<br>' +
         '红包与「问问你」是透明卡片容器，如需一并改写请自行加 ' +
         '<code>:not(.rp-card-bubble):not(.question-bubble)</code>。') +
     '</div>';
