@@ -25,6 +25,14 @@ function loadAllData() {
 
   settings = Object.assign({}, DEFAULT_SETTINGS, savedSettings || {});
 
+  // 迁移：气泡 CSS 改成「预设 / 自定义二选一」之前的老存档里没有 bubbleMode，
+  // 但很可能已经存了手写 CSS。那份 CSS 就是当时的意图，不能因为新字段默认值是
+  // 'preset' 就被悄悄忽略——而且自定义模式下才渲染输入框，忽略之后用户在界面
+  // 上根本看不到自己写的东西，只会觉得「运用不了」。所以有 CSS 就判为自定义模式。
+  if (!savedSettings || typeof savedSettings.bubbleMode === 'undefined') {
+    if (settings.bubbleCss) settings.bubbleMode = 'custom';
+  }
+
   // 主页数据
   homeProfile = Object.assign({}, DEFAULT_HOME, Storage.get('homeProfile') || {});
   anniversaries = Array.isArray(Storage.get('anniversaries')) ? Storage.get('anniversaries') : [];
