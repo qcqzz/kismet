@@ -62,12 +62,18 @@ html[data-theme="light"] {
   --home-card-bg: rgba(var(--home-card-tint, 255, 255, 255), var(--home-card-alpha, .76));
 }
 
+/* 主页固定成一屏：flex 纵向排布，多余空间给 .home-box 吸收，
+   不足时也只是把它压到 min-height，压到底才轮到滚动（见下方 overflow 说明）。
+   顶部不加额外留白，资料卡直接贴着安全区（刘海/状态栏那段照旧保留）。 */
 .home-scroll {
   flex: 1; overflow-y: auto;
-  /* 底部 86px：悬浮导航占 68px 高 + 14px 底边距 = 82px，留 4px 余量。
-     照片墙是本区最后一个元素，padding 给不够会被导航盖住。 */
-  padding: calc(12px + env(safe-area-inset-top)) 16px calc(86px + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column;
+  padding: env(safe-area-inset-top) 16px calc(86px + env(safe-area-inset-bottom));
 }
+
+/* 这几块不参与压缩：压了会裁到里面的头像或文字。
+   .home-box 是纯装饰大方框，只有它可以让位/吸收富余。 */
+.profile-card, .home-mid, .showcase, .photo-row { flex: 0 0 auto; }
 
 /* 顶部个人信息卡 */
 .profile-card {
@@ -101,7 +107,7 @@ html[data-theme="light"] {
    内部内容仍由 justify-content:center 居中。原来是 center，卡片比纪念日矮一截。 */
 .home-mid {
   display: flex; align-items: stretch; justify-content: space-between;
-  margin-top: 16px; padding: 0 4px; gap: 10px;
+  margin-top: 14px; padding: 0 4px; gap: 10px;
 }
 .anniv-block { flex: 1; text-align: center; cursor: pointer; min-width: 0; padding-top: 2px; }
 /* 用户头像 + 梦角头像交错（左上角） */
@@ -836,7 +842,7 @@ body.show-nav .empty-state { padding-bottom: 70px; }
 }
 
 /* 双展示栏（第一排梦角 / 第二排用户） */
-.showcase { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+.showcase { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
 .sc-bar {
   display: flex; align-items: center; gap: 12px; cursor: pointer;
   background: var(--home-card-bg, var(--card-bg));
@@ -857,9 +863,12 @@ body.show-nav .empty-state { padding-bottom: 70px; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-/* 大方框（中间梦角头像，长按换背景，无文字） */
+/* 大方框（中间梦角头像，长按换背景，无文字）。
+   没有固定高度：flex-basis 132px，高屏时吸收富余、矮屏时压缩让位，
+   min/max-height 兜住上下限，避免被压没或无限拉长。 */
 .home-box {
-  margin-top: 16px; height: 132px; position: relative; overflow: hidden; cursor: pointer;
+  margin-top: 14px; flex: 1 1 132px; min-height: 84px; max-height: 240px;
+  position: relative; overflow: hidden; cursor: pointer;
   border-radius: 16px; border: 1px solid var(--line); box-shadow: var(--shadow);
   background: var(--home-card-bg, var(--card-bg)) center / cover no-repeat;
   display: flex; align-items: center; justify-content: center;
