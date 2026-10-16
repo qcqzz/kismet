@@ -139,13 +139,11 @@ function doMyPoke(action, targetId) {
     return;
   }
   var act = action || randomOf(pool);
-  var member = targetId ? memberById(targetId) : getActiveContact();
-  if (!member) member = getActiveContact();
-  if (!member) return;
+  // 只带发起人前缀，不带接收人后缀
   var msg = {
     id: newId(), contactId: activeContactId, sender: 'system',
     senderId: targetId || null,
-    text: '你 ' + act + ' ' + (member ? member.name : '对方'),
+    text: '你 ' + act,
     timestamp: Date.now(), status: 'read', favorited: false, recalled: false,
     replyTo: null, type: 'system'
   };
