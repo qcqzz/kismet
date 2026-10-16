@@ -82,7 +82,7 @@ function profileCardHtml() {
   return '' +
     '<div class="profile-card" data-act="profile">' +
       '<div class="pc-left">' +
-        '<div class="pc-avatar">' + avatarHtml(p.avatar || '🐧') + '</div>' +
+        '<div class="pc-avatar">' + avatarHtml(myAvatar()) + '</div>' +
         '<div>' +
           '<div class="pc-name">' + escapeHtml(p.name || '我') + '</div>' +
           '<div class="pc-loc">' + (p.location ? '<i class="fas fa-location-dot"></i> ' + escapeHtml(p.location) : '<i class="fas fa-location-dot"></i> 点这里设置位置') + '</div>' +
@@ -121,7 +121,7 @@ function annivInfo(a) {
 function annivHtml(animate) {
   var main = anniversaries[_selAnniv];
   var hc = getHomeContact();
-  var faceA = avatarHtml(homeProfile.avatar || '🐧');
+  var faceA = avatarHtml(myAvatar());
   var faceB = avatarHtml(contactAvatar(hc));
 
   var inner = '<div class="anniv-faces">' +
@@ -268,7 +268,7 @@ function showcaseHtml() {
 
   html +=
     '<div class="sc-bar sc-me" data-act="scMe">' +
-      '<div class="sc-avatar">' + avatarHtml(homeProfile.avatar || '🐧') + '</div>' +
+      '<div class="sc-avatar">' + avatarHtml(myAvatar()) + '</div>' +
       '<div class="sc-info">' +
         '<div class="sc-name">' + escapeHtml(homeProfile.name || '我') + '</div>' +
         '<div class="sc-sign">' + escapeHtml(homeProfile.signature || '点这里编辑个性签名') + '</div>' +

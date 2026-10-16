@@ -114,6 +114,12 @@ function contactAvatar(c) {
   return lib.indexOf(c.avatar) >= 0 ? c.avatar : lib[0];
 }
 
+// 用户自己的头像。没设过就走和梦角一样的灰色人形占位图，
+// 别再各处硬编码 🐧 / 🙂 / 空串，几种默认会长得不一样。
+function myAvatar() {
+  return (homeProfile && homeProfile.avatar) || DREAM_AVATAR_PLACEHOLDER;
+}
+
 // 图库增删之后把 c.avatar 对齐到库里（传 true 一并存盘）。
 // 图库空了就把记号清空，渲染时自然落到占位图。
 function syncAvatarToLibrary(contact, doSave) {
@@ -444,8 +450,8 @@ function buildMsgRow(msg) {
   }
   var avatarHtml_ = showAvatar
     ? (isUser
-        // 用户自己的头像跟首页资料设置走（homeProfile.avatar），别再写死 emoji
-        ? '<div class="msg-avatar">' + avatarHtml((homeProfile && homeProfile.avatar) || '🐧') + '</div>'
+        // 用户自己的头像跟首页资料设置走（homeProfile.avatar），没设过就是灰色占位图
+        ? '<div class="msg-avatar">' + avatarHtml(myAvatar()) + '</div>'
         : '<div class="msg-avatar">' + avatarHtml(contactAvatar(senderContact)) + '</div>')
     : '<div class="msg-avatar msg-avatar-hidden"></div>';
 

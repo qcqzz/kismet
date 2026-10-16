@@ -223,7 +223,7 @@ function _mIdentity() {
     var c = _mContact(momentsFilterId);
     if (c) return { name: c.name || '梦角', avatar: contactAvatar(c), cover: momentsCovers[c.id] || null };
   }
-  return { name: _mMeName(), avatar: (homeProfile && homeProfile.avatar) || '', cover: momentsCover };
+  return { name: _mMeName(), avatar: myAvatar(), cover: momentsCover };
 }
 
 // 写入封面：梦角的朋友圈写各自的，全局朋友圈写我自己的
@@ -249,7 +249,7 @@ function momentsCoverHtml() {
     // 看梦角的朋友圈时不显示 ＋：那里的动态都是 TA 发的，我发不出
     (viewingPartner ? '' : '<button type="button" class="m-post-btn" data-act="post"><i class="fas fa-plus"></i></button>') +
     '<div class="m-me-row">' +
-      '<div class="m-me-avatar">' + (me.avatar ? avatarHtml(me.avatar) : '<i class="fas fa-user"></i>') + '</div>' +
+      '<div class="m-me-avatar">' + avatarHtml(me.avatar) + '</div>' +
       '<div class="m-me-name">' + escapeHtml(me.name) + '</div>' +
     '</div>' +
   '</div>';
@@ -258,7 +258,7 @@ function momentsCoverHtml() {
 function momentPostHtml(post) {
   var isPartner = post.type === 'partner';
   var name = isPartner ? _mCName(post.contactId) : _mMeName();
-  var avatar = isPartner ? _mCAvatar(post.contactId) : ((homeProfile && homeProfile.avatar) || '');
+  var avatar = isPartner ? _mCAvatar(post.contactId) : myAvatar();
   var likeOn = !!post.userLiked;
   var likeCount = (post.partnerLiked ? 1 : 0) + (post.userLiked ? 1 : 0);
   var isMine = post.type === 'user';
@@ -268,7 +268,7 @@ function momentPostHtml(post) {
   if (post.userLiked) likers.push(_mMeName());
 
   return '<div class="m-post" data-pid="' + escapeHtml(post.id) + '" data-type="' + post.type + '">' +
-    '<div class="m-pav">' + (avatar ? avatarHtml(avatar) : '<i class="fas fa-user"></i>') + '</div>' +
+    '<div class="m-pav">' + avatarHtml(avatar) + '</div>' +
     '<div class="m-pmain">' +
       '<div class="m-phead">' +
         '<div class="m-pname">' + escapeHtml(name) + '</div>' +

@@ -42,9 +42,7 @@ function sGroup(title, rowsHtml) {
 
 // ---------- 用户资料卡（设置页顶部） ----------
 function profileAvatarHtml() {
-  var v = (homeProfile && homeProfile.avatar) ? String(homeProfile.avatar) : '🐧';
-  if (/^(data:|https?:|blob:)/.test(v)) return '<img src="' + escapeHtml(v) + '" alt="">';
-  return escapeHtml(v);
+  return avatarHtml(myAvatar());
 }
 
 // 设置页顶部的资料卡（注意：函数名不能与 home.js 的 profileCardHtml 重名，

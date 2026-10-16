@@ -378,7 +378,7 @@ function ciHitHtml(m, c, q) {
                  : (isGroupContact(c) && m.senderId
                     ? ((memberById(m.senderId) || {}).name || '梦角')
                     : c.name);
-  var ava = mine ? ((homeProfile && homeProfile.avatar) || '🙂') : contactAvatar(c);
+  var ava = mine ? myAvatar() : contactAvatar(c);
   if (/^(data:|https?:|blob:)/.test(String(ava))) {
     ava = '<img src="' + escapeHtml(ava) + '" alt="">';
   } else {
