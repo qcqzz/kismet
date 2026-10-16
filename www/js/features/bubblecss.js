@@ -120,15 +120,17 @@ window.applyBubbleCss = applyBubbleCss;
 // ---------- 三级页：修改聊天气泡 ----------
 // 预览用的 DOM 必须和聊天流里的结构完全一致（.chat-stream > .msg-row > .bubble-wrap > .bubble），
 // 这样用户写的 .chat-stream .bubble{...} 可以原样作用在预览上，所见即所得。
+// 别名类 message-sent / message-received 也要带上，好让从别处抄来的
+// .message-sent::after 之类装饰 CSS 在预览里同样出效果。
 function previewHtml() {
   return '<div class="chat-stream bub-pv">' +
       '<div class="msg-row partner">' +
         '<div class="msg-avatar">🐱</div>' +
-        '<div class="bubble-wrap"><div class="bubble">对方发来的消息</div></div>' +
+        '<div class="bubble-wrap"><div class="bubble message-received">对方发来的消息</div></div>' +
       '</div>' +
       '<div class="msg-row user">' +
         '<div class="msg-avatar">🙂</div>' +
-        '<div class="bubble-wrap"><div class="bubble">我回的一条</div></div>' +
+        '<div class="bubble-wrap"><div class="bubble message-sent">我回的一条</div></div>' +
       '</div>' +
     '</div>';
 }

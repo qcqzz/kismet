@@ -433,6 +433,14 @@ function buildMsgRow(msg) {
     var bubbleCls = 'bubble';
     if (msg.type === 'redpacket') bubbleCls += ' rp-card-bubble';
     else if (msg.type === 'question') bubbleCls += ' question-bubble';
+    else {
+      // 兼容别名：外面抄来的 / AI 生成的 CSS 常用 .message-sent / .message-received
+      // 指代"我发的""对方发的"，而本项目的叫法是 .msg-row.user / .msg-row.partner。
+      // 把别名挂在气泡元素上，那类 CSS 就能原样贴进「自定义 CSS」里用，
+      // 连 ::before / ::after 装饰（.message-sent::after 之类）也能对上。
+      // 只给文字气泡加——红包 / 问问你 是透明卡片容器，套上渐变边框会直接坏掉。
+      bubbleCls += isUser ? ' message-sent' : ' message-received';
+    }
     body = '<div class="' + bubbleCls + '">' + inner + '</div>';
   }
 
