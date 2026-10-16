@@ -2264,8 +2264,11 @@ html[data-theme="dark"] {
 .m-back { top: calc(12px + env(safe-area-inset-top)); left: 12px; font-size: 15px; }
 .m-post-btn { top: calc(12px + env(safe-area-inset-top)); right: 12px; font-size: 16px; }
 .m-back:active, .m-post-btn:active { background: rgba(0, 0, 0, 0.55); }
+/* 原本 bottom: 12px，但头像有 margin-bottom: -20px，实际底边会探出封面 8px，
+   而 .m-cover 是 overflow: hidden，那 8px 被裁掉了。抬到 26px 后底边离封面底 6px，
+   头像与名字的相对位置（名字垂直居中对着头像）保持不变。 */
 .m-me-row {
-  position: absolute; right: 14px; bottom: 12px; z-index: 2;
+  position: absolute; right: 14px; bottom: 26px; z-index: 2;
   display: flex; align-items: flex-end; gap: 8px;
 }
 .m-me-avatar {
