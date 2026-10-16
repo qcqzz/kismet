@@ -171,8 +171,15 @@ function doMyPoke(action, targetId) {
   };
   addMessage(msg);
   playSound('my_poke');
-  if (Math.random() < 0.5) {
+
+  // 你拍完之后梦角怎么反应：
+  //   20% 拍回来；其余 80% 正常接一句。
+  // 接话走的是和发普通消息同一条回复链（正在输入 → 延迟 → 字卡/表情包/语音条、
+  // 可能连发多条），但不套"已读不回"那道门——否则挑了半天拍一拍却什么都没收到。
+  if (Math.random() < 0.2) {
     setTimeout(function () { triggerPartnerPoke(targetId || null); }, randomBetween(800, 2000));
+  } else {
+    setTimeout(function () { queueReply(function () { simulateReply(); }); }, randomBetween(600, 1600));
   }
 }
 
