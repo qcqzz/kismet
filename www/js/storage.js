@@ -34,6 +34,11 @@ function loadAllData() {
 
   // 主页数据
   homeProfile = Object.assign({}, DEFAULT_HOME, Storage.get('homeProfile') || {});
+  // 用户头像和梦角同源：现在只认上传的图片。老存档里的默认 emoji 在这里清掉，
+  // 渲染时 myAvatar() 自然落到灰色人形占位图。只改内存，随下次 saveData() 落盘。
+  if (homeProfile.avatar && typeof isImageSrc === 'function' && !isImageSrc(homeProfile.avatar)) {
+    homeProfile.avatar = '';
+  }
   anniversaries = Array.isArray(Storage.get('anniversaries')) ? Storage.get('anniversaries') : [];
   musicTracks = Array.isArray(Storage.get('musicTracks')) && Storage.get('musicTracks').length
     ? Storage.get('musicTracks')

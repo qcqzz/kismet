@@ -108,7 +108,7 @@ var TIMESTAMP_FORMATS = [
 // 主页个人信息卡默认值
 var DEFAULT_HOME = {
   name: '我',
-  avatar: '🐧',
+  avatar: '',                 // 空 = 走灰色人形占位图，和梦角默认一致
   location: '',
   expression: '(*^^*)',
   signature: ''               // 个性签名（用户自己编辑）
