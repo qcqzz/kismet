@@ -60,22 +60,76 @@ function renderHome() {
   if (_selAnniv >= anniversaries.length) _selAnniv = 0;
 
   box.innerHTML =
-    profileCardHtml() +
-    '<div class="home-mid">' +
-      annivHtml() +
-      linkStatusHtml() +
-    '</div>' +
-    showcaseHtml() +
-    homeBoxHtml() +
-    '<div class="photo-row">' +
-      polaroidHtml(2) + polaroidHtml(3) + polaroidHtml(4) + polaroidHtml(5) +
+    '<div class="home-fit">' +
+      profileCardHtml() +
+      '<div class="home-mid">' +
+        annivHtml() +
+        linkStatusHtml() +
+      '</div>' +
+      showcaseHtml() +
+      homeBoxHtml() +
+      '<div class="photo-row">' +
+        polaroidHtml(2) + polaroidHtml(3) + polaroidHtml(4) + polaroidHtml(5) +
+      '</div>' +
     '</div>';
 
   refreshLinkStatus(false);
   startLinkStatusTimer();
   startAnnivRotation();
   updateNavBadge();
+  fitHomeToScreen();
 }
+
+// 主页要「一屏放下、永不滚动」：内容自然高度超过可用高度时整体等比缩小。
+// 宽度同步放大到 100%/scale，缩放后仍然铺满屏幕，两侧不留缝。
+// 屏幕够高（内容反而填不满）时不放大，交给 .home-box 吸收富余。
+function fitHomeToScreen() {
+  var sc = document.getElementById('home-scroll');
+  var fit = sc && sc.querySelector('.home-fit');
+  if (!sc || !fit) return;
+
+  // 先复位：上一轮的宽度会影响本轮的换行，不复位就量不准
+  fit.style.transform = 'none';
+  fit.style.width = '100%';
+
+  var avail = fit.clientHeight;
+  if (!avail) return;   // 视图隐藏时量不到，等 showView('home') 再量
+
+  // 内容自然高度（未缩放）。用 getBoundingClientRect 拿亚像素值：
+  // offsetHeight 会取整，几块累加后误差足以让本该不缩的屏幕也缩 0.999。
+  // 这里量的是 5 个直接子块，拍立得的 rotate 在其内部，不影响 .photo-row 自身高度。
+  function natural() {
+    var n = 0;
+    for (var j = 0; j < fit.children.length; j++) {
+      var el = fit.children[j], cs = getComputedStyle(el);
+      n += el.getBoundingClientRect().height + parseFloat(cs.marginTop) + parseFloat(cs.marginBottom);
+    }
+    return n;
+  }
+
+  var k = 1;
+  for (var i = 0; i < 5; i++) {
+    var need = natural();
+    if (need <= avail + 0.5) { k = 1; break; }
+    var nk = avail / need;
+    if (Math.abs(nk - k) < 0.001) { k = nk; break; }
+    k = nk;
+    fit.style.width = (100 / k) + '%';
+  }
+
+  if (k < 1) {
+    fit.style.width = (100 / k) + '%';
+    fit.style.transform = 'scale(' + k + ')';
+  } else {
+    fit.style.width = '100%';
+    fit.style.transform = 'none';
+  }
+}
+
+// 旋转屏幕 / 改窗口大小后重新适配
+window.addEventListener('resize', fitHomeToScreen);
+window.addEventListener('orientationchange', function () { setTimeout(fitHomeToScreen, 120); });
+window.addEventListener('load', fitHomeToScreen);
 
 function profileCardHtml() {
   var p = homeProfile;

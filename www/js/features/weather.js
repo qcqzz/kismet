@@ -79,7 +79,10 @@ function promptWeatherCity() {
 function renderWeatherCell() {
   var el = document.getElementById('pc-weather');
   if (!el) return;
+  var before = el.offsetHeight;
   el.innerHTML = weatherCellHtml();
+  // 天气文案长短可能把资料卡撑高，高一点点也要重新适配一屏
+  if (el.offsetHeight !== before && typeof fitHomeToScreen === 'function') fitHomeToScreen();
 }
 
 function weatherCellHtml() {

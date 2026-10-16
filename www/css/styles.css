@@ -62,13 +62,19 @@ html[data-theme="light"] {
   --home-card-bg: rgba(var(--home-card-tint, 255, 255, 255), var(--home-card-alpha, .76));
 }
 
-/* 主页固定成一屏：flex 纵向排布，多余空间给 .home-box 吸收，
-   不足时也只是把它压到 min-height，压到底才轮到滚动（见下方 overflow 说明）。
-   顶部不加额外留白，资料卡直接贴着安全区（刘海/状态栏那段照旧保留）。 */
+/* 主页固定成一屏，永不滚动。
+   外层只负责占满屏幕 + 裁剪，并预留安全区和底部导航让位——这两样是物理尺寸，
+   不参与缩放；真正的内容放在 .home-fit 里，放不下时由 fitHomeToScreen() 整体等比缩小。 */
 .home-scroll {
-  flex: 1; overflow-y: auto;
-  display: flex; flex-direction: column;
-  padding: env(safe-area-inset-top) 16px calc(86px + env(safe-area-inset-bottom));
+  flex: 1; overflow: hidden;
+  padding: env(safe-area-inset-top) 0 calc(86px + env(safe-area-inset-bottom));
+}
+
+/* 内容层：高度拉满外层、内部纵向 flex——屏幕富余时加到 .home-box 上，放不下时整体缩放。
+   JS 会把宽度放大到 100%/scale 再 scale 回去，所以视觉上始终铺满、两侧不留缝。 */
+.home-fit {
+  height: 100%; display: flex; flex-direction: column;
+  padding: 0 16px; transform-origin: top left;
 }
 
 /* 这几块不参与压缩：压了会裁到里面的头像或文字。

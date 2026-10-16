@@ -142,5 +142,8 @@
     });
 
     if (name !== 'chat') hideAllPopups();
+
+    // 主页是全屏固定布局：隐藏时量不到高度，显示出来必须重新适配一次
+    if (name === 'home' && typeof fitHomeToScreen === 'function') fitHomeToScreen();
   };
 })();
