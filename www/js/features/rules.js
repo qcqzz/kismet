@@ -1335,6 +1335,7 @@ function exportData() {
     partnerPokes: partnerPokes,
     myPokes: myPokes,
     contactPokes: contactPokes,
+    envelopeData: envelopeData,
     customReplies: replyPool.filter(function (r) { return BUILTIN_REPLIES.indexOf(r) === -1; }),
     contactReplyPools: contactReplyPools,
     replyGroups: replyGroups,
@@ -1384,6 +1385,8 @@ function importData() {
           myPokes = Array.isArray(data.myPokes) ? data.myPokes : [];
           contactPokes = (data.contactPokes && typeof data.contactPokes === 'object')
             ? data.contactPokes : {};
+          envelopeData = (data.envelopeData && typeof data.envelopeData === 'object')
+            ? data.envelopeData : {};
           replyPool = BUILTIN_REPLIES.concat(data.customReplies || []);
           contactReplyPools = (data.contactReplyPools && typeof data.contactReplyPools === 'object')
             ? data.contactReplyPools : {};

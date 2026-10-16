@@ -708,11 +708,14 @@ function compressImage(file, max, quality) {
 function updateNavBadge() {
   var total = contacts.reduce(function (sum, c) { return sum + (c.unread || 0); }, 0);
   var badge = document.getElementById('nav-badge-chat');
-  if (!badge) return;
-  if (total > 0) {
-    badge.style.display = 'flex';
-    badge.textContent = total > 99 ? '99+' : total;
-  } else {
-    badge.style.display = 'none';
+  if (badge) {
+    if (total > 0) {
+      badge.style.display = 'flex';
+      badge.textContent = total > 99 ? '99+' : total;
+    } else {
+      badge.style.display = 'none';
+    }
   }
+  // 信件格的红点由 letters.js 维护
+  if (typeof updateEnvelopeBadge === 'function') updateEnvelopeBadge();
 }

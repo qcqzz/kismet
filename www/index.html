@@ -129,18 +129,14 @@
     <main class="settings-body" id="settings-body"></main>
   </div>
 
-  <!-- ===== 信件（占位，等参考图） ===== -->
+  <!-- ===== 信件（每位梦角一个信箱，见 letters.js） ===== -->
   <div id="view-letters" class="view">
     <header class="wx-header">
       <button class="wx-back" data-back-home>‹</button>
       <div class="wx-title">信件</div>
       <div style="width:38px"></div>
     </header>
-    <div class="empty-state" style="flex:1">
-      <div class="es-icon"><i class="fas fa-envelope"></i></div>
-      <div class="es-title">信件 · 敬请期待</div>
-      <div class="es-desc">等你的参考图和指令</div>
-    </div>
+    <div class="letters-body"></div>
   </div>
 
   <!-- ===== 底部导航（四格：聊天/朋友圈/信件/设置，悬浮于主页下方） ===== -->
@@ -157,6 +153,7 @@
     <button class="nav-item" data-nav="letters">
       <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
       <span>信件</span>
+      <span class="nav-badge" id="nav-badge-letters" style="display:none">0</span>
     </button>
     <button class="nav-item" data-nav="settings">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M18.4 5.6l-1.8 1.8M7.4 16.6l-1.8 1.8"/></svg>
@@ -268,6 +265,7 @@
   <script src="js/features/stickers.js"></script>
   <script src="js/features/moments.js"></script>
   <script src="js/features/transfer.js"></script>
+  <script src="js/features/letters.js"></script>
   <script src="js/features/ask.js"></script>
   <script src="js/features/call.js"></script>
   <script src="js/features/inputbar.js"></script>

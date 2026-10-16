@@ -68,8 +68,10 @@ function openChat(contactId) {
   activeContactId = contactId;
   var contact = getActiveContact();
 
-  // 梦角各自独立的概率活动：头像/背景自主更换、红包、来电（每位梦角各自排期）
+  // 梦角各自独立的概率活动：头像/背景自主更换、红包、来电、主动来信（每位梦角各自排期）
   if (typeof partnerActivityTick === 'function') partnerActivityTick();
+  // 信件状态推进：送达 / 到点回信
+  if (typeof envelopeTick === 'function') envelopeTick();
 
   // 清除未读
   contact.unread = 0;
@@ -280,6 +282,7 @@ function chatInfoAction(act) {
         }
         delete voiceLibrary[contact.id];
         delete contactPokes[contact.id];
+        delete envelopeData[contact.id];   // 信箱也是按梦角存的
         delete autoSwapNext[contact.id];
         delete partnerActivities[contact.id];
         delete momentsCovers[contact.id];

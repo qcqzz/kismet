@@ -113,6 +113,18 @@ function loadAllData() {
   var savedCP = Storage.get('contactPokes');
   contactPokes = (savedCP && typeof savedCP === 'object') ? savedCP : {};
 
+  // 信箱：每位梦角一份（见 letters.js）
+  var savedEnv = Storage.get('envelopeData');
+  envelopeData = (savedEnv && typeof savedEnv === 'object') ? savedEnv : {};
+  contacts.forEach(function (c) {
+    if (isGroupContact(c)) return;
+    if (!envelopeData[c.id] || typeof envelopeData[c.id] !== 'object') {
+      envelopeData[c.id] = { outbox: [], inbox: [] };
+    }
+    if (!Array.isArray(envelopeData[c.id].outbox)) envelopeData[c.id].outbox = [];
+    if (!Array.isArray(envelopeData[c.id].inbox)) envelopeData[c.id].inbox = [];
+  });
+
   // 通话记录（梦角资料页 → 历史通话）
   var savedCalls = Storage.get('callLogs');
   callLogs = (savedCalls && typeof savedCalls === 'object') ? savedCalls : {};
@@ -151,6 +163,7 @@ function saveData() {
     });
     Storage.set('messagesByContact', trimmed);
     Storage.set('callLogs', callLogs);
+    if (typeof saveEnvelopeData === 'function') saveEnvelopeData();
     var custom = replyPool.filter(function (r) { return BUILTIN_REPLIES.indexOf(r) === -1; });
     Storage.set('customReplies', custom);
     Storage.set('contactReplyPools', contactReplyPools);

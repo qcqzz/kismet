@@ -111,6 +111,8 @@
         renderMoments(null);      // 从导航进入：清除梦角资料页带来的按人过滤
       } else if (tab === 'letters') {
         showView('letters');
+        if (typeof envelopeTick === 'function') envelopeTick();
+        if (typeof renderLetters === 'function') renderLetters();
       } else if (tab === 'settings') {
         _settingsReturnView = null;   // 从导航直接进设置：没有来路可回
         showView('settings');
