@@ -311,13 +311,15 @@ function pickBoxBgFile() {
   input.accept = 'image/*';
   input.onchange = function () {
     var file = input.files[0];
+    this.value = '';
     if (!file) return;
-    compressPhoto(file).then(function (dataUrl) {
+    if (file.size > MAX_IMAGE_SIZE) { toast('图片请小于 5MB'); return; }
+    openCropper(file, 'bg', function (dataUrl) {
       homeBoxBg = dataUrl;
       saveData();
       renderHome();
       toast('背景已更换');
-    }).catch(function () { toast('图片读取失败'); });
+    });
   };
   input.click();
 }
@@ -364,15 +366,16 @@ function openHomeBgEditor() {
   input.accept = 'image/*';
   input.onchange = function () {
     var file = input.files && input.files[0];
+    input.value = '';
     if (!file) return;
     if (file.size > MAX_IMAGE_SIZE) { toast('图片请小于 5MB'); return; }
-    compressPhoto(file).then(function (dataUrl) {
+    openCropper(file, 'bg', function (dataUrl) {
       settings.homeBgImage = dataUrl;
       saveData();
       thumb.innerHTML = '<img src="' + escapeHtml(dataUrl) + '" alt="">';
       var clearBtn = mask.querySelector('#hbg-clear');
       if (clearBtn) clearBtn.remove();
-      var b = mask.querySelector('#hbg-btns-holder') || mask.querySelector('.hbg-btns');
+      var b = mask.querySelector('.hbg-btns');
       if (b && !mask.querySelector('#hbg-clear')) {
         var nb = document.createElement('button');
         nb.className = 'row-btn'; nb.id = 'hbg-clear';
@@ -382,7 +385,7 @@ function openHomeBgEditor() {
       }
       apply();
       toast('桌面背景已更换');
-    }).catch(function () { toast('图片读取失败'); });
+    });
   };
 
   function clearBg() {
@@ -595,12 +598,15 @@ function pickPhotoFile(slot) {
   input.accept = 'image/*';
   input.onchange = function () {
     var file = input.files[0];
+    this.value = '';
     if (!file) return;
-    compressPhoto(file).then(function (dataUrl) {
+    if (file.size > MAX_IMAGE_SIZE) { toast('图片请小于 5MB'); return; }
+    // 拍立得是方的，裁成 1:1
+    openCropper(file, 'photo', function (dataUrl) {
       photoWall[slot] = dataUrl;
       saveData();
       renderHome();
-    }).catch(function () { toast('图片读取失败'); });
+    });
   };
   input.click();
 }
@@ -628,29 +634,25 @@ function compressPhoto(file) {
   });
 }
 
-// 我的头像：只支持上传图片（压到 480px，与图库同一套压缩）
+// 我的头像：只支持上传图片（裁成正方形 480×480）
 function pickMyAvatar(onDone) {
   var input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*';
   input.onchange = function () {
     var file = input.files && input.files[0];
+    this.value = '';
     if (!file) return;
     if (file.size > MAX_IMAGE_SIZE) { toast('图片请小于 5MB'); return; }
-    compressGallery(file).then(function (dataUrl) {
+    openCropper(file, 'avatar', function (dataUrl) {
       homeProfile.avatar = dataUrl;
       saveData();
       if (typeof renderMoments === 'function') renderMoments();
       if (onDone) onDone();
       toast('头像已更换');
-    }).catch(function () { toast('图片处理失败'); });
+    });
   };
   input.click();
-}
-
-// 图库专用压缩：图库里会囤多张，尺寸压小一点避免撑爆 localStorage
-function compressGallery(file) {
-  return compressImage(file, 480, 0.7);
 }
 
 // 表情包专用压缩：必须保住透明通道。

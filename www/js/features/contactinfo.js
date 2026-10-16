@@ -212,17 +212,19 @@ function renderCiGallery(kind) {
     input.value = '';
     if (!files.length) return;
     if (lib.length + files.length > 12) { toast('图库最多 12 张'); return; }
-    var added = 0;
+    // 头像库裁 1:1，朋友圈背景库裁 16:9；多张时逐张裁
+    var cropKind = kind === 'avatar' ? 'avatar' : 'bg';
+    var i = 0;
     (function next() {
-      if (added >= files.length) {
+      if (i >= files.length) {
         saveData();
         renderContactInfo(kind === 'avatar' ? 'avatarlib' : 'coverlib');
         toast('已加入图库 · 可以点图推荐给 ' + c.name);
         return;
       }
-      compressGallery(files[added++]).then(function (url) {
+      openCropper(files[i++], cropKind, function (url) {
         lib.push(url); next();
-      }).catch(function () { next(); });
+      });
     })();
   });
 
@@ -494,15 +496,16 @@ function renderCiBg(kind) {
   if (upload && input) upload.addEventListener('click', function () { input.click(); });
   if (input) input.addEventListener('change', function () {
     var file = input.files && input.files[0];
+    input.value = '';
     if (!file) return;
-    if (file.size > MAX_IMAGE_SIZE) { toast('图片请小于 5MB'); input.value = ''; return; }
-    compressPhoto(file).then(function (dataUrl) {
+    if (file.size > MAX_IMAGE_SIZE) { toast('图片请小于 5MB'); return; }
+    openCropper(file, 'bg', function (dataUrl) {
       settings[key] = dataUrl;
       saveData();
       if (isChat) applyAppearance();          // 聊天背景立刻生效
       renderContactInfo(kind);
       toast(isChat ? '聊天背景已更换' : '通话背景已更换');
-    }).catch(function () { toast('图片读取失败'); });
+    });
   });
 
   var clear = body.querySelector('#ci-bg-clear');

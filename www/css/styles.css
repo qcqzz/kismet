@@ -861,6 +861,42 @@ body.show-nav .empty-state { padding-bottom: 70px; }
   display: flex; align-items: center; justify-content: center; font-size: 30px;
 }
 
+/* ============ 图片裁剪器（见 cropper.js） ============ */
+.cropper-mask { align-items: center; }
+.cropper {
+  width: 100%; max-width: 480px; background: var(--secondary-bg);
+  border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 12px;
+}
+.cropper-t { font-size: 13px; color: var(--text-secondary); text-align: center; }
+.cropper-stage {
+  position: relative; overflow: hidden; margin: 0 auto; cursor: grab;
+  border-radius: 8px; background: #1a1a1a; touch-action: none;
+  /* 舞台尺寸由取景框撑开，这里用 JS 写入的宽高 */
+}
+.cropper-stage:active { cursor: grabbing; }
+.cropper-img {
+  position: absolute; left: 0; top: 0; max-width: none; user-select: none;
+  -webkit-user-drag: none; pointer-events: none;
+}
+/* 取景框：四条边 + 内部九宫格 */
+.cropper-frame {
+  position: absolute; left: 0; top: 0; pointer-events: none;
+  border: 2px solid rgba(255, 255, 255, .95); border-radius: 2px;
+  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .55);
+}
+.cropper-frame::before {
+  content: ""; position: absolute; inset: 0;
+  background:
+    linear-gradient(to right, transparent 33.2%, rgba(255,255,255,.35) 33.2%, rgba(255,255,255,.35) 33.5%, transparent 33.5%,
+                    transparent 66.4%, rgba(255,255,255,.35) 66.4%, rgba(255,255,255,.35) 66.7%, transparent 66.7%),
+    linear-gradient(to bottom, transparent 33.2%, rgba(255,255,255,.35) 33.2%, rgba(255,255,255,.35) 33.5%, transparent 33.5%,
+                    transparent 66.4%, rgba(255,255,255,.35) 66.4%, rgba(255,255,255,.35) 66.7%, transparent 66.7%);
+}
+.cropper-bar { display: flex; align-items: center; gap: 10px; }
+.cropper-bar i { color: var(--text-secondary); font-size: 12px; }
+.cropper-bar input[type="range"] { flex: 1; accent-color: var(--accent-color); }
+.cropper-btns { display: flex; gap: 8px; }
+
 /* ============ 信箱（见 letters.js） ============ */
 .letters-body {
   flex: 1; display: flex; flex-direction: column; min-height: 0;
@@ -2264,21 +2300,21 @@ html[data-theme="dark"] {
 .m-back { top: calc(12px + env(safe-area-inset-top)); left: 12px; font-size: 15px; }
 .m-post-btn { top: calc(12px + env(safe-area-inset-top)); right: 12px; font-size: 16px; }
 .m-back:active, .m-post-btn:active { background: rgba(0, 0, 0, 0.55); }
-/* 原本 bottom: 12px，但头像有 margin-bottom: -20px，实际底边会探出封面 8px，
-   而 .m-cover 是 overflow: hidden，那 8px 被裁掉了。抬到 26px 后底边离封面底 6px，
-   头像与名字的相对位置（名字垂直居中对着头像）保持不变。 */
+/* 名字垂直居中对齐头像：直接用 flex 的 align-items:center，
+   不再靠头像 margin-bottom:-20px / 名字 padding-bottom:20px 这对魔法数字互相凑。
+   （那对数字原本也把头像探出封面 8px，被 .m-cover 的 overflow:hidden 裁掉了。） */
 .m-me-row {
-  position: absolute; right: 14px; bottom: 26px; z-index: 2;
-  display: flex; align-items: flex-end; gap: 8px;
+  position: absolute; right: 14px; bottom: 14px; z-index: 2;
+  display: flex; align-items: center; gap: 8px;
 }
 .m-me-avatar {
-  width: 54px; height: 54px; margin-bottom: -20px; border-radius: 50%;
+  width: 54px; height: 54px; border-radius: 50%; flex-shrink: 0;
   background: var(--secondary-bg); border: 3px solid #fff; color: var(--text-primary);
   display: flex; align-items: center; justify-content: center; font-size: 26px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.30);
 }
 .m-me-name {
-  color: #fff; font-size: 15px; font-weight: 600; padding-bottom: 20px;
+  color: #fff; font-size: 15px; font-weight: 600;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
 }
 

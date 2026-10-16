@@ -160,11 +160,12 @@
       var f = this.files && this.files[0];
       this.value = '';
       if (!f) return;
-      compressGallery(f).then(function (url) {
+      if (typeof MAX_IMAGE_SIZE !== 'undefined' && f.size > MAX_IMAGE_SIZE) { toast('图片请小于 5MB'); return; }
+      openCropper(f, 'bg', function (url) {
         settings.callBgImage = url;
         saveData();
         applyBg();
-      }).catch(function () { toast('图片处理失败'); });
+      });
     });
     document.addEventListener('click', function (e) {
       var p = document.getElementById('call-size-presets');

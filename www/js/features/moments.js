@@ -365,12 +365,14 @@ function pickMomentsCover() {
   input.accept = 'image/*';
   input.onchange = function () {
     var file = input.files[0];
+    this.value = '';
     if (!file) return;
-    compressPhoto(file).then(function (dataUrl) {
+    if (file.size > MAX_IMAGE_SIZE) { toast('图片请小于 5MB'); return; }
+    openCropper(file, 'cover', function (dataUrl) {
       _mSetCover(dataUrl);
       renderMoments();
       toast('背景已更换');
-    }).catch(function () { toast('图片读取失败'); });
+    });
   };
   input.click();
 }
