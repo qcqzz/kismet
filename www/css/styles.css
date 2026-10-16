@@ -258,13 +258,16 @@ body.no-chat-avatar .msg-avatar { display: none; }
   background: var(--bubble-partner); color: var(--ink);
   box-shadow: var(--shadow); cursor: pointer;
 }
-.msg-row.user .bubble { background: var(--bubble-user); color: var(--bubble-user-ink, var(--ink)); }
+/* 用 :where() 把「自己那一侧」的特异性压到 (0,1,0)，与 .bubble 持平。
+   否则它会以 (0,3,0) 压过用户手写的 .chat-stream .bubble (0,2,0)，
+   导致自定义 CSS 改不动自己气泡的颜色。 */
+:where(.msg-row.user) .bubble { background: var(--bubble-user); color: var(--bubble-user-ink, var(--ink)); }
 /* 气泡小三角 */
 .bubble::before {
   content: ""; position: absolute; top: 12px; left: -6px;
   border: 6px solid transparent; border-right-color: var(--bubble-partner); border-left: 0;
 }
-.msg-row.user .bubble::before {
+:where(.msg-row.user) .bubble::before {
   left: auto; right: -6px;
   border: 6px solid transparent; border-left-color: var(--bubble-user); border-right: 0;
 }
@@ -282,6 +285,21 @@ body.no-chat-avatar .msg-avatar { display: none; }
 }
 
 /* ============ 聊天气泡 CSS 画廊（聊天信息 → 修改聊天气泡） ============ */
+/* 预设 / 自定义 CSS 二选一 */
+.bub-mode {
+  display: flex; gap: 4px; padding: 4px;
+  background: var(--primary-bg); border-radius: 10px;
+}
+.bub-mode-btn {
+  flex: 1; padding: 8px 6px; border: none; border-radius: 8px;
+  background: transparent; color: var(--text-secondary);
+  font-size: 13px; font-family: inherit; cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.bub-mode-btn.active {
+  background: var(--secondary-bg); color: var(--text-primary);
+  font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
+}
 .bub-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .bub-card {
   border: 1px solid var(--border-color); background: var(--primary-bg);
@@ -318,6 +336,9 @@ body.no-chat-avatar .msg-avatar { display: none; }
 /* 硬投影纸片 */
 .bub-prev-stack i { border-radius: 8px 8px 8px 3px; box-shadow: 3px 3px 0 -1px rgba(0, 0, 0, .24), 5px 5px 0 -2px rgba(0, 0, 0, .15); }
 .bub-prev-stack i:last-child { border-radius: 8px 8px 3px 8px; }
+/* 「原生」= 不套任何预设，预览就用最朴素的基础样式 */
+.bub-prev-none i { border-radius: 4px; box-shadow: none; }
+.bub-prev-none i:first-child::after { display: none; }
 .bub-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
 .bub-desc { font-size: 10px; color: var(--text-secondary); letter-spacing: 0.04em; }
 .bub-code {

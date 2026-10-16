@@ -50,8 +50,9 @@ var DEFAULT_SETTINGS = {
   redpacketCover: '',          // 红包封面（颜色 / 渐变 / dataURL）
   chatBgImage: '',             // 聊天背景图（dataURL，叠加遮罩保证气泡可读）
   bubblePreset: 'classic',     // 聊天气泡画廊预设 id（见 bubblecss.js）
+  bubbleMode: 'preset',       // preset=套用预设（预设即最终样式） / custom=自定义 CSS（完全不套用预设）
+  bubbleCss: '',              // 手写的气泡 CSS（仅 bubbleMode==='custom' 时生效）
   bubbleUserColor: '',        // 我的气泡颜色（留空=跟随主题，深色下为深灰）
-  bubbleCss: '',               // 手写的气泡 CSS（在预设之上叠加）
   callBgImage: '',             // 通话背景图（dataURL，与聊天背景对称）
   fontScale: 1,                // 字体缩放（0.85~1.25）
   showMsgAvatar: true,         // 每条消息都显示头像（applyAppearance 同步 showEveryAvatar）

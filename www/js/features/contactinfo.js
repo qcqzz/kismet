@@ -64,7 +64,7 @@ function renderCiMain() {
     sRow({ ico: '<i class="fas fa-user-circle"></i>', label: '修改头像', sub: '上传图库 · 梦角会自己换', arrow: true, act: 'ci-avatarlib' }),
     sRow({ ico: '<i class="fas fa-images"></i>', label: '朋友圈', sub: c.name + ' 分享过的瞬间', arrow: true, act: 'ci-moments' }),
     sRow({ ico: '<i class="fas fa-image-portrait"></i>', label: '修改朋友圈背景', sub: _mIdentityCoverHint(c), arrow: true, act: 'ci-coverlib' }),
-    sRow({ ico: '<i class="fas fa-comment-dots"></i>', label: '修改聊天气泡', sub: presetName(settings.bubblePreset) + ' · 可写自定义 CSS', arrow: true, act: 'ci-bubble' }),
+    sRow({ ico: '<i class="fas fa-comment-dots"></i>', label: '修改聊天气泡', sub: bubbleModeLabel(), arrow: true, act: 'ci-bubble' }),
     sRow({ ico: '<i class="fas fa-clock-rotate-left"></i>', label: '历史聊天', sub: msgs.length + ' 条记录 · 可搜索', arrow: true, act: 'ci-history' }),
     sRow({ ico: '<i class="fas fa-phone"></i>', label: '历史通话', sub: calls.length ? calls.length + ' 条记录' : '暂无通话记录', arrow: true, act: 'ci-calls' }),
     sRow({ ico: '<i class="fas fa-image"></i>', label: '修改通话背景', sub: settings.callBgImage ? '已自定义 · 点击更换' : '默认背景 · 点击自定义', arrow: true, act: 'ci-callbg' }),

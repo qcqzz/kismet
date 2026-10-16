@@ -1,12 +1,16 @@
 /* ============ 字卡传讯 · 聊天气泡 CSS 画廊（聊天信息 → 修改聊天气泡） ============ */
-/* 一个预设库 + 一个手写 CSS 编辑器；预设先叠、手写 CSS 再叠，后者可覆盖前者。
-   气泡样式只有这一套来源，不再由 body.bubble-* 类名控制。                      */
+/* 预设与手写 CSS 是**二选一**，不是叠加：
+     bubbleMode='preset' → 只注入所选预设，预设即最终样式
+     bubbleMode='custom' → 只注入手写 CSS，完全不套用任何预设
+   气泡样式只有这一套来源，不再由 body.bubble-* 类名控制。        */
 
-// 选择器统一带上 :not(.rp-card-bubble):not(.question-bubble)，
-// 这样红包 / 问问你的透明卡片不会被误伤，也保证特异性高于基础样式。
-// BUBBLE_U 是「自己发的」那一侧，注意它必须重新写一遍 .bubble，
+// BUBBLE_U 是「自己发的」那一侧，注意它必须重新写一遍 .chat-stream，
 // 不能拼在 BUBBLE_B 前面（BUBBLE_B 自带 .chat-stream，拼起来会变成
 // .msg-row.user .chat-stream .bubble，永远匹配不到）。
+// 选择器统一带上 :not(.rp-card-bubble):not(.question-bubble)，
+// 这样红包 / 问问你的透明卡片不会被误伤。
+// BUBBLE_B 只给预设用（特异性高，能压得住基础样式）；
+// 手写 CSS 请直接写 .chat-stream .bubble，它比基础样式的 .bubble 特异性更高，一定生效。
 var BUBBLE_B = '.chat-stream .bubble:not(.rp-card-bubble):not(.question-bubble)';
 var BUBBLE_U = '.chat-stream .msg-row.user .bubble:not(.rp-card-bubble):not(.question-bubble)';
 var BUBBLE_T = BUBBLE_B + '::before';
@@ -15,6 +19,11 @@ var BUBBLE_T = BUBBLE_B + '::before';
 var DK = 'html[data-theme="dark"] ';
 
 var BUBBLE_CSS_PRESETS = [
+  {
+    // 「原生」= 不注入任何预设 CSS，完全交给手写 CSS 或基础样式
+    v: 'none', name: '原生', desc: '不套用预设，完全自定义',
+    css: ''
+  },
   {
     v: 'classic', name: '经典尖角', desc: '默认微信式，带小三角',
     css: BUBBLE_B + '{ border-radius: 6px; }\n' +
@@ -67,13 +76,17 @@ function _bubbleLum(hex) {
 
 function bubblePresetCss(v) {
   var p = BUBBLE_CSS_PRESETS.filter(function (x) { return x.v === v; })[0];
-  return p ? p.css : BUBBLE_CSS_PRESETS[0].css;
+  // 找不到（含 v 为空/未知）就退回「原生」，而不是硬塞一个经典尖角
+  return p ? p.css : '';
 }
 
-// 预设 + 手写 CSS 一起注入；手写的排在后面，可覆盖预设
+// 预设与手写 CSS 二选一：预设就是最终样式，不再垫在手写 CSS 底下
+// （早前把预设当底层、用户 CSS 叠在上面，但因为预设选择器特异性更高，
+//   用户写的永远不生效——已改为互斥）
 function applyBubbleCss() {
   if (typeof settings === 'undefined' || !settings) return;
-  var css = bubblePresetCss(settings.bubblePreset) + '\n' + (settings.bubbleCss || '');
+  var custom = settings.bubbleMode === 'custom';
+  var css = custom ? (settings.bubbleCss || '') : bubblePresetCss(settings.bubblePreset);
   var el = document.getElementById('kc-bubble-css');
   if (!el) {
     el = document.createElement('style');
@@ -118,7 +131,37 @@ function renderCiBubbleCss() {
       '" data-color="' + c.v + '" title="' + c.label + '" style="background:' + c.v + '"></button>';
   }).join('');
 
+  var mode = settings.bubbleMode === 'custom' ? 'custom' : 'preset';
+  var usePreset = mode === 'preset';
+
+  var presetBlock = usePreset
+    ? '<div class="set-group"><div class="sg-lab">气泡画廊</div>' +
+        '<div class="bub-grid">' + cards + '</div>' +
+      '</div>'
+    : '';
+
+  var customBlock = usePreset ? '' :
+    '<div class="set-group"><div class="sg-lab">自定义气泡 CSS</div>' +
+      '<div class="set-card">' +
+        '<textarea id="bubble-css-input" class="modal-textarea bub-code" spellcheck="false" ' +
+          'placeholder=".chat-stream .bubble{\n  border-radius: 20px;\n  background: #ffeef5;\n}">' +
+          escapeHtml(settings.bubbleCss || '') + '</textarea>' +
+        '<label class="bub-live"><input type="checkbox" id="bubble-css-live">实时应用</label>' +
+        '<div class="bub-actions">' +
+          '<button class="modal-btn modal-btn-secondary" id="bubble-css-reset">清空</button>' +
+          '<button class="modal-btn modal-btn-primary" id="bubble-css-apply">应用 CSS</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
   body.innerHTML =
+    '<div class="set-group"><div class="sg-lab">气泡样式来源</div>' +
+      '<div class="set-card"><div class="bub-mode">' +
+        '<button class="bub-mode-btn' + (usePreset ? ' active' : '') + '" data-mode="preset">套用预设</button>' +
+        '<button class="bub-mode-btn' + (!usePreset ? ' active' : '') + '" data-mode="custom">自定义 CSS</button>' +
+      '</div></div>' +
+    '</div>' +
+
     '<div class="set-group"><div class="sg-lab">我的气泡颜色</div>' +
       '<div class="set-card">' +
         '<div class="bub-sw-row">' + swatches +
@@ -133,25 +176,27 @@ function renderCiBubbleCss() {
       '</div>' +
     '</div>' +
 
-    '<div class="set-group"><div class="sg-lab">气泡画廊</div>' +
-      '<div class="bub-grid">' + cards + '</div>' +
-    '</div>' +
+    presetBlock + customBlock +
 
-    '<div class="set-group"><div class="sg-lab">自定义气泡 CSS</div>' +
-      '<div class="set-card">' +
-        '<textarea id="bubble-css-input" class="modal-textarea bub-code" spellcheck="false" ' +
-          'placeholder=".chat-stream .bubble{ border-radius: 20px; }">' + escapeHtml(settings.bubbleCss || '') + '</textarea>' +
-        '<label class="bub-live"><input type="checkbox" id="bubble-css-live">实时应用</label>' +
-        '<div class="bub-actions">' +
-          '<button class="modal-btn modal-btn-secondary" id="bubble-css-reset">清空</button>' +
-          '<button class="modal-btn modal-btn-primary" id="bubble-css-apply">应用 CSS</button>' +
-        '</div>' +
-      '</div>' +
-    '</div>' +
-    '<div class="set-note">CSS 会叠加在所选预设之上，可以写任何选择器；' +
-      '气泡的实际结构是 <code>.chat-stream &gt; .msg-row &gt; .bubble-wrap &gt; .bubble</code>，' +
-      '对方气泡还有一个小三角 <code>.bubble::before</code>。' +
+    '<div class="set-note">' + (usePreset
+      ? '当前套用预设。预设就是最终样式，不会再叠加自定义 CSS；想自己写样式请切到「自定义 CSS」。'
+      : '当前完全自定义，不会套用任何预设。基础结构是 ' +
+        '<code>.chat-stream &gt; .msg-row.user/.partner &gt; .bubble-wrap &gt; .bubble</code>。<br>' +
+        '写 <code>.chat-stream .bubble{...}</code> 即可覆盖基础样式；' +
+        '去掉对方/自己的小三角要写 <code>.chat-stream .bubble::before{display:none}</code>；' +
+        '红包与「问问你」是透明卡片容器，如需一并改写请自行加 ' +
+        '<code>:not(.rp-card-bubble):not(.question-bubble)</code>。') +
     '</div>';
+
+  body.querySelectorAll('.bub-mode-btn').forEach(function (b) {
+    b.addEventListener('click', function () {
+      settings.bubbleMode = b.dataset.mode;
+      saveData();
+      applyBubbleCss();
+      renderCiBubbleCss();
+      if (activeContactId) renderAllMessages();
+    });
+  });
 
   body.querySelectorAll('.bub-sw').forEach(function (sw) {
     sw.addEventListener('click', function () {
@@ -192,20 +237,24 @@ function renderCiBubbleCss() {
 
   var ta = body.querySelector('#bubble-css-input');
   var live = body.querySelector('#bubble-css-live');
-  ta.addEventListener('input', function () {
-    if (!live.checked) return;
-    settings.bubbleCss = ta.value;
-    saveData();
-    applyBubbleCss();
-  });
-  body.querySelector('#bubble-css-apply').addEventListener('click', function () {
+  if (ta) {
+    ta.addEventListener('input', function () {
+      if (!live || !live.checked) return;
+      settings.bubbleCss = ta.value;
+      saveData();
+      applyBubbleCss();
+    });
+  }
+  var applyBtn = body.querySelector('#bubble-css-apply');
+  if (applyBtn) applyBtn.addEventListener('click', function () {
     settings.bubbleCss = ta.value;
     saveData();
     applyBubbleCss();
     if (activeContactId) renderAllMessages();
     toast('气泡 CSS 已应用');
   });
-  body.querySelector('#bubble-css-reset').addEventListener('click', function () {
+  var resetBtn = body.querySelector('#bubble-css-reset');
+  if (resetBtn) resetBtn.addEventListener('click', function () {
     ta.value = '';
     settings.bubbleCss = '';
     saveData();
@@ -216,5 +265,11 @@ function renderCiBubbleCss() {
 
 function presetName(v) {
   var p = BUBBLE_CSS_PRESETS.filter(function (x) { return x.v === v; })[0];
-  return p ? p.name : '经典尖角';
+  return p ? p.name : '原生';
+}
+
+// 主列表里「修改聊天气泡」那一行的副标题
+function bubbleModeLabel() {
+  if (settings.bubbleMode === 'custom') return '自定义 CSS';
+  return '预设 · ' + presetName(settings.bubblePreset);
 }
