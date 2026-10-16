@@ -110,6 +110,80 @@ function applyBubbleCss() {
 window.applyBubbleCss = applyBubbleCss;
 
 // ---------- 三级页：修改聊天气泡 ----------
+// 预览用的 DOM 必须和聊天流里的结构完全一致（.chat-stream > .msg-row > .bubble-wrap > .bubble），
+// 这样用户写的 .chat-stream .bubble{...} 可以原样作用在预览上，所见即所得。
+function previewHtml() {
+  return '<div class="chat-stream bub-pv">' +
+      '<div class="msg-row partner">' +
+        '<div class="msg-avatar">🐱</div>' +
+        '<div class="bubble-wrap"><div class="bubble">对方发来的消息</div></div>' +
+      '</div>' +
+      '<div class="msg-row user">' +
+        '<div class="msg-avatar">🙂</div>' +
+        '<div class="bubble-wrap"><div class="bubble">我回的一条</div></div>' +
+      '</div>' +
+    '</div>';
+}
+
+// 判断一段 CSS 到底有没有作用到气泡上。
+// 光看"语法对不对"没用——用户最常踩的坑是选择器写错但语法完全合法，
+// 结果什么都没发生却毫无提示。所以这里直接量预览气泡的实际渲染结果：
+// 和「不注入任何 CSS」的基准比，一模一样就说明没匹配上。
+var PV_KEYS = ['borderRadius', 'borderTopLeftRadius', 'backgroundColor', 'backgroundImage',
+               'boxShadow', 'padding', 'paddingLeft', 'fontSize', 'fontWeight',
+               'color', 'borderWidth', 'fontFamily', 'lineHeight', 'transform'];
+
+function pvSignature(root) {
+  if (!root) return '';
+  var out = [];
+  var els = root.querySelectorAll('.bubble');
+  for (var i = 0; i < els.length; i++) {
+    var cs = getComputedStyle(els[i]);
+    for (var j = 0; j < PV_KEYS.length; j++) out.push(cs[PV_KEYS[j]]);
+  }
+  return out.join('|');
+}
+
+// 临时把某段 CSS 塞进 <style> 量一下效果，再恢复原样（同步执行，不会闪）
+function measureWith(css, root) {
+  var el = document.getElementById('kc-bubble-css');
+  if (!el) return '';
+  var old = el.textContent;
+  el.textContent = css || '';
+  var sig = pvSignature(root);
+  el.textContent = old;
+  return sig;
+}
+
+// 返回 '' 表示没问题；否则返回给用户看的一句话
+function checkCssError(css, root) {
+  if (!css || !css.trim()) return '';
+
+  // 1) 语法：浏览器解析后剩下的规则数，比源文件里的顶层规则少，说明有规则被丢弃
+  var probe = document.createElement('style');
+  probe.textContent = css;
+  document.head.appendChild(probe);
+  var parsed = probe.sheet ? probe.sheet.cssRules.length : 0;
+  probe.remove();
+  var expected = 0, depth = 0, seen = false;
+  for (var i = 0; i < css.length; i++) {
+    var ch = css[i];
+    if (ch === '{') { if (depth === 0) expected++; depth++; seen = true; }
+    else if (ch === '}') { depth--; if (depth < 0) break; }
+  }
+  if (!seen) return '这段里没有 { }，不会生效';
+  if (parsed < expected) {
+    return '有 ' + (expected - parsed) + ' 段写错了（多半是少了分号或括号不配对），浏览器已经丢掉它们';
+  }
+
+  // 2) 有没有真的作用到气泡上
+  if (root && measureWith('', root) === measureWith(css, root)) {
+    return '语法没问题，但没有匹配到气泡。常见原因：类名写错（是 .bubble 不是 .msg-bubble / .chat-bubble）、' +
+           '或者把选择器写成了后代但少了中间的 .chat-stream';
+  }
+  return '';
+}
+
 function renderCiBubbleCss() {
   var body = document.getElementById('contactinfo-body');
   var titleEl = document.getElementById('contactinfo-title');
@@ -146,10 +220,19 @@ function renderCiBubbleCss() {
         '<textarea id="bubble-css-input" class="modal-textarea bub-code" spellcheck="false" ' +
           'placeholder=".chat-stream .bubble{\n  border-radius: 20px;\n  background: #ffeef5;\n}">' +
           escapeHtml(settings.bubbleCss || '') + '</textarea>' +
-        '<label class="bub-live"><input type="checkbox" id="bubble-css-live">实时应用</label>' +
+        '<div class="bub-live-row">' +
+          '<label class="bub-live"><input type="checkbox" id="bubble-css-live" checked>边写边预览</label>' +
+          '<button class="bub-err" id="bubble-css-err" hidden></button>' +
+        '</div>' +
         '<div class="bub-actions">' +
           '<button class="modal-btn modal-btn-secondary" id="bubble-css-reset">清空</button>' +
           '<button class="modal-btn modal-btn-primary" id="bubble-css-apply">应用 CSS</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="set-group"><div class="sg-lab">预览</div>' +
+        '<div class="set-card">' + previewHtml() +
+          '<div class="bub-prev-foot">预览用的是和你聊天里一模一样的结构，' +
+          '选择器可以直接照抄。</div>' +
         '</div>' +
       '</div>' +
     '</div>';
@@ -237,30 +320,47 @@ function renderCiBubbleCss() {
 
   var ta = body.querySelector('#bubble-css-input');
   var live = body.querySelector('#bubble-css-live');
+  var errBox = body.querySelector('#bubble-css-err');
+
+  function showErr(msg) {
+    if (!errBox) return;
+    if (msg) { errBox.textContent = msg; errBox.hidden = false; }
+    else { errBox.hidden = true; }
+  }
+
+  var pv = body.querySelector('.bub-pv');
+
+  // 预览和真实聊天共用同一份 <style>，所以这里 apply 一次两边同时变
+  function push(alsoSave) {
+    settings.bubbleCss = ta.value;
+    if (alsoSave) saveData();
+    applyBubbleCss();
+    showErr(checkCssError(ta.value, pv));
+    if (activeContactId) renderAllMessages();
+  }
+
   if (ta) {
     ta.addEventListener('input', function () {
       if (!live || !live.checked) return;
-      settings.bubbleCss = ta.value;
-      saveData();
-      applyBubbleCss();
+      push(false);
     });
   }
   var applyBtn = body.querySelector('#bubble-css-apply');
   if (applyBtn) applyBtn.addEventListener('click', function () {
-    settings.bubbleCss = ta.value;
-    saveData();
-    applyBubbleCss();
-    if (activeContactId) renderAllMessages();
-    toast('气泡 CSS 已应用');
+    push(true);
+    toast(checkCssError(ta.value, pv) ? '有问题，见预览上方的红字' : '气泡 CSS 已应用，聊天里也生效了');
   });
   var resetBtn = body.querySelector('#bubble-css-reset');
   if (resetBtn) resetBtn.addEventListener('click', function () {
     ta.value = '';
-    settings.bubbleCss = '';
-    saveData();
-    applyBubbleCss();
+    push(true);
     toast('已清空自定义 CSS');
   });
+
+  if (live) {
+    live.checked = true;
+    showErr(checkCssError(ta ? ta.value : '', pv));
+  }
 }
 
 function presetName(v) {
