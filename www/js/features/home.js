@@ -348,7 +348,7 @@ function openProfileSheet() {
     { label: '<i class="fas fa-user"></i> 改头像（上传图片）', act: 'avatar' },
     { label: '<i class="fas fa-comment"></i> 改个性签名', act: 'sign' },
     { label: '<i class="fas fa-location-dot"></i> 改位置', act: 'loc' },
-    { label: '<i class="fas fa-smile"></i> 改状态表情', act: 'expr' },
+    { label: '<i class="fas fa-smile"></i> 改状态', act: 'expr' },
     { label: '<i class="fas fa-cloud"></i> 设置天气城市', act: 'city' },
     { label: '取消', act: 'cancel', cancel: true }
   ], function (act) {
@@ -368,7 +368,7 @@ function openProfileSheet() {
         homeProfile.location = v; saveData(); renderHome();
       });
     } else if (act === 'expr') {
-      promptModal('状态表情', '如：(*^^*)  (｡♥‿♥｡)', homeProfile.expression || '', function (v) {
+      promptModal('状态', '如：(*^^*)  (｡♥‿♥｡)', homeProfile.expression || '', function (v) {
         homeProfile.expression = v; saveData(); renderHome();
       });
     } else if (act === 'city') {
