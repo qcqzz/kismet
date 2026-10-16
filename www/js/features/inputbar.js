@@ -129,6 +129,27 @@ function sendImageMessage(dataUrl) {
   triggerDelayedReply(true);
 }
 
+// 我的拍一拍的选择入口：双击梦角消息旁的头像。
+// 只有一条动作时直接发；有多条时先让你挑一个。
+function openMyPokePicker(targetId) {
+  var cid = targetId || activeContactId;
+  var pool = pokesFor(cid, 'mine');
+  if (!pool.length) {
+    toast('还没有「我的拍一拍」动作，去设置里添加');
+    return;
+  }
+  if (pool.length === 1) { doMyPoke(pool[0], targetId); return; }
+  var items = pool.map(function (a, i) {
+    return { label: escapeHtml(a), act: 'pk' + i };
+  });
+  items.push({ label: '取消', act: 'cancel', cancel: true });
+  showSheet('我的拍一拍', items, function (act) {
+    if (act === 'cancel') return;
+    var idx = Number(String(act).replace('pk', ''));
+    if (!isNaN(idx) && pool[idx]) doMyPoke(pool[idx], targetId);
+  });
+}
+
 // 我的拍一拍：用户拍梦角。入口是双击梦角消息旁的头像（见 core.js buildMsgRow）。
 // targetId 传入具体梦角（群里即那条消息的发送者），专属拍一拍只对对应梦角生效。
 function doMyPoke(action, targetId) {

@@ -514,7 +514,7 @@ function buildMsgRow(msg) {
     var ava = row.querySelector('.msg-avatar');
     if (ava) ava.addEventListener('dblclick', function (e) {
       e.stopPropagation();
-      doMyPoke(null, msg.senderId || null);
+      openMyPokePicker(msg.senderId || null);
     });
   }
   return row;
