@@ -803,14 +803,6 @@ function renderReplySettings() {
       sRow({ ico: '<i class="fas fa-gift"></i>', label: '梦角主动发红包', sub: '开启后偶尔给你发红包，点气泡拆开', toggle: settings.redPacketEnabled, key: 'redPacketEnabled' })
     ].join('')) +
 
-    sGroup('拍一拍', [
-      '<div class="set-row"><span class="row-ico"><i class="fas fa-hand-paper"></i></span>' +
-        '<span class="row-txt"><span class="row-label">我拍一拍的默认动作</span>' +
-        '<span class="row-sub">预览：你 ' + escapeHtml(settings.myPokeText || '拍了拍') + ' 梦角</span></span>' +
-        '<input type="text" class="row-input" id="myPokeText-input" value="' + escapeHtml(settings.myPokeText || '拍了拍') + '">' +
-      '</div>'
-    ].join('')) +
-
     sGroup('时间戳', '<div class="ts-grid">' + tsBtns + '</div>') +
 
     sGroup('回复速度', [
@@ -1152,16 +1144,6 @@ function bindReplySettingsEvents() {
       var v = Math.max(0, Math.min(100, Number(nr.value) || 0));
       nr.value = v;
       settings.readNoReplyChance = v / 100;
-      saveData();
-    });
-  }
-
-  // 拍一拍默认动作
-  var pokeInput = body.querySelector('#myPokeText-input');
-  if (pokeInput) {
-    pokeInput.addEventListener('change', function () {
-      settings.myPokeText = pokeInput.value.trim() || '拍了拍';
-      pokeInput.value = settings.myPokeText;
       saveData();
     });
   }

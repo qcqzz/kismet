@@ -139,11 +139,12 @@ function doMyPoke(action, targetId) {
     return;
   }
   var act = action || randomOf(pool);
-  // 只带发起人前缀，不带接收人后缀
+  // 只带发起人前缀，不带接收人后缀；前缀用用户自己设置的昵称
+  var who = (homeProfile && homeProfile.name) || '我';
   var msg = {
     id: newId(), contactId: activeContactId, sender: 'system',
     senderId: targetId || null,
-    text: '你 ' + act,
+    text: who + ' ' + act,
     timestamp: Date.now(), status: 'read', favorited: false, recalled: false,
     replyTo: null, type: 'system'
   };

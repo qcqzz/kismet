@@ -17,7 +17,8 @@ var DEFAULT_SETTINGS = {
   pokeEnabled: true,           // 拍一拍（3% 概率）
   statusChangeEnabled: true,   // 状态自动变化（chat 无此项，按要求保留）
   redPacketEnabled: true,     // 梦角主动发红包（定时 8% 概率 + 每日上限 10，对齐 chat）
-  myPokeText: '拍了拍',        // 我拍一拍的默认动作
+  // 注：原先的 myPokeText（我拍一拍的默认动作）已移除。
+  // 拍一拍动作改从字卡库的「我的拍一拍」池抽取，来源见 bubblecss 同级的 cardlib.js。
   timestampFormat: 'HH:mm',    // 时间戳：HH:mm / HH:mm:ss / h:mm A / h:mm:ss A / off
   // —— 回复设置 · 消息节奏（chat 的"节奏"） ——
   replyDelayMin: 3000,
