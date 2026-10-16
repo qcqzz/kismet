@@ -113,10 +113,14 @@ html[data-theme="light"] {
 }
 .af-dream { margin-left: -14px; }
 /* 天数收了一档，给头像和下面的字让位；「天 / 天后 / 天前」与名字适当放大，
-   整体从"一个巨大数字 + 两行小字"变成上下层次更均匀。 */
+   整体从"一个巨大数字 + 两行小字"变成上下层次更均匀。
+   lining-nums 必加：Georgia 默认用老式数字，0/1/2 矮、6/8 高还带下伸部，
+   多位数排在一起时大小会明显不齐（如 1680 里的 6、8 特别大）。 */
 .anniv-num {
   font-family: Georgia, "Times New Roman", "Songti SC", serif;
   font-size: 48px; font-weight: 700; line-height: 1; letter-spacing: 1px;
+  font-variant-numeric: lining-nums;
+  font-feature-settings: "lnum" 1;
 }
 .anniv-unit { font-size: 15px; color: var(--ink-2); margin-top: 5px; }
 .anniv-name { font-size: 13px; color: var(--ink-3); margin-top: 8px; }
@@ -796,25 +800,27 @@ body.show-nav .empty-state { padding-bottom: 70px; }
 /* ============ 梦角改版：链接状态小组件 / 双展示栏 / 大方框 / 空态字卡 ============ */
 /* 链接状态：扁平化——去掉光晕图标、心电图、顶部高光与重投影，只留标签 / 文案 / 5 颗心 */
 .dt-linkstatus {
-  width: 116px; flex-shrink: 0;
+  width: 132px; flex-shrink: 0;
   box-sizing: border-box;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 9px; padding: 16px 10px;
+  gap: 16px; padding: 20px 12px;
   border-radius: 14px;
   background: var(--home-card-bg, var(--card-bg)); border: 1px solid var(--line);
   color: var(--text-primary); user-select: none; -webkit-tap-highlight-color: transparent;
   transition: background .2s;
 }
+/* 卡片被拉齐到纪念日块的高度后，原来的小字号聚在中间会显得很局促，
+   这里把三行整体放大、行距拉开，让内容在卡里更饱满（仍上下居中）。 */
 .dt-ls-label {
-  font-size: 10px; color: var(--text-secondary);
-  letter-spacing: 0.14em; text-indent: 0.14em;
+  font-size: 12px; color: var(--text-secondary);
+  letter-spacing: 0.16em; text-indent: 0.16em;
 }
 .dt-ls-text {
-  font-size: 15px; font-weight: 600; color: var(--text-primary);
+  font-size: 19px; font-weight: 600; color: var(--text-primary);
   letter-spacing: 0.04em; text-align: center; line-height: 1.3;
 }
-.dt-ls-hearts { display: flex; gap: 5px; align-items: center; justify-content: center; }
-.dt-ls-hearts i { font-size: 11px; color: rgba(var(--accent-color-rgb), .2); transition: color .3s ease; }
+.dt-ls-hearts { display: flex; gap: 7px; align-items: center; justify-content: center; }
+.dt-ls-hearts i { font-size: 14px; color: rgba(var(--accent-color-rgb), .2); transition: color .3s ease; }
 .dt-ls-hearts i.on { color: var(--accent-color); }
 .dt-ls-hearts i.pulse { animation: dtHeartPulse 1.5s ease-in-out infinite; }
 @keyframes dtHeartPulse {
