@@ -32,15 +32,18 @@ function saveEnvelopeData() {
 }
 
 // ---------- 文字生成（照搬 chat：8~12 句，标点随机） ----------
+// 标点那段 chat 写的是两次独立的 0.2 判断：
+//   Math.random() < 0.2 ? '！' : (Math.random() < 0.2 ? '...' : '。')
+// 所以实际概率是 ！20% / ...16% / 。64%，不是拿同一个随机数比两次阈值。
 function generateEnvelopeText(contactId) {
   var pool = poolFor(contactId).filter(function (t) { return typeof t === 'string' && t.trim(); });
   if (!pool.length) return '';
-  var n = 8 + Math.floor(Math.random() * 5);   // 8~12
+  var sentenceCount = Math.floor(Math.random() * (12 - 8 + 1)) + 8;   // 8~12
   var out = '';
-  for (var i = 0; i < n; i++) {
-    var r = Math.random();
-    var punct = r < 0.2 ? '！' : (r < 0.4 ? '…' : '。');
-    out += pool[Math.floor(Math.random() * pool.length)] + punct;
+  for (var i = 0; i < sentenceCount; i++) {
+    var sentence = pool[Math.floor(Math.random() * pool.length)];
+    var punctuation = Math.random() < 0.2 ? '！' : (Math.random() < 0.2 ? '...' : '。');
+    out += sentence + punctuation;
   }
   return out;
 }
