@@ -548,6 +548,35 @@ function compressGallery(file) {
   return compressImage(file, 480, 0.7);
 }
 
+// 表情包专用压缩：必须保住透明通道。
+// 表情包基本都是透明 PNG，而 compressImage 一律转 JPEG —— JPEG 没有 alpha，
+// 画布的透明区会被填成黑色，表情包看上去就"破损"了。
+// 这里优先用 WebP（支持透明且体积小），浏览器不支持时退回 PNG。
+function compressSticker(file) {
+  return new Promise(function (resolve, reject) {
+    var reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = function () {
+      var img = new Image();
+      img.onerror = reject;
+      img.onload = function () {
+        var max = 480;
+        var scale = Math.min(1, max / Math.max(img.width, img.height));
+        var canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        var webp = canvas.toDataURL('image/webp', 0.82);
+        // 不支持 WebP 时 toDataURL 会回落到 PNG，这里确认一下前缀
+        if (webp.indexOf('data:image/webp') === 0) return resolve(webp);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 // 通用图片压缩
 function compressImage(file, max, quality) {
   return new Promise(function (resolve, reject) {

@@ -75,7 +75,8 @@ function bindStickerTab(body, contactId, rerender) {
       var list = stickerPoolOf(contactId).slice();
       var added = 0;
       files.forEach(function (f) {
-        compressGallery(f).then(function (url) {
+        // 表情包走 compressSticker（保透明），不能用图库那套 JPEG 压缩
+        compressSticker(f).then(function (url) {
           list.push({ id: newId(), url: url });
           added++;
           if (added === files.length) {
