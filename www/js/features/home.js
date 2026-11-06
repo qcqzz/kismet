@@ -53,25 +53,146 @@ function initHome() {
 }
 
 // ---------- 渲染 ----------
+// 主页骨架只建一次：横向两页 + 底部圆点。之后 renderHome 只重填两页内容，
+// 这样每 10 秒的重要日轮换不会把用户翻到的第二页弹回第一页。
+function _ensureHomePager() {
+  var box = document.getElementById('home-scroll');
+  if (!box) return null;
+  var pager = document.getElementById('home-pager');
+  if (pager) return pager;
+
+  box.innerHTML =
+    '<div class="home-pager" id="home-pager">' +
+      '<section class="home-page" data-page="0">' +
+        '<div class="home-fit" id="home-fit-0"></div>' +
+      '</section>' +
+      '<section class="home-page" data-page="1">' +
+        '<div class="home-fit home-fit-blank" id="home-fit-1"></div>' +
+      '</section>' +
+    '</div>' +
+    '<div class="home-dots" id="home-dots">' +
+      '<button class="home-dot on" type="button" aria-label="第一页"></button>' +
+      '<button class="home-dot" type="button" aria-label="第二页"></button>' +
+    '</div>';
+
+  var pg = document.getElementById('home-pager');
+
+  var dots = document.getElementById('home-dots');
+  if (dots) {
+    dots.querySelectorAll('.home-dot').forEach(function (d, i) {
+      d.addEventListener('click', function () { goHomePage(i, true); });
+    });
+  }
+
+  pg.addEventListener('scroll', _syncHomeDots, { passive: true });
+  _bindHomeDrag(pg);
+  return pg;
+}
+
+function goHomePage(i, smooth) {
+  var pager = document.getElementById('home-pager');
+  if (!pager) return;
+  var w = pager.clientWidth || 1;
+  var left = Math.max(0, Math.min(1, i)) * w;
+  _homePage = Math.max(0, Math.min(1, i));
+  if (smooth && pager.scrollTo) pager.scrollTo({ left: left, behavior: 'smooth' });
+  else pager.scrollLeft = left;
+  _syncHomeDots();
+}
+
+function _syncHomeDots() {
+  var pager = document.getElementById('home-pager');
+  if (!pager) return;
+  var w = pager.clientWidth || 1;
+
+  // 宽度变了说明正在转屏 / 改窗口：此时的 scroll 事件是浏览器在重新吸附，
+  // 不能拿来改页号，否则第二页会被自己的 0 位置冲掉。
+  if (!_homePagerW || Math.abs(w - _homePagerW) < 1) {
+    _homePage = Math.max(0, Math.min(1, Math.round(pager.scrollLeft / w)));
+  }
+  var idx = _homePage;
+
+  document.querySelectorAll('#home-dots .home-dot').forEach(function (d, i) {
+    d.classList.toggle('on', i === idx);
+  });
+}
+
+// 桌面鼠标拖拽翻页；触屏交给原生 scroll-snap，这里只管 pointerType=mouse。
+var _homeDrag = null;
+var _homeSuppressClick = false;
+// 当前页号自己记，不完全信 scrollLeft：转屏 / 改窗口大小时 scroll-snap 会先
+// 把 scrollLeft 吸回 0，再触发 resize，等我们量完就来不及救了。
+var _homePage = 0;
+var _homePagerW = 0;
+
+function _bindHomeDrag(pager) {
+  pager.addEventListener('pointerdown', function (e) {
+    if (e.pointerType !== 'mouse' || e.button !== 0) return;
+    _homeDrag = { x: e.clientX, left: pager.scrollLeft, moved: false };
+  });
+  window.addEventListener('pointermove', function (e) {
+    if (!_homeDrag) return;
+    var dx = e.clientX - _homeDrag.x;
+    if (!_homeDrag.moved && Math.abs(dx) < 6) return;
+    _homeDrag.moved = true;
+    pager.classList.add('dragging');
+    pager.scrollLeft = _homeDrag.left - dx;
+  });
+  window.addEventListener('pointerup', function () {
+    if (!_homeDrag) return;
+    var moved = _homeDrag.moved;
+    _homeDrag = null;
+    if (!moved) return;
+    pager.classList.remove('dragging');
+    _homeSuppressClick = true;
+    var w = pager.clientWidth || 1;
+    goHomePage(Math.round(pager.scrollLeft / w), true);
+    setTimeout(function () { _homeSuppressClick = false; }, 80);
+  });
+  // 拖完松手会补一个 click，别让它触发卡片点击
+  pager.addEventListener('click', function (e) {
+    if (!_homeSuppressClick) return;
+    e.preventDefault();
+    e.stopPropagation();
+    _homeSuppressClick = false;
+  }, true);
+}
+
+// 第二页：先留白，之后再往里放东西
+function renderHomePage2() {
+  var fit = document.getElementById('home-fit-1');
+  if (!fit) return;
+  fit.innerHTML =
+    '<div class="home-empty">' +
+      '<div class="home-empty-ico"><i class="fas fa-moon"></i></div>' +
+      '<div class="home-empty-t">第二页</div>' +
+      '<div class="home-empty-s">内容稍后再填</div>' +
+    '</div>';
+}
+
 function renderHome() {
   var box = document.getElementById('home-scroll');
   if (!box) return;
+  _ensureHomePager();
+
+  var fit0 = document.getElementById('home-fit-0');
+  if (!fit0) return;
 
   if (_selAnniv >= anniversaries.length) _selAnniv = 0;
 
-  box.innerHTML =
-    '<div class="home-fit">' +
-      profileCardHtml() +
-      '<div class="home-mid">' +
-        annivHtml() +
-        linkStatusHtml() +
-      '</div>' +
-      showcaseHtml() +
-      homeBoxHtml() +
-      '<div class="photo-row">' +
-        polaroidHtml(2) + polaroidHtml(3) + polaroidHtml(4) + polaroidHtml(5) +
-      '</div>' +
+  fit0.innerHTML =
+    profileCardHtml() +
+    '<div class="home-mid">' +
+      annivHtml() +
+      linkStatusHtml() +
+    '</div>' +
+    showcaseHtml() +
+    homeBoxHtml() +
+    '<div class="photo-row">' +
+      polaroidHtml(2) + polaroidHtml(3) + polaroidHtml(4) + polaroidHtml(5) +
     '</div>';
+
+  renderHomePage2();
 
   refreshLinkStatus(false);
   startLinkStatusTimer();
@@ -83,10 +204,36 @@ function renderHome() {
 // 主页要「一屏放下、永不滚动」：内容自然高度超过可用高度时整体等比缩小。
 // 宽度同步放大到 100%/scale，缩放后仍然铺满屏幕，两侧不留缝。
 // 屏幕够高（内容反而填不满）时不放大，交给 .home-box 吸收富余。
+// 两页各算各的，互不影响。
 function fitHomeToScreen() {
   var sc = document.getElementById('home-scroll');
-  var fit = sc && sc.querySelector('.home-fit');
-  if (!sc || !fit) return;
+  if (!sc) return;
+  // 屏幕尺寸变化时 scroll-snap 会先把 scrollLeft 吸回最近的整页；用自己记的
+  // 页号还原，免得转屏 / 改窗口大小后从第二页弹回第一页。
+  var keep = _homePage;
+
+  var fits = sc.querySelectorAll('.home-fit');
+  for (var f = 0; f < fits.length; f++) _fitHomeOne(fits[f]);
+
+  var pager = document.getElementById('home-pager');
+  if (pager) _homePagerW = pager.clientWidth || 0;
+
+  if (keep > 0 && pager) {
+    var restore = function () {
+      var p = document.getElementById('home-pager');
+      if (!p) return;
+      var w = p.clientWidth || 0;
+      if (w > 0) p.scrollLeft = keep * w;
+      _syncHomeDots();
+    };
+    restore();
+    setTimeout(restore, 0);
+    setTimeout(restore, 160);
+  }
+}
+
+function _fitHomeOne(fit) {
+  if (!fit) return;
 
   // 先复位：上一轮的宽度会影响本轮的换行，不复位就量不准
   fit.style.transform = 'none';
@@ -97,7 +244,7 @@ function fitHomeToScreen() {
 
   // 内容自然高度（未缩放）。用 getBoundingClientRect 拿亚像素值：
   // offsetHeight 会取整，几块累加后误差足以让本该不缩的屏幕也缩 0.999。
-  // 这里量的是 5 个直接子块，拍立得的 rotate 在其内部，不影响 .photo-row 自身高度。
+  // 这里量的是直接子块，拍立得的 rotate 在其内部，不影响 .photo-row 自身高度。
   function natural() {
     var n = 0;
     for (var j = 0; j < fit.children.length; j++) {
