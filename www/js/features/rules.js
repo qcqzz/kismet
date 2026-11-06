@@ -132,6 +132,18 @@ function renderSettings(focusSection) {
             ? '已自定义 · 组件 ' + Math.round((Number(settings.homeCardAlpha) || 0.76) * 100) + '% 不透明'
             : '未设置 · 组件 ' + Math.round((Number(settings.homeCardAlpha) || 0.76) * 100) + '% 不透明' })
       ].join('')) +
+    '</div>' +
+
+    // 5) 通知与保活
+    '<div class="set-sec active" data-sec="notify">' +
+      sGroup('通知与保活', [
+        sRow({ ico: '<i class="fas fa-bell"></i>', label: '系统通知', sub: _notifySummary(),
+          toggle: settings.notifyEnabled !== false, key: 'notifyEnabled' }),
+        sRow({ ico: '<i class="fas fa-list-check"></i>', label: '通知内容', sub: _notifyKindsSummary(),
+          arrow: true, act: 'openNotify' }),
+        sRow({ ico: '<i class="fas fa-heart-pulse"></i>', label: '后台保活', sub: _keepAliveSummary(),
+          arrow: true, act: 'openKeepAlive' })
+      ].join('')) +
     '</div>';
 
   bindSettingsEvents();
@@ -836,10 +848,7 @@ function renderReplySettings() {
         '<input type="range" min="2" max="5" step="1" value="' + settings.combineCardsMax + '" id="combine-slider">' +
         '<span class="slider-val" id="combine-val">' + settings.combineCardsMax + '句</span></div>'
     ].join('')) +
-
-    sGroup('后台运行', [
-      sRow({ ico: '<i class="fas fa-bell"></i>', label: '后台消息推送', sub: '页面在后台时收到消息弹系统通知', toggle: settings.bgNotifyEnabled, key: 'bgNotifyEnabled' })
-    ].join(''));
+    '<div class="set-note">通知开关与保活设置已移到「设置 → 通知与保活」。</div>';
 
   bindReplySettingsEvents();
 }
@@ -899,6 +908,221 @@ function renderSfxSettings() {
   bindSfxSettingsEvents();
 }
 
+// ---------- 二级子页：通知内容 ----------
+function _notifyPermissionText() {
+  var st = (typeof notifyPermissionState === 'function') ? notifyPermissionState() : 'unknown';
+  if (st === 'granted') return '已授予';
+  if (st === 'denied') return '已被拒绝，需到系统设置里手动开启';
+  if (st === 'unsupported') return '当前环境不支持系统通知';
+  return '尚未授权';
+}
+
+function _notifySummary() {
+  if (settings.notifyEnabled === false) return '已关闭，不会弹任何提醒';
+  var st = (typeof notifyPermissionState === 'function') ? notifyPermissionState() : 'unknown';
+  if (st === 'granted') return '已开启 · 系统权限已授予';
+  if (st === 'denied') return '已开启 · 系统里被拒绝，需手动开启';
+  if (st === 'unsupported') return '已开启 · 当前环境不支持系统通知';
+  return '已开启 · 尚未授权';
+}
+
+function _notifyKindsSummary() {
+  var on = [];
+  if (settings.notifyChat !== false) on.push('聊天');
+  if (settings.notifyPoke !== false) on.push('拍一拍');
+  if (settings.notifyMoments !== false) on.push('朋友圈');
+  if (settings.notifyLetters !== false) on.push('信件');
+  return on.length ? on.join(' · ') : '全部关闭';
+}
+
+function _keepAliveSummary() {
+  if (settings.keepAliveEnabled === false) return '已关闭，切到后台可能收不到消息';
+  if (window.ForegroundBridge && ForegroundBridge.isSupported()) return '前台服务运行中 · 熄屏也能收消息';
+  return '浏览器模式 · 网页后台可能被系统冻结';
+}
+
+function renderNotifySettings() {
+  _settingsSub = 'notify';
+  var body = DOMElements.settingsBody;
+  setSettingsHeader('通知内容');
+
+  body.innerHTML =
+    '<div class="sub-back" id="sub-back">‹ 返回设置</div>' +
+    sGroup('弹哪几类提醒', [
+      sRow({ ico: '<i class="fas fa-comment-dots"></i>', label: '聊天消息', sub: '文字、图片、表情包、语音条、红包',
+        toggle: settings.notifyChat !== false, key: 'notifyChat' }),
+      sRow({ ico: '<i class="fas fa-hand-pointer"></i>', label: '拍一拍', sub: '梦角拍了拍你',
+        toggle: settings.notifyPoke !== false, key: 'notifyPoke' }),
+      sRow({ ico: '<i class="fas fa-images"></i>', label: '朋友圈互动', sub: '发新动态、赞、评论、回复评论',
+        toggle: settings.notifyMoments !== false, key: 'notifyMoments' }),
+      sRow({ ico: '<i class="fas fa-envelope"></i>', label: '信件', sub: '主动来信与回信',
+        toggle: settings.notifyLetters !== false, key: 'notifyLetters' })
+    ].join('')) +
+    sGroup('弹的时机', [
+      sRow({ ico: '<i class="fas fa-mobile-screen"></i>', label: '前台也弹系统通知',
+        sub: '关闭时 App 开着只显示顶部横幅',
+        toggle: settings.notifyForeground === true, key: 'notifyForeground' }),
+      sRow({ ico: '<i class="fas fa-cloud-arrow-down"></i>', label: '离线消息提醒',
+        sub: '网页版专用：添加到主屏幕后，页面全关也能被系统定时唤醒提醒',
+        toggle: settings.offlineNotifyEnabled !== false, key: 'offlineNotifyEnabled' })
+    ].join('')) +
+    sGroup('权限与测试', [
+      '<div class="set-row"><span class="row-ico"><i class="fas fa-shield-halved"></i></span>' +
+        '<span class="row-txt"><span class="row-label">通知权限</span>' +
+        '<span class="row-sub">' + escapeHtml(_notifyPermissionText()) + '</span></span>' +
+        '<button class="row-btn" id="notify-perm-btn">去授权</button></div>',
+      '<div class="set-row"><span class="row-ico"><i class="fas fa-paper-plane"></i></span>' +
+        '<span class="row-txt"><span class="row-label">发一条测试通知</span>' +
+        '<span class="row-sub">用第一位梦角的头像和名字发一条，确认系统能收到</span></span>' +
+        '<button class="row-btn" id="notify-test-btn">发送</button></div>'
+    ].join('')) +
+    '<div class="set-note">App 在前台时只显示顶部横幅，不打扰通知栏；切到后台、锁屏或别的应用时才弹系统通知。' +
+    '每位梦角各占一条通知，小语的提醒不会把阿墨的顶掉。</div>';
+
+  bindNotifySettingsEvents();
+}
+
+function bindNotifySettingsEvents() {
+  var body = DOMElements.settingsBody;
+  var back = body.querySelector('#sub-back');
+  if (back) back.addEventListener('click', function () { renderSettings(); });
+
+  body.querySelectorAll('[data-set]').forEach(function (el) {
+    el.addEventListener('change', function () {
+      settings[el.dataset.set] = el.checked;
+      saveData();
+      // 关掉聊天通知要立刻撤掉原生闹钟，不必等到下一次 60 秒重排
+      if (el.dataset.set === 'notifyEnabled' || el.dataset.set === 'notifyChat') {
+        try { if (typeof notifySyncNativeAlarms === 'function') notifySyncNativeAlarms(); } catch (e) {}
+      }
+      // 离线提醒是注册/注销 Service Worker 的周期性同步，改完立刻生效
+      if (el.dataset.set === 'offlineNotifyEnabled' && window.OfflineReminder) {
+        try {
+          if (el.checked) OfflineReminder.apply();
+          else OfflineReminder.teardown();
+        } catch (e) {}
+      }
+    });
+  });
+
+  var permBtn = body.querySelector('#notify-perm-btn');
+  if (permBtn) {
+    permBtn.addEventListener('click', function () {
+      notifyRequestPermission().then(function (p) {
+        toast(p === 'granted' ? '通知权限已授予' : '未获得通知权限');
+        renderNotifySettings();
+      });
+    });
+  }
+
+  var testBtn = body.querySelector('#notify-test-btn');
+  if (testBtn) {
+    testBtn.addEventListener('click', function () {
+      if (typeof notifyTest === 'function') notifyTest();
+      toast('已发送，看看通知栏');
+    });
+  }
+}
+
+// ---------- 二级子页：后台保活 ----------
+function _kvRow(ico, label, val, btnId, btnText) {
+  return '<div class="set-row"><span class="row-ico"><i class="fas ' + ico + '"></i></span>' +
+    '<span class="row-txt"><span class="row-label">' + escapeHtml(label) + '</span>' +
+    '<span class="row-sub">' + escapeHtml(val) + '</span></span>' +
+    (btnId ? '<button class="row-btn" id="' + btnId + '">' + escapeHtml(btnText || '去设置') + '</button>' : '') +
+    '</div>';
+}
+
+function renderKeepAliveSettings() {
+  _settingsSub = 'keepalive';
+  var body = DOMElements.settingsBody;
+  setSettingsHeader('后台保活');
+  var native = !!(window.ForegroundBridge && ForegroundBridge.isSupported());
+
+  body.innerHTML =
+    '<div class="sub-back" id="sub-back">‹ 返回设置</div>' +
+    sGroup('保活开关', [
+      sRow({ ico: '<i class="fas fa-heart-pulse"></i>', label: '后台保活',
+        sub: native ? '关掉后熄屏/切后台可能收不到消息' : '浏览器版：网页被系统冻结后无法自行恢复',
+        toggle: settings.keepAliveEnabled !== false, key: 'keepAliveEnabled' })
+    ].join('')) +
+    '<div id="ka-status"></div>' +
+    '<div class="set-note">安卓版靠前台的常驻服务保活：状态栏会出现一条「正在后台运行」的通知，这是系统要求，不能隐藏。' +
+    '网页版没有这个能力——系统冻结页面后只能等下次打开时补投递，所以想要「切后台也不漏」，请安装 APK。</div>';
+
+  var back = body.querySelector('#sub-back');
+  if (back) back.addEventListener('click', function () { renderSettings(); });
+
+  var t = body.querySelector('[data-set="keepAliveEnabled"]');
+  if (t) {
+    t.addEventListener('change', function () {
+      settings.keepAliveEnabled = t.checked;
+      saveData();
+      if (native) {
+        if (t.checked) ForegroundBridge.start();
+        else ForegroundBridge.stop();
+      }
+      toast(t.checked ? '后台保活已开启' : '后台保活已关闭');
+    });
+  }
+
+  fillKeepAliveStatus();
+}
+
+function fillKeepAliveStatus() {
+  var box = document.getElementById('ka-status');
+  if (!box) return;
+
+  if (!(window.ForegroundBridge && ForegroundBridge.isSupported())) {
+    var offline = '当前浏览器不支持';
+    try {
+      if (window.OfflineReminder && OfflineReminder.supported()) {
+        offline = OfflineReminder.isStandalone() ? '已启用（从桌面图标打开时生效）' : '需先添加到主屏幕';
+      }
+    } catch (e) {}
+    box.innerHTML = sGroup('状态', [
+      _kvRow('fa-temperature-arrow-down', '运行环境', '浏览器网页'),
+      _kvRow('fa-bell', '通知权限', _notifyPermissionText()),
+      _kvRow('fa-cloud-arrow-down', '离线提醒', offline)
+    ].join(''));
+    return;
+  }
+
+  box.innerHTML = sGroup('状态', _kvRow('fa-spinner', '读取中', '正在检查系统权限…'));
+  ForegroundBridge.status(function (s) {
+    var brand = (s.brand && s.brand !== 'unknown') ? (s.brand + (s.model ? ' · ' + s.model : '')) : '未知';
+    box.innerHTML = sGroup('状态', [
+      _kvRow('fa-mobile-screen', '厂商', brand),
+      _kvRow('fa-calendar-check', '后台消息排期',
+        settings.autoSendEnabled
+          ? ('已排 ' + NATIVE_ALARM_SLOTS + ' 格 · 断网/被冻结也会到点提醒')
+          : '未开启 · 需先打开「主动发消息给我」'),
+      _kvRow('fa-battery-half', '电池优化', s.batteryIgnored ? '已豁免' : '未豁免，Doze 会限制后台', s.batteryIgnored ? null : 'ka-battery', '去豁免'),
+      _kvRow('fa-clock', '精确闹钟', s.exactAlarm ? '已允许' : '未允许，提醒可能延迟', s.exactAlarm ? null : 'ka-exact', '去允许'),
+      _kvRow('fa-window-restore', '悬浮窗', s.overlay ? '已允许' : '未允许，影响被清理后自动拉起', s.overlay ? null : 'ka-overlay', '去允许'),
+      _kvRow('fa-rocket', '自启动白名单', '需在系统设置里手动加入', 'ka-boot', '去设置')
+    ].join(''));
+
+    var bind = function (id, fn) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('click', fn);
+    };
+    bind('ka-battery', function () { ForegroundBridge.requestBatteryOptimization(); toast('授权后回来本页刷新'); });
+    bind('ka-exact', function () {
+      ForegroundBridge.requestExactAlarm(function (r) {
+        if (r && r.needAction) toast('请在系统页里允许「闹钟和提醒」');
+        else toast('精确闹钟已允许');
+      });
+    });
+    bind('ka-overlay', function () { ForegroundBridge.requestOverlay().catch(function () {}); });
+    bind('ka-boot', function () {
+      ForegroundBridge.openBatterySaverGuide(function (r) {
+        if (r && r.fallbackToBattery) toast('没找到自启动面板，已打开电池优化页');
+      });
+    });
+  });
+}
+
 // ---------- 事件 ----------
 function bindSettingsEvents() {
   var body = DOMElements.settingsBody;
@@ -929,6 +1153,10 @@ function bindSettingsEvents() {
         renderReplySettings();
       } else if (act === 'openSfx') {
         renderSfxSettings();
+      } else if (act === 'openNotify') {
+        renderNotifySettings();
+      } else if (act === 'openKeepAlive') {
+        renderKeepAliveSettings();
       } else if (act === 'cardReply') {
         _cardTab = 'main';
         renderCardReply();
@@ -954,6 +1182,25 @@ function bindSettingsEvents() {
       }
     });
   });
+
+  // 通知总开关（主页面）：开启时顺手要权限，关掉就彻底静默
+  var notifyToggle = body.querySelector('[data-set="notifyEnabled"]');
+  if (notifyToggle) {
+    notifyToggle.addEventListener('change', function () {
+      settings.notifyEnabled = notifyToggle.checked;
+      saveData();
+      // 立刻重排 / 撤销原生闹钟，避免关掉后仍弹后台消息
+      try { if (typeof notifySyncNativeAlarms === 'function') notifySyncNativeAlarms(); } catch (e) {}
+      if (notifyToggle.checked && typeof notifyRequestPermission === 'function') {
+        notifyRequestPermission().then(function (p) {
+          if (p !== 'granted') toast('未获得通知权限，系统通知不会弹出');
+          renderSettings();
+        });
+      } else if (!notifyToggle.checked) {
+        toast('系统通知已关闭');
+      }
+    });
+  }
 
   // 通用 · 天气
   var cityInput = body.querySelector('#weather-city-input');
@@ -1111,18 +1358,6 @@ function bindReplySettingsEvents() {
         settings.combineCardsEnabled = el.checked;
         var crow = body.querySelector('#combine-row');
         if (crow) crow.style.display = el.checked ? '' : 'none';
-      } else if (key === 'bgNotifyEnabled') {
-        if (el.checked && 'Notification' in window && Notification.permission !== 'granted') {
-          Notification.requestPermission().then(function (p) {
-            if (p !== 'granted') {
-              settings.bgNotifyEnabled = false;
-              el.checked = false;
-              toast('未获得通知权限');
-            }
-            saveData();
-          });
-        }
-        settings.bgNotifyEnabled = el.checked;
       } else {
         settings[key] = el.checked;
       }

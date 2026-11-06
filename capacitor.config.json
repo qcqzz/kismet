@@ -1,0 +1,18 @@
+{
+  "appId": "com.zikachuanxun.app",
+  "appName": "字卡传讯",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": true
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_notification",
+      "iconColor": "#111111"
+    }
+  }
+}

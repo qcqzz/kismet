@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme"
+        android:usesCleartextTraffic="true">
+
+        <activity
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
+            android:name=".MainActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.NoActionBarLaunch"
+            android:launchMode="singleTask"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+        </activity>
+
+        <!-- 任务被划掉时瞬时维持前台身份的保活宿主（无窗口、不可见、不进最近任务） -->
+        <activity
+            android:name=".KeepAliveActivity"
+            android:theme="@android:style/Theme.NoDisplay"
+            android:launchMode="singleTop"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:exported="false" />
+
+        <service
+            android:name=".ForegroundService"
+            android:foregroundServiceType="dataSync|specialUse"
+            android:stopWithTask="false"
+            android:exported="false">
+
+            <!-- specialUse 类型要求声明具体用途（供系统审计，侧载不影响运行）。
+                 用途：后台消息轮询与保活，Android 15+ 下 dataSync 有 6 小时强制超时，
+                 故 Android 14+ 走 specialUse 免除超时强杀 -->
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="background_message_polling_and_keep_alive" />
+        </service>
+
+        <!-- 定时唤醒接收器（熄屏/Doze 保活） -->
+        <receiver
+            android:name=".KeepAliveReceiver"
+            android:exported="false" />
+
+        <!-- 到点弹消息通知接收器（后台预定消息闹钟） -->
+        <receiver
+            android:name=".MessageAlarmReceiver"
+            android:exported="false" />
+
+        <!-- 开机自启动接收器：覆盖正常开机 + 厂商快速开机(快启卡片) + App 升级后恢复 -->
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+    </application>
+
+    <!-- Permissions -->
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- 侧载分发（不上架 Play），额外声明 USE_EXACT_ALARM 让精确闹钟在安装时即授予，
+         不必用户手动去系统设置里打开——否则 Doze 下消息可能被推迟十几分钟。 -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- 悬浮窗：豁免 Android 12+ 后台启动前台服务限制，提升"进程被回收后重新拉起"的成功率 -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+</manifest>

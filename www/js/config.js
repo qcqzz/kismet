@@ -37,7 +37,15 @@ var DEFAULT_SETTINGS = {
   emojiMixEnabled: true,       // 表情混入消息（与文字同条发送，20% 概率，对齐 chat）
   combineCardsEnabled: false,  // 回复拼接字卡（单条消息拼接多张）
   combineCardsMax: 3,          // 最多拼接几句话
-  bgNotifyEnabled: false,      // 后台消息推送（Notification）
+  // —— 通知与保活 ——
+  notifyEnabled: true,         // 系统通知总开关（后台/锁屏时弹）
+  notifyForeground: false,     // 前台也弹系统通知（默认否：前台只走应用内横幅）
+  notifyChat: true,            // 聊天消息
+  notifyPoke: true,            // 拍一拍
+  notifyMoments: true,         // 朋友圈互动（发动态/赞/评论/回复）
+  notifyLetters: true,         // 信件（主动来信 / 回信）
+  keepAliveEnabled: true,      // 后台保活（APK 前台服务 / 浏览器 SW + WakeLock）
+  offlineNotifyEnabled: true,  // 网页端离线提醒（PWA 周期性后台同步）
   // —— 音效设置（chat 的"音效"） ——
   soundEnabled: true,
   soundVolume: 0.15,

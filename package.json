@@ -1,0 +1,21 @@
+{
+  "name": "zikachuanxun",
+  "version": "1.0.0",
+  "private": true,
+  "description": "字卡传讯 — 纯本地梦角聊天 Web App（含 Android 通知与保活）",
+  "scripts": {
+    "android:init": "npx cap add android",
+    "android:overlay": "node scripts/overlay-android.js",
+    "android:sync": "npx cap sync android",
+    "android:open": "npx cap open android",
+    "android:build": "node scripts/overlay-android.js && npx cap sync android && cd android && gradlew.bat assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
+    "@capacitor/local-notifications": "^8.2.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.0"
+  }
+}

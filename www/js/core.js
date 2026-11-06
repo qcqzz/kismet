@@ -328,6 +328,11 @@ function addMessage(msg, opts) {
 
   saveData();
 
+  // 统一通知收口：梦角发来的消息在这里决定"弹横幅还是系统通知"（见 features/notify.js）
+  if (!opts.silent && !opts.fromOffline && typeof notifyChatMessage === 'function') {
+    notifyChatMessage(msg);
+  }
+
   // 仅当消息属于当前聊天时渲染
   if (cid === activeContactId && typeof renderNewMessage === 'function') {
     renderNewMessage(msg);
@@ -826,7 +831,6 @@ function deliverPartnerMsg(text, senderId, opts) {
   };
   addMessage(msg);
   if (opts.type !== 'redpacket') playSound('partner_message');
-  notifyBackground(msg);
 }
 
 // 投递语音条消息。消息里只存 audioId（指向 IndexedDB 里的音频），
@@ -854,7 +858,6 @@ function deliverPartnerVoice(vItem, senderId) {
   };
   addMessage(msg);
   playSound('partner_message');
-  notifyBackground({ sender: 'partner', text: '[语音]' });
 }
 
 // 投递表情包消息（就是一条普通图片消息）
@@ -877,7 +880,6 @@ function deliverPartnerSticker(sticker, senderId) {
   };
   addMessage(msg);
   playSound('message');
-  notifyBackground({ sender: 'partner', text: '[表情]' });
 }
 
 // ---------- 语音条：渲染 + 播放 ----------
@@ -947,18 +949,7 @@ function resetVoiceBars() {
   });
 }
 
-// 后台消息推送（Notification，chat 后台推送同用途）
-function notifyBackground(msg) {
-  if (!settings.bgNotifyEnabled) return;
-  if (typeof document !== 'undefined' && !document.hidden) return;
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  try {
-    var c = contacts.find(function (x) { return x.id === msg.contactId; });
-    new Notification(c ? c.name : '字卡传讯', {
-      body: msg.type === 'redpacket' ? '🧧 收到一个红包' : (msg.text || '[图片]')
-    });
-  } catch (e) {}
-}
+// 通知统一在 features/notify.js 里收口（按梦角区分标题/头像/分组，前台走横幅、后台走系统通知）
 
 // 选回复：从双层池（基础+专属）随机（chat 自定义回复逻辑）
 // poolContactId：单聊=当前梦角 id；群聊=随机到的成员 id
@@ -1030,7 +1021,6 @@ registerPartnerActivity({
         timestamp: Date.now(), status: 'read', favorited: false,
         recalled: false, replyTo: null, type: 'redpacket', amount: amt
       });
-      notifyBackground({ contactId: c.id, type: 'redpacket', text: '🧧 收到一个红包' });
     }, 900);                                                // chat 里也是延后 900ms 再投递
   }
 });
@@ -1054,6 +1044,7 @@ function triggerPartnerPoke(pokeContactId) {
   };
   addMessage(msg);
   playSound('partner_poke');
+  if (typeof notifyPoke === 'function') notifyPoke(activeContactId, member.name, action);
 }
 
 function triggerPartnerRecall() {
@@ -1148,7 +1139,6 @@ function runAutoSend() {
     // addMessage 自动处理：正在看该会话 → 渲染；否则 → 未读角标
     addMessage(msg);
     playSound('partner_message');
-    notifyBackground(msg);
   };
   sendOne();
   // 15% 概率连发第二条（chat 主动发送的"发送条数"）

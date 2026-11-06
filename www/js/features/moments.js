@@ -128,6 +128,7 @@ function generatePartnerMoment() {
   }
   momentsData.posts.unshift(post);
   saveData();
+  if (typeof notifyMoment === 'function') notifyMoment(contactId, 'post', { text: c.text });
 }
 
 // 用户发新动态：梦角几分钟后来点赞
@@ -161,6 +162,10 @@ function checkMomentsStatus() {
       p.pendingLikeTime = null;
       p.pendingLikeSilent = false;
       changed = true;
+      // 只有"梦角赞了用户的动态"才提醒；梦角给自己动态点赞不打扰
+      if (p.type === 'user' && typeof notifyMoment === 'function') {
+        notifyMoment(p.contactId, 'like', {});
+      }
     }
     if (p.pendingPartnerComment && now >= p.pendingPartnerComment.time) {
       var ppc = p.pendingPartnerComment;
@@ -172,6 +177,11 @@ function checkMomentsStatus() {
       });
       p.pendingPartnerComment = null;
       changed = true;
+      // 回复我的评论 / 评论我的动态 → 提醒；梦角在自己动态下自评 → 不打扰
+      if (typeof notifyMoment === 'function') {
+        if (ppc.replyTo) notifyMoment(p.contactId, 'reply', { text: ppc.text });
+        else if (!ppc.isSelfComment) notifyMoment(p.contactId, 'comment', { text: ppc.text });
+      }
     }
   });
   if (changed) { saveData(); renderMoments(); }

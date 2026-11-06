@@ -55,6 +55,9 @@
     // 主动发送定时器（设置里开启时生效）
     if (typeof startAutoSend === 'function') startAutoSend();
 
+    // 通知与后台保活
+    initNotifyKeepAlive();
+
     // 设置页返回：子页先回主设置，否则回主页
     document.getElementById('btn-settings-back').addEventListener('click', function () {
       if (typeof settingsBack === 'function') settingsBack();
@@ -118,6 +121,82 @@
         showView('settings');
         renderSettings();
       }
+    });
+  }
+
+  // ---------- 通知与后台保活 ----------
+  function initNotifyKeepAlive() {
+    // APK：拉起前台服务（状态栏常驻通知 + WakeLock + 5 分钟定时唤醒）
+    var native = !!(window.ForegroundBridge && ForegroundBridge.isSupported());
+    if (native && settings.keepAliveEnabled !== false) {
+      try { ForegroundBridge.start(); } catch (e) {}
+    }
+
+    // 原生闹钟排期：把"未来几次梦角说话"交给 AlarmManager。
+    // 页面活着时每 60 秒重排一次（闹钟被不断推后，实际由 JS 投递，不会重复）；
+    // 页面被冻结 / 进程被杀时 JS 停止重排，闹钟到点自己弹通知。
+    try { notifyDrainNativeAlarms(); } catch (e) {}
+    try { notifySyncNativeAlarms(); } catch (e) {}
+    setInterval(function () {
+      try { notifySyncNativeAlarms(); } catch (e) {}
+    }, 60000);
+
+    // 原生首次启动：依次引导三个权限，缺一个后台都可能漏消息。
+    // 只引导一次，之后在设置页里可以手动再开。
+    if (native && !Storage.get('keepAliveGuided')) {
+      setTimeout(function () {
+        try {
+          ForegroundBridge.isBatteryOptimized(function (ignored) {
+            if (ignored) return;
+            toast('为后台不漏消息，请允许本应用忽略电池优化');
+            ForegroundBridge.requestBatteryOptimization();
+          });
+        } catch (e) {}
+      }, 2500);
+
+      setTimeout(function () {
+        try {
+          ForegroundBridge.requestExactAlarm(function (r) {
+            if (r && r.needAction) toast('请允许「闹钟和提醒」，后台提醒才准时');
+          });
+        } catch (e) {}
+      }, 6000);
+
+      setTimeout(function () {
+        try {
+          ForegroundBridge.getManufacturer(function (brand) {
+            var domestic = brand === 'xiaomi' || brand === 'huawei'
+              || brand === 'oppo' || brand === 'vivo' || brand === 'meizu';
+            if (!domestic) return;
+            toast('为后台不漏消息，请把本应用加入自启动/后台白名单');
+            ForegroundBridge.openBatterySaverGuide();
+          });
+        } catch (e) {}
+      }, 10000);
+
+      Storage.set('keepAliveGuided', true);
+    }
+
+    // 切后台：再拉一次前台服务（被厂商清掉时能自愈），并把数据立即落盘
+    // 回前台：补投递离线队列里积压的梦角消息
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') {
+        try { saveData(); } catch (e) {}
+        // 切后台前把闹钟排期落定，之后 WebView 被冻结也不影响到点提醒
+        try { notifySyncNativeAlarms(); } catch (e) {}
+        try {
+          if (native && settings.keepAliveEnabled !== false) ForegroundBridge.start();
+        } catch (e) {}
+        return;
+      }
+      // 回前台：先把"后台到点弹过通知"的消息补进聊天，再重排闹钟
+      try { notifyDrainNativeAlarms(); } catch (e) {}
+      try { notifySyncNativeAlarms(); } catch (e) {}
+      try {
+        if (window.OfflineReminder && typeof OfflineReminder.drain === 'function') OfflineReminder.drain();
+      } catch (e) {}
+      try { if (typeof renderContactList === 'function') renderContactList(); } catch (e) {}
+      try { if (typeof updateNavBadge === 'function') updateNavBadge(); } catch (e) {}
     });
   }
 

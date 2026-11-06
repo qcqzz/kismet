@@ -118,6 +118,9 @@ function checkEnvelopeStatus() {
     fresh.forEach(function (f) {
       playSound('message');
       showEnvelopePopup(f.contactId, f.letter, false);
+      if (typeof notifyLetter === 'function') {
+        notifyLetter(f.contactId, true, String(f.letter.content || '').replace(/\s+/g, ' ').slice(0, 24));
+      }
     });
     renderLetters();
     updateNavBadge();
@@ -147,6 +150,9 @@ function partnerWriteLetter(contactId) {
   showEnvelopePopup(contactId, letter, true);
   renderLetters();
   updateNavBadge();
+  if (typeof notifyLetter === 'function') {
+    notifyLetter(contactId, false, String(content || '').replace(/\s+/g, ' ').slice(0, 24));
+  }
 }
 
 registerPartnerActivity({
