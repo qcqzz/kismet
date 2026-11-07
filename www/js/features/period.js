@@ -303,7 +303,7 @@
 
   function cyclesHtml() {
     var list = getCycles();
-    if (!list.length) return '<div class="pd-records-empty">暂无经期记录，点上方「标记今天开始」开启第一个周期</div>';
+    if (!list.length) return '<div class="pd-records-empty">暂无经期记录，点日历上的日期可以补记</div>';
     var html = '';
     for (var i = 0; i < list.length; i++) {
       var cy = list[i];
@@ -321,6 +321,86 @@
   }
 
   // ---------- 打卡 ----------
+  // 补记：某天是否落在已有记录里
+  function cycleForDate(dateStr) {
+    var d = ymdToDate(dateStr);
+    if (!d) return null;
+    var list = getCycles();
+    for (var i = 0; i < list.length; i++) {
+      var a = ymdToDate(list[i].start), b = ymdToDate(list[i].end);
+      if (a && b && dayDiff(d, a) >= 0 && dayDiff(d, b) <= 0) return list[i];
+    }
+    return null;
+  }
+  function hasCycleStart(startStr) {
+    return getCycles().some(function (c) { return c.start === startStr; });
+  }
+  // 写入一条完整记录（开始日 ~ 结束日），重复的不再追加
+  function recordCycle(startStr, endStr) {
+    var st = ymdToDate(startStr), en = ymdToDate(endStr);
+    if (!st || !en || dayDiff(en, st) < 0) return null;
+    var days = dayDiff(en, st) + 1;
+    var list = getCycles();
+    var has = list.some(function (c) { return c.start === startStr && c.end === endStr; });
+    if (!has) {
+      list.push({ start: startStr, end: endStr, days: days });
+      list.sort(function (a, b) { return dayDiff(ymdToDate(b.start) || today0(), ymdToDate(a.start) || today0()); });
+      saveCycles(list);
+    }
+    return { start: startStr, end: endStr, days: days };
+  }
+
+  // 把选中的日期记为这次经期的开始日
+  function markStartAt(dateStr) {
+    var d = ymdToDate(dateStr);
+    if (!d) return;
+    if (dayDiff(d, today0()) > 0) { if (typeof toast === 'function') toast('未来的日期还不能标记'); return; }
+    var cur = getCurrent();
+    var apply = function () {
+      var s = getSettings() || {};
+      if (!g(s.cycleDays, 0)) s.cycleDays = 28;
+      if (!g(s.periodDays, 0)) s.periodDays = 5;
+      if (!g(s.lutealDays, 0)) s.lutealDays = 14;
+      // lastStart 跟着最新一次经期走：比所有已有记录都新才更新；补记旧周期时保持原来的预测基准
+      var latestTs = 0;
+      getCycles().forEach(function (c) {
+        var cd = ymdToDate(c.start);
+        if (cd && cd.getTime() > latestTs) latestTs = cd.getTime();
+      });
+      if (!latestTs || d.getTime() >= latestTs) s.lastStart = dateStr;
+      saveSettings(s);
+      saveCurrent({ start: dateStr });
+      closeSheet();
+      render();
+      if (typeof toast === 'function') toast('已记录：' + fmtMD(d) + ' 开始');
+    };
+    if (cur && cur.start && cur.start !== dateStr) {
+      // 弹层在 confirm 之上，先收起再问
+      closeSheet();
+      confirmModal('修改开始日', '这次经期现在从 ' + cur.start + ' 开始，改成 ' + dateStr + ' 吗？', apply);
+    } else {
+      apply();
+    }
+  }
+
+  // 把选中的日期记为这次经期的结束日，并生成一条记录
+  function markEndAt(dateStr) {
+    var d = ymdToDate(dateStr);
+    if (!d) return;
+    if (dayDiff(d, today0()) > 0) { if (typeof toast === 'function') toast('未来的日期还不能标记'); return; }
+    var cur = getCurrent();
+    var s = getSettings() || {};
+    var startStr = (cur && cur.start) ? cur.start : (s.lastStart || '');
+    var st = startStr ? ymdToDate(startStr) : null;
+    if (!st) { if (typeof toast === 'function') toast('先标记开始日'); return; }
+    if (dayDiff(d, st) < 0) { if (typeof toast === 'function') toast('结束日不能早于开始日'); return; }
+    var rec = recordCycle(startStr, dateStr);
+    saveCurrent(null);
+    closeSheet();
+    render();
+    if (rec && typeof toast === 'function') toast('本次经期已记录：' + rec.days + ' 天');
+  }
+
   function startPeriod() {
     var today = fmtYM(today0());
     var s = getSettings() || {};
@@ -341,14 +421,10 @@
     if (!start) { saveCurrent(null); render(); return; }
     var end = today0();
     if (dayDiff(end, start) < 0) start = end;
-    var days = dayDiff(end, start) + 1;
-    var list = getCycles();
-    list.push({ start: fmtYM(start), end: fmtYM(end), days: days });
-    list.sort(function (a, b) { return dayDiff(ymdToDate(b.start) || today0(), ymdToDate(a.start) || today0()); });
-    saveCycles(list);
+    var rec = recordCycle(fmtYM(start), fmtYM(end));
     saveCurrent(null);
     render();
-    if (typeof toast === 'function') toast('本次经期已记录：' + days + ' 天');
+    if (rec && typeof toast === 'function') toast('本次经期已记录：' + rec.days + ' 天');
   }
 
   // ---------- 设置 ----------
@@ -395,7 +471,40 @@
     var logs = getLogs();
     var rec = logs[dateStr] || {};
     var title = (d ? (d.getMonth() + 1) + '月' + d.getDate() + '日' : dateStr) + ' · 当日记录';
-    var html =
+
+    // 补记经期：和当前这次经期配对；还没开始时用设置里的最近开始日
+    var cur = getCurrent();
+    var cfg = getSettings() || {};
+    var pairStart = (cur && cur.start) ? cur.start : (cfg.lastStart || '');
+    var inRecord = d ? cycleForDate(dateStr) : null;
+    var future = d ? dayDiff(d, today0()) > 0 : false;
+    var canStart = !!d && !future && !inRecord;
+    var canEnd = false;
+    var hint = '';
+    if (future) hint = '未来的日期还不能标记';
+    else if (inRecord) hint = '这天已在记录里：' + inRecord.start + ' ~ ' + inRecord.end;
+    else if (canStart && pairStart) {
+      var ps = ymdToDate(pairStart);
+      if (ps && dayDiff(d, ps) < 0) hint = '这天早于本次经期开始日 ' + pairStart;
+      else if (hasCycleStart(pairStart)) hint = '这次经期已经记录过了';
+      else canEnd = true;
+    }
+    var periodHtml = '';
+    if (canStart || canEnd) {
+      periodHtml =
+        '<div class="app-field"><div class="app-label">经期</div>' +
+          '<div class="pd-day-acts">' +
+            (canStart ? '<button class="app-btn" data-act="dayStart">这天开始</button>' : '') +
+            (canEnd ? '<button class="app-btn" data-act="dayEnd">这天结束</button>' : '') +
+          '</div>' +
+          (hint ? '<div class="pd-day-hint">' + esc(hint) + '</div>' : '') +
+        '</div>';
+    } else if (hint) {
+      periodHtml = '<div class="app-field"><div class="app-label">经期</div>' +
+        '<div class="pd-day-hint">' + esc(hint) + '</div></div>';
+    }
+
+    var html = periodHtml +
       '<div class="app-field"><div class="app-label">出血量</div>' +
         '<div class="app-chips" data-multi="0" id="pd-flow">' + capsHtml(FLOW_OPTIONS, rec.flow) + '</div></div>' +
       '<div class="app-field"><div class="app-label">症状</div>' +
@@ -426,6 +535,8 @@
         var btn = e.target.closest('[data-act]');
         if (!btn) return;
         if (btn.dataset.act === 'closeSheet') { closeSheet(); return; }
+        if (btn.dataset.act === 'dayStart') { markStartAt(dateStr); return; }
+        if (btn.dataset.act === 'dayEnd') { markEndAt(dateStr); return; }
         if (btn.dataset.act === 'saveLog') {
           var out = {
             flow: selected(wrap, '#pd-flow'),

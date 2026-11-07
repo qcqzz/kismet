@@ -189,6 +189,11 @@ html[data-theme="dark"] {
   font-size: 12px; font-weight: 600; padding: 7px 13px; cursor: pointer; white-space: nowrap;
 }
 
+/* 当日记录里补记经期：这天开始 / 这天结束 */
+.pd-day-acts { display: flex; gap: 8px; }
+.pd-day-acts .app-btn { flex: 1; }
+.pd-day-hint { font-size: 11.5px; color: var(--ink-3); line-height: 1.6; margin-top: 8px; }
+
 .pd-cal-cell.period .cal-num { background: var(--pd-rose-soft); color: var(--pd-rose); font-weight: 700; }
 .pd-cal-cell.predicted .cal-num { box-shadow: inset 0 0 0 1.5px var(--pd-rose); color: var(--pd-rose); }
 .pd-cal-cell.ovu .cal-num { background: var(--pd-gold-soft); color: var(--pd-gold); }
