@@ -41,6 +41,8 @@ function _nbKindOn(kind) {
   if (settings.notifyEnabled === false) return false;
   if (kind === 'poke') return settings.notifyPoke !== false;
   if (kind === 'letter') return settings.notifyLetters !== false;
+  if (kind === 'period') return settings.notifyChat !== false;
+  if (kind === 'schedule') return settings.notifyChat !== false;
   if (String(kind).indexOf('moment') === 0) return settings.notifyMoments !== false;
   return settings.notifyChat !== false;
 }
@@ -64,6 +66,8 @@ function _nbWatchingChat(cid) {
 // ---------- 顶部横幅 ----------
 function _nbIco(kind) {
   if (kind === 'letter') return '<i class="fas fa-envelope"></i>';
+  if (kind === 'period') return '<i class="fas fa-heartbeat"></i>';
+  if (kind === 'schedule') return '<i class="fas fa-calendar-check"></i>';
   if (String(kind).indexOf('moment') === 0) return '<i class="fas fa-images"></i>';
   if (kind === 'poke') return '<i class="fas fa-hand-pointer"></i>';
   return '<i class="fas fa-comment-dots"></i>';
@@ -98,6 +102,16 @@ function notifyBanner(cid, title, body, kind) {
 function notifyBannerJump(cid, kind) {
   var box = document.getElementById('notify-banner');
   if (box) box.classList.remove('show');
+  if (kind === 'period') {
+    showView('period');
+    if (window.PeriodApp) PeriodApp.onShow();
+    return;
+  }
+  if (kind === 'schedule') {
+    showView('schedule');
+    if (window.ScheduleApp) ScheduleApp.onShow();
+    return;
+  }
   if (String(kind).indexOf('moment') === 0) {
     showView('moments');
     if (typeof renderMoments === 'function') renderMoments(null);

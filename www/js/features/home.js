@@ -34,6 +34,10 @@ function initHome() {
       // 长按刚触发过 → 忽略这次 click
       if (_boxLongPressed) { _boxLongPressed = false; return; }
     }
+    else if (act === 'app') {
+      var name = el.dataset.app;
+      if (name) showView(name);
+    }
   });
 
   // 方框长按 → 编辑背景图
@@ -67,7 +71,7 @@ function _ensureHomePager() {
         '<div class="home-fit" id="home-fit-0"></div>' +
       '</section>' +
       '<section class="home-page" data-page="1">' +
-        '<div class="home-fit home-fit-blank" id="home-fit-1"></div>' +
+        '<div class="home-fit home-fit-apps" id="home-fit-1"></div>' +
       '</section>' +
     '</div>' +
     '<div class="home-dots" id="home-dots">' +
@@ -158,15 +162,27 @@ function _bindHomeDrag(pager) {
   }, true);
 }
 
-// 第二页：先留白，之后再往里放东西
+// 第二页：三个入口（娱乐 / 经期 / 日程）
 function renderHomePage2() {
   var fit = document.getElementById('home-fit-1');
   if (!fit) return;
   fit.innerHTML =
-    '<div class="home-empty">' +
-      '<div class="home-empty-ico"><i class="fas fa-moon"></i></div>' +
-      '<div class="home-empty-t">第二页</div>' +
-      '<div class="home-empty-s">内容稍后再填</div>' +
+    '<div class="home-apps">' +
+      '<div class="home-apps-title">更多</div>' +
+      '<div class="home-app-grid">' +
+        '<button class="home-app-cell" type="button" data-act="app" data-app="entertainment">' +
+          '<span class="home-app-ico home-app-ico-ent"><i class="fas fa-film"></i></span>' +
+          '<span class="home-app-name">娱乐</span>' +
+        '</button>' +
+        '<button class="home-app-cell" type="button" data-act="app" data-app="period">' +
+          '<span class="home-app-ico home-app-ico-period"><i class="fas fa-heartbeat"></i></span>' +
+          '<span class="home-app-name">经期</span>' +
+        '</button>' +
+        '<button class="home-app-cell" type="button" data-act="app" data-app="schedule">' +
+          '<span class="home-app-ico home-app-ico-schedule"><i class="fas fa-calendar-check"></i></span>' +
+          '<span class="home-app-name">日程</span>' +
+        '</button>' +
+      '</div>' +
     '</div>';
 }
 

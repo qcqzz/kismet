@@ -203,7 +203,8 @@
   // ---------- 视图切换 ----------
   var NAV_FOR_VIEW = {
     home: null, contacts: 'chat', chat: 'chat', contactinfo: 'chat',
-    moments: 'moments', letters: 'letters', settings: 'settings'
+    moments: 'moments', letters: 'letters', settings: 'settings',
+    entertainment: null, period: null, schedule: null
   };
 
   window.showView = function (name) {
@@ -224,5 +225,12 @@
 
     // 主页是全屏固定布局：隐藏时量不到高度，显示出来必须重新适配一次
     if (name === 'home' && typeof fitHomeToScreen === 'function') fitHomeToScreen();
+
+    // 次级页面各自按需重绘（经期 / 日程 / 娱乐）
+    try {
+      if (name === 'period' && window.PeriodApp) PeriodApp.onShow();
+      else if (name === 'schedule' && window.ScheduleApp) ScheduleApp.onShow();
+      else if (name === 'entertainment' && window.EntertainmentApp) EntertainmentApp.onShow();
+    } catch (e) { console.warn('[showView] 页面初始化失败:', name, e); }
   };
 })();

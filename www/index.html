@@ -12,6 +12,7 @@
   <link rel="icon" type="image/png" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/apps.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body data-theme="ink">
@@ -144,6 +145,38 @@
       <div style="width:38px"></div>
     </header>
     <div class="letters-body"></div>
+  </div>
+
+  <!-- ===== 娱乐（电影院 + 音乐厅，见 entertainment.js） ===== -->
+  <div id="view-entertainment" class="view">
+    <header class="wx-header">
+      <button class="wx-back" data-back-home>‹</button>
+      <div class="wx-title">娱乐</div>
+      <button class="wx-btn" id="ent-contact-btn" title="切换梦角"><i class="fas fa-address-book"></i></button>
+    </header>
+    <div class="ent-switch" id="ent-switch"></div>
+    <div class="ent-pills-wrap" id="ent-pills"></div>
+    <div class="ent-body" id="entertainment-body"></div>
+  </div>
+
+  <!-- ===== 经期（见 period.js） ===== -->
+  <div id="view-period" class="view">
+    <header class="wx-header">
+      <button class="wx-back" data-back-home>‹</button>
+      <div class="wx-title">经期</div>
+      <button class="wx-btn" id="period-settings-btn" title="经期设置"><i class="fas fa-sliders-h"></i></button>
+    </header>
+    <main class="app-page" id="period-body"></main>
+  </div>
+
+  <!-- ===== 日程（日历 + 待办，见 schedule.js） ===== -->
+  <div id="view-schedule" class="view">
+    <header class="wx-header">
+      <button class="wx-back" data-back-home>‹</button>
+      <div class="wx-title">日程</div>
+      <button class="wx-btn" id="schedule-add-btn" title="新增待办">＋</button>
+    </header>
+    <main class="app-page" id="schedule-body"></main>
   </div>
 
   <!-- ===== 底部导航（四格：聊天/朋友圈/信件/设置，悬浮于主页下方） ===== -->
@@ -287,6 +320,9 @@
   <script src="js/features/rules.js"></script>
   <script src="js/features/appearance.js"></script>
   <script src="js/features/bubblecss.js"></script>
+  <script src="js/features/period.js"></script>
+  <script src="js/features/schedule.js"></script>
+  <script src="js/features/entertainment.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
