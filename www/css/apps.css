@@ -315,15 +315,15 @@ html[data-theme="dark"] {
 
 /* 音乐厅 */
 .mh-card {
-  background: linear-gradient(160deg, #262626, #0d0d0d);
-  border-radius: 18px; padding: 20px 18px 18px; color: #f5f5f5;
-  margin-bottom: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, .3);
+  background: linear-gradient(160deg, #ffffff, #edf0f4);
+  border-radius: 18px; padding: 20px 18px 18px; color: #1b1b1b;
+  margin-bottom: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, .10);
 }
 .mh-vinyl {
   width: 118px; height: 118px; border-radius: 50%; margin: 0 auto 14px;
   background: repeating-radial-gradient(circle at 50% 50%, #1c1c1c 0 2px, #0b0b0b 2px 4px);
   display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 8px 26px rgba(0, 0, 0, .55);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .22);
 }
 .mh-vinyl.playing { animation: mhSpin 6s linear infinite; }
 .mh-vinyl::after {
@@ -331,15 +331,15 @@ html[data-theme="dark"] {
   background: linear-gradient(145deg, #e6c489, #a8752f);
 }
 @keyframes mhSpin { to { transform: rotate(360deg); } }
-.mh-title { text-align: center; font-size: 15px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mh-sub { text-align: center; font-size: 11px; color: #a9a9a9; margin-top: 4px; min-height: 15px; }
-.mh-progress { height: 3px; background: rgba(255, 255, 255, .14); border-radius: 2px; margin: 14px 0 6px; overflow: hidden; cursor: pointer; }
-.mh-progress i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #f0dcc0, #ff9f9d); }
-.mh-times { display: flex; justify-content: space-between; font-size: 10px; color: #8f8f8f; font-variant-numeric: tabular-nums; }
+.mh-title { text-align: center; font-size: 15px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #151515; }
+.mh-sub { text-align: center; font-size: 11px; color: #6e6e73; margin-top: 4px; min-height: 15px; }
+.mh-progress { height: 3px; background: rgba(0, 0, 0, .10); border-radius: 2px; margin: 14px 0 6px; overflow: hidden; cursor: pointer; }
+.mh-progress i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #bf9a63, #e87f7c); }
+.mh-times { display: flex; justify-content: space-between; font-size: 10px; color: #8a8a8f; font-variant-numeric: tabular-nums; }
 .mh-ctrl { display: flex; align-items: center; justify-content: center; gap: 18px; margin-top: 12px; }
 .mh-ctrl button {
   width: 38px; height: 38px; border-radius: 50%; border: none;
-  background: rgba(255, 255, 255, .12); color: #fff; font-size: 14px; cursor: pointer;
+  background: rgba(0, 0, 0, .05); color: #5f5f63; font-size: 14px; cursor: pointer;
 }
 .mh-ctrl button.mh-play { width: 50px; height: 50px; background: #fff; color: #111; font-size: 18px; }
 .mh-empty { text-align: center; color: #8f8f8f; font-size: 12px; padding: 14px 0 20px; }
@@ -354,8 +354,8 @@ html[data-theme="dark"] {
 .mh-card { position: relative; }
 .mh-set-btn {
   position: absolute; top: 10px; right: 10px; width: 30px; height: 30px;
-  border: none; border-radius: 50%; background: rgba(255, 255, 255, .1);
-  color: #d8d8d8; font-size: 13px; cursor: pointer; z-index: 2;
+  border: none; border-radius: 50%; background: rgba(0, 0, 0, .06);
+  color: #5c5c60; font-size: 13px; cursor: pointer; z-index: 2;
 }
 .mh-vinyl { position: relative; overflow: hidden; }
 .mh-vinyl-art {
@@ -367,12 +367,12 @@ html[data-theme="dark"] {
 .mh-hb { margin: 10px auto 0; height: 34px; width: 100%; max-width: 280px; opacity: .95; }
 .mh-hb svg { width: 100%; height: 100%; overflow: visible; }
 .mh-hb path {
-  fill: none; stroke: var(--mh-hb-c, #ff9f9d);
+  fill: none; stroke: var(--mh-hb-c, #e87f7c);
   stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round;
 }
-.mh-progress i { background: var(--mh-prog-c, #f0dcc0) !important; }
-.mh-ctrl button { color: var(--mh-ctrl-c, #cfe3f7); }
-.mh-ctrl button.mh-play { background: var(--mh-ctrl-c, #cfe3f7); color: var(--mh-ctrl-ink, #111); }
+.mh-progress i { background: var(--mh-prog-c, #bf9a63) !important; }
+.mh-ctrl button { color: var(--mh-ctrl-c, #5f8fc9); }
+.mh-ctrl button.mh-play { background: var(--mh-ctrl-c, #5f8fc9); color: var(--mh-ctrl-ink, #fff); }
 
 /* 音乐厅自定义弹层 */
 .mp-section { margin-bottom: 18px; }
