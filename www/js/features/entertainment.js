@@ -122,9 +122,13 @@
   function save() { Storage.set(KEY_STATE, _ents); }
 
   // ---------- 音乐厅播放器自定义 ----------
-  var MP_SWATCHES = ['#ff9f9d', '#ffb36b', '#a8e6cf', '#7fc8f8', '#c5b8e6', '#f9c6d0', '#8ed1c0', '#f6c177', '#b39ddb'];
+  var MP_SWATCHES = ['#ff9f9d', '#ffb36b', '#a8e6cf', '#7fc8f8', '#c5b8e6', '#f9c6d0', '#8ed1c0', '#f6c177', '#b39ddb', '#f0dcc0', '#cfe3f7'];
   var MP_VAR = { hb: '--mh-hb-c', prog: '--mh-prog-c', ctrl: '--mh-ctrl-c' };
   var HB_PATH = 'M0,82 L16,82 L18,82 L26,40 L34,124 L42,48 L50,84 L58,82 L98,82 L104,40 L110,124 L116,44 L124,84 L132,82 L170,82 L176,38 L182,124 L190,40 L198,84 L206,82 L246,82 L252,38 L258,124 L264,48 L272,84 L280,82 L320,82 L326,40 L332,124 L338,50 L346,84 L354,82 L372,82';
+
+  // 播放栏默认用浅色，和黑色播放器对比明显
+  var MP_LIGHT_PROG = '#f0dcc0';
+  var MP_LIGHT_CTRL = '#cfe3f7';
 
   function playerConf(cid) {
     var m = stateFor(cid).music;
@@ -132,11 +136,24 @@
     var pc = m.playerConf;
     if (pc.mode !== 'single' && pc.mode !== 'shuffle') pc.mode = 'list';
     if (!pc.hbColor) pc.hbColor = '#ff9f9d';
-    if (!pc.progColor) pc.progColor = '#c5a47e';
-    if (!pc.ctrlColor) pc.ctrlColor = '#7a9cc6';
+    // 旧版默认色（棕金 / 灰蓝）自动升级成浅色，用户自己选过的其它颜色不动
+    if (!pc.progColor || pc.progColor === '#c5a47e') pc.progColor = MP_LIGHT_PROG;
+    if (!pc.ctrlColor || pc.ctrlColor === '#7a9cc6') pc.ctrlColor = MP_LIGHT_CTRL;
     if (['standard', 'rounded', 'rounded-large', 'square'].indexOf(pc.bubbleStyle) < 0) pc.bubbleStyle = 'standard';
     if (typeof pc.customCss !== 'string') pc.customCss = '';
     return pc;
+  }
+
+  // 播放按钮的文字/图标要跟着底色明暗走，浅色底配深色图标
+  function inkFor(hex) {
+    var h = String(hex || '').replace('#', '');
+    if (h.length === 3) h = h.charAt(0) + h.charAt(0) + h.charAt(1) + h.charAt(1) + h.charAt(2) + h.charAt(2);
+    if (!/^[0-9a-fA-F]{6}$/.test(h)) return '#fff';
+    var r = parseInt(h.slice(0, 2), 16);
+    var g = parseInt(h.slice(2, 4), 16);
+    var b = parseInt(h.slice(4, 6), 16);
+    var lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return lum > 0.62 ? '#111' : '#fff';
   }
 
   function mountVinylArt(cid) {
@@ -447,7 +464,7 @@
     var ing = invNego('music', c.id);
     var html = '<div class="ent-scroll" id="music-scroll">';
 
-    html += '<div class="mh-card" id="mh-card" style="--mh-hb-c:' + esc(pc.hbColor) + ';--mh-prog-c:' + esc(pc.progColor) + ';--mh-ctrl-c:' + esc(pc.ctrlColor) + '">' +
+    html += '<div class="mh-card" id="mh-card" style="--mh-hb-c:' + esc(pc.hbColor) + ';--mh-prog-c:' + esc(pc.progColor) + ';--mh-ctrl-c:' + esc(pc.ctrlColor) + ';--mh-ctrl-ink:' + esc(inkFor(pc.ctrlColor)) + '">' +
       '<button class="mh-set-btn" data-act="musicSettings" title="播放器自定义"><i class="fas fa-sliders-h"></i></button>' +
       '<div class="mh-vinyl' + (_audio && !_audio.paused && _audioSongId === (song && song.id) ? ' playing' : '') + '" id="mh-vinyl">' +
         '<div class="mh-vinyl-art" id="mh-vinyl-art"></div>' +
@@ -1336,7 +1353,10 @@
         pc[key === 'hb' ? 'hbColor' : (key === 'prog' ? 'progColor' : 'ctrlColor')] = color;
         save();
         var card = document.getElementById('mh-card');
-        if (card) card.style.setProperty(MP_VAR[key], color);
+        if (card) {
+          card.style.setProperty(MP_VAR[key], color);
+          if (key === 'ctrl') card.style.setProperty('--mh-ctrl-ink', inkFor(color));
+        }
         wrap.querySelectorAll('.mp-swatch[data-key="' + key + '"][data-color]').forEach(function (s) {
           s.classList.toggle('on', s.getAttribute('data-color') === color);
         });

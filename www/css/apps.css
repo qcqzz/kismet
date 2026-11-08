@@ -334,7 +334,7 @@ html[data-theme="dark"] {
 .mh-title { text-align: center; font-size: 15px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mh-sub { text-align: center; font-size: 11px; color: #a9a9a9; margin-top: 4px; min-height: 15px; }
 .mh-progress { height: 3px; background: rgba(255, 255, 255, .14); border-radius: 2px; margin: 14px 0 6px; overflow: hidden; cursor: pointer; }
-.mh-progress i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #c5a47e, #ff9f9d); }
+.mh-progress i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #f0dcc0, #ff9f9d); }
 .mh-times { display: flex; justify-content: space-between; font-size: 10px; color: #8f8f8f; font-variant-numeric: tabular-nums; }
 .mh-ctrl { display: flex; align-items: center; justify-content: center; gap: 18px; margin-top: 12px; }
 .mh-ctrl button {
@@ -370,9 +370,9 @@ html[data-theme="dark"] {
   fill: none; stroke: var(--mh-hb-c, #ff9f9d);
   stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round;
 }
-.mh-progress i { background: var(--mh-prog-c, #ff9f9d) !important; }
-.mh-ctrl button { color: var(--mh-ctrl-c, #7a9cc6); }
-.mh-ctrl button.mh-play { background: var(--mh-ctrl-c, #7a9cc6); color: #fff; }
+.mh-progress i { background: var(--mh-prog-c, #f0dcc0) !important; }
+.mh-ctrl button { color: var(--mh-ctrl-c, #cfe3f7); }
+.mh-ctrl button.mh-play { background: var(--mh-ctrl-c, #cfe3f7); color: var(--mh-ctrl-ink, #111); }
 
 /* 音乐厅自定义弹层 */
 .mp-section { margin-bottom: 18px; }
