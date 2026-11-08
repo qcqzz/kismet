@@ -384,6 +384,27 @@ html[data-theme="dark"] {
   font-size: 12px; font-family: inherit; cursor: pointer;
 }
 .mp-chip.on { background: var(--ink); border-color: var(--ink); color: var(--bg); font-weight: 700; }
+
+/* 音乐厅自定义：网易云账号 */
+.nm-acc-row { display: flex; align-items: center; gap: 10px; }
+.nm-acc-av { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; background: var(--bg); }
+.nm-acc-av--ph {
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line); color: var(--ink-3); font-size: 15px;
+}
+.nm-acc-main { flex: 1; min-width: 0; }
+.nm-acc-name {
+  font-size: 14px; font-weight: 600; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.nm-acc-sub { font-size: 11px; color: var(--ink-3); margin-top: 3px; line-height: 1.4; }
+
+/* 网易云扫码登录弹层 */
+.nm-qr-sheet { text-align: center; }
+.nm-qr-code { display: flex; align-items: center; justify-content: center; min-height: 176px; padding: 8px 0 2px; }
+.nm-qr-code svg { width: 176px; height: 176px; display: block; background: #fff; border-radius: 12px; padding: 6px; }
+.nm-qr-loading { font-size: 13px; color: var(--ink-3); }
+.nm-qr-tip { font-size: 12px; color: var(--ink-3); margin: 10px 0 2px; min-height: 17px; }
 .mp-vinyl-preview {
   width: 82px; height: 82px; border-radius: 50%; margin-bottom: 10px;
   background: repeating-radial-gradient(circle at 50% 50%, #1c1c1c 0 2px, #0b0b0b 2px 4px);

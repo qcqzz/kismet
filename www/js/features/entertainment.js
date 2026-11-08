@@ -601,6 +601,14 @@
         return round > 0 ? ask(round - 1) : '';
       });
     }
+    // 登录了网易云账号就先走账号接口，能播会员歌，音质也更高
+    var N = window.NeteaseAccount;
+    if (N && N.cookie && N.cookie()) {
+      return N.songUrl(id).catch(function () { return ''; }).then(function (u) {
+        if (u) { _nmCache[id] = { url: u, ts: Date.now() }; return u; }
+        return ask(1);
+      });
+    }
     return ask(1);
   }
 
@@ -1118,6 +1126,127 @@
     '</div>';
   }
 
+  // ---------- 网易云账号 ----------
+  function nmAccountInner() {
+    var N = window.NeteaseAccount;
+    var acc = N ? N.account() : null;
+    var usable = !!(N && N.available());
+    var av = acc && acc.avatar
+      ? '<img class="nm-acc-av" src="' + esc(acc.avatar) + '" alt="" referrerpolicy="no-referrer">'
+      : '<span class="nm-acc-av nm-acc-av--ph"><i class="fas fa-music"></i></span>';
+    var name = acc ? (acc.nickname || '网易云用户') : '未登录';
+    var sub = acc
+      ? (usable ? (acc.vipType ? '会员账号，会员歌曲可直接播放' : '已登录，会员歌曲取决于账号权益') : '登录仅在 APP 内生效')
+      : (usable ? '登录后可播放会员歌曲' : '登录仅支持在 APP 内使用');
+    var btn = acc
+      ? '<button class="app-btn sm" data-mp="nmLogout">退出</button>'
+      : '<button class="app-btn sm' + (usable ? ' primary' : '') + '" data-mp="nmLogin"' + (usable ? '' : ' disabled') + '>扫码登录</button>';
+    return '<div class="nm-acc-row">' +
+      av +
+      '<div class="nm-acc-main"><div class="nm-acc-name">' + esc(name) + '</div><div class="nm-acc-sub">' + sub + '</div></div>' +
+      btn +
+    '</div>';
+  }
+
+  function refreshNmAccount() {
+    var box = document.getElementById('mp-nm-acc');
+    if (box) box.innerHTML = nmAccountInner();
+  }
+
+  function openNeteaseLogin() {
+    var N = window.NeteaseAccount;
+    if (!N || !N.available()) { toastMsg('登录仅支持在 APP 内使用'); return; }
+    if (document.getElementById('nm-qr-overlay')) return;
+
+    var wrap = document.createElement('div');
+    wrap.className = 'app-overlay open';
+    wrap.id = 'nm-qr-overlay';
+    wrap.innerHTML =
+      '<div class="app-sheet nm-qr-sheet">' +
+        '<div class="app-sheet-title">网易云扫码登录</div>' +
+        '<div class="nm-qr-code" id="nm-qr-code"><div class="nm-qr-loading">正在获取二维码…</div></div>' +
+        '<div class="nm-qr-tip" id="nm-qr-tip">用网易云音乐 APP 扫码</div>' +
+        '<div class="app-actions">' +
+          '<button class="app-btn" data-nmq="close">关闭</button>' +
+          '<button class="app-btn primary" data-nmq="refresh">刷新二维码</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(wrap);
+
+    var codeEl = wrap.querySelector('#nm-qr-code');
+    var tipEl = wrap.querySelector('#nm-qr-tip');
+    var timer = null;
+    var key = null;
+    var alive = true;
+
+    function stop() {
+      if (timer) { clearInterval(timer); timer = null; }
+    }
+    function close() {
+      alive = false;
+      stop();
+      if (wrap.parentNode) wrap.parentNode.removeChild(wrap);
+    }
+    function fail(msg) {
+      codeEl.innerHTML = '<div class="nm-qr-loading">' + esc(msg) + '</div>';
+    }
+    function load() {
+      stop();
+      key = null;
+      if (!alive) return;
+      codeEl.innerHTML = '<div class="nm-qr-loading">正在获取二维码…</div>';
+      tipEl.textContent = '用网易云音乐 APP 扫码';
+      N.startQr().then(function (r) {
+        if (!alive) return;
+        key = r.key;
+        var svg = N.qrSvg(r.url);
+        if (!svg) { fail('二维码生成失败，点刷新重试'); return; }
+        codeEl.innerHTML = svg;
+        tipEl.textContent = '用网易云音乐 APP 扫码';
+        timer = setInterval(function () {
+          if (!alive || !key) return;
+          N.pollQr(key).then(function (st) {
+            if (!alive) return;
+            if (st === 'scanned') { tipEl.textContent = '已扫码，请在手机上确认'; return; }
+            if (st === 'expired') {
+              stop();
+              tipEl.textContent = '二维码已过期，点刷新重新获取';
+              return;
+            }
+            if (st === 'ok') {
+              stop();
+              tipEl.textContent = '登录成功';
+              N.fetchProfile().then(function (acc) {
+                close();
+                refreshNmAccount();
+                if (acc) toastMsg(acc.nickname ? '已登录：' + acc.nickname : '网易云登录成功');
+                else toastMsg('登录状态获取失败，请重试');
+              }).catch(function () {
+                close();
+                refreshNmAccount();
+                toastMsg('登录状态获取失败，请重试');
+              });
+            }
+          }).catch(function () {});
+        }, 2000);
+      }).catch(function () {
+        if (!alive) return;
+        fail('获取二维码失败，点刷新重试');
+        tipEl.textContent = '网络不稳定，请稍后再试';
+      });
+    }
+
+    wrap.addEventListener('click', function (e) {
+      if (e.target === wrap) { close(); return; }
+      var b = e.target.closest('[data-nmq]');
+      if (!b) return;
+      if (b.getAttribute('data-nmq') === 'close') { close(); return; }
+      if (b.getAttribute('data-nmq') === 'refresh') load();
+    });
+
+    load();
+  }
+
   function openMusicSettings() {
     var c = currentContact();
     if (!c) return;
@@ -1134,6 +1263,8 @@
       { v: 'square', name: '方形直角' }
     ];
     var html =
+      '<div class="mp-section"><div class="mp-section-title">网易云账号</div><div id="mp-nm-acc">' + nmAccountInner() + '</div></div>' +
+
       '<div class="mp-section"><div class="mp-section-title">播放模式</div><div class="mp-mode-row">' +
         modeOpts.map(function (o) {
           return '<button class="mp-chip' + (pc.mode === o.v ? ' on' : '') + '" data-mp="mode" data-mode="' + o.v + '">' + o.name + '</button>';
@@ -1223,6 +1354,13 @@
         if (!b) return;
         var mp = b.getAttribute('data-mp');
         if (mp === 'close') { closeSheet(); return; }
+        if (mp === 'nmLogin') { openNeteaseLogin(); return; }
+        if (mp === 'nmLogout') {
+          if (window.NeteaseAccount) NeteaseAccount.logout();
+          refreshNmAccount();
+          toastMsg('已退出网易云账号');
+          return;
+        }
         if (mp === 'uploadVinyl') { if (fileInput) fileInput.click(); return; }
         if (mp === 'resetVinyl') {
           pc.vinylId = '';
