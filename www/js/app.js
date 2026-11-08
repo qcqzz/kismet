@@ -204,7 +204,7 @@
   var NAV_FOR_VIEW = {
     home: null, contacts: 'chat', chat: 'chat', contactinfo: 'chat',
     moments: 'moments', letters: 'letters', settings: 'settings',
-    entertainment: null, period: null, schedule: null
+    entertainment: null, period: null, schedule: null, games: null
   };
 
   window.showView = function (name) {
@@ -231,6 +231,7 @@
       if (name === 'period' && window.PeriodApp) PeriodApp.onShow();
       else if (name === 'schedule' && window.ScheduleApp) ScheduleApp.onShow();
       else if (name === 'entertainment' && window.EntertainmentApp) EntertainmentApp.onShow();
+      else if (name === 'games' && window.GamesApp) GamesApp.onShow();
     } catch (e) { console.warn('[showView] 页面初始化失败:', name, e); }
   };
 })();

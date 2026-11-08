@@ -36,7 +36,10 @@ function initHome() {
     }
     else if (act === 'app') {
       var name = el.dataset.app;
-      if (name) showView(name);
+      if (name === 'cinema' || name === 'music') {
+        if (window.EntertainmentApp && EntertainmentApp.open) EntertainmentApp.open(name);
+        else showView('entertainment');
+      } else if (name) showView(name);
     }
   });
 
@@ -162,7 +165,8 @@ function _bindHomeDrag(pager) {
   }, true);
 }
 
-// 第二页：三个入口（娱乐 / 经期 / 日程）
+// 第二页：五个入口（电影院 / 音乐厅 / 经期 / 日程 / 游戏室）
+// 图标统一用导航栏那套线条 SVG：fill:none + stroke:currentColor + 1.7 描边。
 function renderHomePage2() {
   var fit = document.getElementById('home-fit-1');
   if (!fit) return;
@@ -170,17 +174,25 @@ function renderHomePage2() {
     '<div class="home-apps">' +
       '<div class="home-apps-title">更多</div>' +
       '<div class="home-app-grid">' +
-        '<button class="home-app-cell" type="button" data-act="app" data-app="entertainment">' +
-          '<span class="home-app-ico home-app-ico-ent"><i class="fas fa-film"></i></span>' +
-          '<span class="home-app-name">娱乐</span>' +
+        '<button class="home-app-cell" type="button" data-act="app" data-app="cinema">' +
+          '<span class="home-app-ico"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="13" rx="2.2"/><path d="M10 9.3l4.2 2.7-4.2 2.7z"/><path d="M8 21h8"/></svg></span>' +
+          '<span class="home-app-name">电影院</span>' +
+        '</button>' +
+        '<button class="home-app-cell" type="button" data-act="app" data-app="music">' +
+          '<span class="home-app-ico"><svg viewBox="0 0 24 24"><path d="M9 18V5.6l10-1.8V15"/><circle cx="6.4" cy="18" r="2.6"/><circle cx="16.4" cy="15" r="2.6"/></svg></span>' +
+          '<span class="home-app-name">音乐厅</span>' +
         '</button>' +
         '<button class="home-app-cell" type="button" data-act="app" data-app="period">' +
-          '<span class="home-app-ico home-app-ico-period"><i class="fas fa-heartbeat"></i></span>' +
+          '<span class="home-app-ico"><svg viewBox="0 0 24 24"><path d="M12 3.5c3.4 4.2 5.5 7 5.5 9.7a5.5 5.5 0 0 1-11 0C6.5 10.5 8.6 7.7 12 3.5z"/></svg></span>' +
           '<span class="home-app-name">经期</span>' +
         '</button>' +
         '<button class="home-app-cell" type="button" data-act="app" data-app="schedule">' +
-          '<span class="home-app-ico home-app-ico-schedule"><i class="fas fa-calendar-check"></i></span>' +
+          '<span class="home-app-ico"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 9.5h17M8 3.5v3M16 3.5v3M9 14.5l2 2 4-4"/></svg></span>' +
           '<span class="home-app-name">日程</span>' +
+        '</button>' +
+        '<button class="home-app-cell" type="button" data-act="app" data-app="games">' +
+          '<span class="home-app-ico"><svg viewBox="0 0 24 24"><rect x="2.5" y="7.5" width="19" height="9" rx="4.5"/><path d="M7.5 10.5v3M6 12h3"/><circle cx="15.4" cy="11" r="1.05" fill="currentColor" stroke="none"/><circle cx="17.6" cy="13.2" r="1.05" fill="currentColor" stroke="none"/></svg></span>' +
+          '<span class="home-app-name">游戏室</span>' +
         '</button>' +
       '</div>' +
     '</div>';

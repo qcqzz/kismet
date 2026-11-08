@@ -147,15 +147,14 @@
     <div class="letters-body"></div>
   </div>
 
-  <!-- ===== 娱乐（电影院 + 音乐厅，见 entertainment.js） ===== -->
+  <!-- ===== 电影院 / 音乐厅（见 entertainment.js，入口决定打开哪个标签） ===== -->
   <div id="view-entertainment" class="view">
     <header class="wx-header">
       <button class="wx-back" data-back-home>‹</button>
-      <div class="wx-title">娱乐</div>
+      <div class="wx-title" id="ent-title">电影院</div>
       <button class="wx-btn" id="ent-contact-btn" title="切换梦角"><i class="fas fa-address-book"></i></button>
     </header>
     <div class="ent-switch" id="ent-switch"></div>
-    <div class="ent-pills-wrap" id="ent-pills"></div>
     <div class="ent-body" id="entertainment-body"></div>
   </div>
 
@@ -177,6 +176,17 @@
       <button class="wx-btn" id="schedule-add-btn" title="新增待办">＋</button>
     </header>
     <main class="app-page" id="schedule-body"></main>
+  </div>
+
+  <!-- ===== 游戏室（五子棋 / 2048 / 围棋 / 猜数字对决，见 games.js） ===== -->
+  <div id="view-games" class="view">
+    <header class="wx-header">
+      <button class="wx-back" data-back-home>‹</button>
+      <div class="wx-title">游戏室</div>
+      <button class="wx-btn" id="games-contact-btn" title="切换梦角"><i class="fas fa-address-book"></i></button>
+    </header>
+    <div class="ent-switch" id="games-switch"></div>
+    <div class="games-body" id="games-body"></div>
   </div>
 
   <!-- ===== 底部导航（四格：聊天/朋友圈/信件/设置，悬浮于主页下方） ===== -->
@@ -323,6 +333,7 @@
   <script src="js/features/period.js"></script>
   <script src="js/features/schedule.js"></script>
   <script src="js/features/entertainment.js"></script>
+  <script src="js/features/games.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

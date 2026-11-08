@@ -17,6 +17,7 @@
   if (!_ents || typeof _ents !== 'object') _ents = {};
   var _cid = Storage.get(KEY_CID) || '';
   var _tab = 'cinema';
+  var _entryTab = null;   // 从主页入口进入时要强制打开的标签
   var _bound = false;
   var _videoUrl = null;
   var _audioUrl = null;
@@ -216,14 +217,8 @@
           '<button class="ent-switch-btn" data-act="pickContact">切换</button>';
       }
     }
-    var pills = document.getElementById('ent-pills');
-    if (pills) {
-      pills.innerHTML =
-        '<div class="ent-pills">' +
-          '<button class="ent-pill' + (_tab === 'cinema' ? ' on' : '') + '" data-act="tab" data-tab="cinema">电影院</button>' +
-          '<button class="ent-pill' + (_tab === 'music' ? ' on' : '') + '" data-act="tab" data-tab="music">音乐厅</button>' +
-        '</div>';
-    }
+    var title = document.getElementById('ent-title');
+    if (title) title.textContent = (_tab === 'music') ? '音乐厅' : '电影院';
   }
 
   function avatarImg(c) {
@@ -811,8 +806,7 @@
           stopAudio();
           _cid = id;
           Storage.set(KEY_CID, _cid);
-          var st = stateFor(_cid);
-          _tab = (st.activeTab === 'music') ? 'music' : 'cinema';
+          // 保持当前所在入口（电影院 / 音乐厅），不跟梦角上次的标签跳走
         }
         closeSheet();
         renderAll();
@@ -838,14 +832,6 @@
       var act = el.dataset.act;
 
       if (act === 'pickContact') openContactPicker();
-      else if (act === 'tab') {
-        var tab = el.dataset.tab;
-        if (tab === _tab) return;
-        _tab = tab;
-        var c = currentContact();
-        if (c) { stateFor(c.id).activeTab = tab; save(); }
-        renderAll();
-      }
       else if (act === 'invite') openInviteSheet();
       else if (act === 'pickVideo') pickVideo();
       else if (act === 'cancelAppt') {
@@ -933,11 +919,19 @@
     onShow: function () {
       bind();
       var c = currentContact();
-      if (c) {
+      if (_entryTab) {
+        _tab = _entryTab;
+        _entryTab = null;
+      } else if (c) {
         var st = stateFor(c.id);
         _tab = (st.activeTab === 'music') ? 'music' : 'cinema';
       }
       renderAll();
+    },
+    // 主页入口：电影院 / 音乐厅
+    open: function (tab) {
+      _entryTab = (tab === 'music') ? 'music' : 'cinema';
+      showView('entertainment');
     },
     render: renderAll
   };
