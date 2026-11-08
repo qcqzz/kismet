@@ -476,6 +476,8 @@ function buildMsgRow(msg) {
       inner += _redpacketCardHTML(msg);
     } else if (msg.type === 'question') {
       inner += _questionCardHTML(msg);
+    } else if (msg.type === 'invite') {
+      inner += (window.InviteCenter && InviteCenter.renderCard) ? InviteCenter.renderCard(msg) : '';
     } else if (msg.image) {
       inner += '<img class="chat-img" src="' + msg.image + '" alt="">';
     } else if (msg.voice) {
@@ -486,6 +488,7 @@ function buildMsgRow(msg) {
     var bubbleCls = 'bubble';
     if (msg.type === 'redpacket') bubbleCls += ' rp-card-bubble';
     else if (msg.type === 'question') bubbleCls += ' question-bubble';
+    else if (msg.type === 'invite') bubbleCls += ' invite-card-bubble';
     else {
       // 兼容别名：外面抄来的 / AI 生成的 CSS 常用 .message-sent / .message-received
       // 指代"我发的""对方发的"，而本项目的叫法是 .msg-row.user / .msg-row.partner。
@@ -518,6 +521,8 @@ function buildMsgRow(msg) {
   var bubble = row.querySelector('.bubble');
   if (bubble) {
     bubble.addEventListener('click', function (e) {
+      // 邀请卡：按钮自己处理，点空白处不弹消息操作菜单
+      if (msg.type === 'invite') return;
       if (msg.type === 'redpacket' && !msg.recalled) {
         e.stopPropagation();
         if (window.TransferFeature && typeof window.TransferFeature.openRedpacket === 'function') {

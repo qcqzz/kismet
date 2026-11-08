@@ -24,6 +24,7 @@
   var _audio = null;
   var _audioSongId = null;
   var _lastPosSave = 0;
+  var _vinylUrl = null;
 
   // ---------- 工具 ----------
   function esc(s) {
@@ -119,6 +120,54 @@
   }
   function save() { Storage.set(KEY_STATE, _ents); }
 
+  // ---------- 音乐厅播放器自定义 ----------
+  var MP_SWATCHES = ['#ff9f9d', '#ffb36b', '#a8e6cf', '#7fc8f8', '#c5b8e6', '#f9c6d0', '#8ed1c0', '#f6c177', '#b39ddb'];
+  var MP_VAR = { hb: '--mh-hb-c', prog: '--mh-prog-c', ctrl: '--mh-ctrl-c' };
+  var HB_PATH = 'M0,82 L16,82 L18,82 L26,40 L34,124 L42,48 L50,84 L58,82 L98,82 L104,40 L110,124 L116,44 L124,84 L132,82 L170,82 L176,38 L182,124 L190,40 L198,84 L206,82 L246,82 L252,38 L258,124 L264,48 L272,84 L280,82 L320,82 L326,40 L332,124 L338,50 L346,84 L354,82 L372,82';
+
+  function playerConf(cid) {
+    var m = stateFor(cid).music;
+    if (!m.playerConf || typeof m.playerConf !== 'object') m.playerConf = {};
+    var pc = m.playerConf;
+    if (pc.mode !== 'single' && pc.mode !== 'shuffle') pc.mode = 'list';
+    if (!pc.hbColor) pc.hbColor = '#ff9f9d';
+    if (!pc.progColor) pc.progColor = '#c5a47e';
+    if (!pc.ctrlColor) pc.ctrlColor = '#7a9cc6';
+    if (['standard', 'rounded', 'rounded-large', 'square'].indexOf(pc.bubbleStyle) < 0) pc.bubbleStyle = 'standard';
+    if (typeof pc.customCss !== 'string') pc.customCss = '';
+    return pc;
+  }
+
+  function mountVinylArt(cid) {
+    var art = document.getElementById('mh-vinyl-art');
+    if (!art) return;
+    var pc = playerConf(cid);
+    if (!pc.vinylId) {
+      art.style.backgroundImage = '';
+      if (_vinylUrl) { URL.revokeObjectURL(_vinylUrl); _vinylUrl = null; }
+      return;
+    }
+    MediaStore.get(pc.vinylId).then(function (blob) {
+      if (!blob) return;
+      if (_vinylUrl) URL.revokeObjectURL(_vinylUrl);
+      _vinylUrl = URL.createObjectURL(blob);
+      var a = document.getElementById('mh-vinyl-art');
+      if (a) a.style.backgroundImage = 'url("' + _vinylUrl + '")';
+    }).catch(function () {});
+  }
+
+  function applyMusicCustomCss(css) {
+    var old = document.getElementById('ent-mh-user-css');
+    if (old) old.remove();
+    css = String(css || '').trim();
+    if (!css) return;
+    var el = document.createElement('style');
+    el.id = 'ent-mh-user-css';
+    el.setAttribute('type', 'text/css');
+    el.textContent = '@scope (#ent-panel-music) {\n' + css + '\n}';
+    document.head.appendChild(el);
+  }
+
   function currentContact() {
     var c = _cid ? memberById(_cid) : null;
     if (c && !isGroupContact(c)) return c;
@@ -203,6 +252,28 @@
   }
   function toastMsg(t) { if (typeof toast === 'function') toast(t); }
 
+  function invNego(kind, cid) {
+    try {
+      return (window.InviteCenter && InviteCenter.nego) ? InviteCenter.nego(cid, kind) : null;
+    } catch (e) { return null; }
+  }
+
+  function inviteStatusHtml(c, kind, n) {
+    var isPending = n.state === 'pending';
+    var line = isPending
+      ? '已向 ' + c.name + ' 发出邀请，等 TA 回复'
+      : c.name + ' 提议' + (n.subject ? '《' + n.subject + '》' : '') +
+        (n.date ? ' ' + n.date + ' ' + (n.time || '') : '');
+    return '<div class="app-card ent-invite-status">' +
+      '<div class="app-card-title"><span>' + (isPending ? '等待回复' : 'TA 有新提议') + '</span></div>' +
+      '<div class="app-mini" style="line-height:1.6">' + esc(line) + '</div>' +
+      '<div class="ent-toolbar" style="margin-top:10px">' +
+        '<button class="app-btn sm" data-act="gotoChat">去聊天回复</button>' +
+        '<button class="app-btn sm danger" data-act="cancelInvite" data-kind="' + esc(kind) + '">取消邀请</button>' +
+      '</div>' +
+    '</div>';
+  }
+
   // ---------- 顶部：梦角切换 / 标签 ----------
   function renderTop() {
     var c = currentContact();
@@ -250,13 +321,18 @@
       var v = document.getElementById('cinema-video');
       if (v) { try { v.pause(); } catch (e) {} }
     }
-    if (_tab === 'music') syncMusicUI();
+    if (_tab === 'music') {
+      syncMusicUI();
+      mountVinylArt(c.id);
+      applyMusicCustomCss(playerConf(c.id).customCss);
+    }
   }
 
   // ---------- 电影院 ----------
   function cinemaHtml(c, ci) {
     var appt = ci.appt;
     var watching = !!(appt && appt.state === 'watching');
+    var ing = invNego('cinema', c.id);
     var html = '<div class="ent-scroll" id="cinema-scroll">';
 
     // 银幕
@@ -283,8 +359,14 @@
         '<button class="app-btn" data-act="cancelAppt">取消约定</button>' +
       '</div>';
     } else if (!appt) {
+      if (ing) {
+        html += inviteStatusHtml(c, 'cinema', ing);
+      } else {
+        html += '<div class="ent-toolbar">' +
+          '<button class="app-btn primary" data-act="invite"><i class="fas fa-ticket-alt"></i> 发起观影邀请</button>' +
+        '</div>';
+      }
       html += '<div class="ent-toolbar">' +
-        '<button class="app-btn primary" data-act="invite"><i class="fas fa-ticket-alt"></i> 发起观影邀请</button>' +
         '<button class="app-btn" data-act="archive" data-tab="watchlist"><i class="fas fa-bookmark"></i> 心愿单</button>' +
         '<button class="app-btn" data-act="archive" data-tab="history"><i class="fas fa-pen-nib"></i> 影评</button>' +
       '</div>';
@@ -360,10 +442,16 @@
   // ---------- 音乐厅 ----------
   function musicHtml(c, m) {
     var song = currentSong(m);
+    var pc = playerConf(c.id);
+    var ing = invNego('music', c.id);
     var html = '<div class="ent-scroll" id="music-scroll">';
 
-    html += '<div class="mh-card">' +
-      '<div class="mh-vinyl' + (_audio && !_audio.paused && _audioSongId === (song && song.id) ? ' playing' : '') + '" id="mh-vinyl"></div>' +
+    html += '<div class="mh-card" id="mh-card" style="--mh-hb-c:' + esc(pc.hbColor) + ';--mh-prog-c:' + esc(pc.progColor) + ';--mh-ctrl-c:' + esc(pc.ctrlColor) + '">' +
+      '<button class="mh-set-btn" data-act="musicSettings" title="播放器自定义"><i class="fas fa-sliders-h"></i></button>' +
+      '<div class="mh-vinyl' + (_audio && !_audio.paused && _audioSongId === (song && song.id) ? ' playing' : '') + '" id="mh-vinyl">' +
+        '<div class="mh-vinyl-art" id="mh-vinyl-art"></div>' +
+      '</div>' +
+      '<div class="mh-hb"><svg viewBox="0 0 372 165" preserveAspectRatio="none"><path d="' + HB_PATH + '"/></svg></div>' +
       '<div class="mh-title" id="mh-title">' + (song ? esc(song.name) : '还没有歌曲') + '</div>' +
       '<div class="mh-sub" id="mh-sub">' + (song ? esc(song.lyric || (m.invite.active ? '和 ' + c.name + ' 一起听' : '本地音乐')) : '先添加一首歌吧') + '</div>' +
       '<div class="mh-progress" id="mh-progress"><i id="mh-progress-bar"></i></div>' +
@@ -375,11 +463,15 @@
       '</div>' +
     '</div>';
 
+    if (ing) html += inviteStatusHtml(c, 'music', ing);
+
     html += '<div class="ent-toolbar">' +
       '<button class="app-btn primary" data-act="addSong"><i class="fas fa-plus"></i> 添加歌曲</button>' +
       (m.invite.active
         ? '<button class="app-btn" data-act="endMusic"><i class="fas fa-stop"></i> 结束一起听</button>'
-        : '<button class="app-btn" data-act="inviteMusic"' + (song ? '' : ' disabled style="opacity:.45"') + '><i class="fas fa-headphones"></i> 邀请一起听</button>') +
+        : (ing
+          ? ''
+          : '<button class="app-btn" data-act="inviteMusic"><i class="fas fa-headphones"></i> 邀请一起听</button>')) +
     '</div>';
 
     if (m.songs.length) {
@@ -478,7 +570,7 @@
       save();
       _audio.play().catch(function () { toastMsg('播放失败'); });
       _audio.ontimeupdate = updateProgress;
-      _audio.onended = function () { nextSong(1); };
+      _audio.onended = function () { onTrackEnded(); };
       syncMusicUI();
       // 进度条拖动
       var prog = document.getElementById('mh-progress');
@@ -498,10 +590,29 @@
     if (!c) return;
     var m = stateFor(c.id).music;
     if (!m.songs.length) return;
+    var pc = playerConf(c.id);
+    if (pc.mode === 'shuffle' && (dir || 1) > 0) {
+      if (m.songs.length === 1) { playSong(m.songs[0].id); return; }
+      var pool = m.songs.filter(function (s) { return s.id !== m.currentId; });
+      var pick = pool[Math.floor(Math.random() * pool.length)] || m.songs[0];
+      playSong(pick.id);
+      return;
+    }
     var idx = m.songs.findIndex(function (s) { return s.id === m.currentId; });
     if (idx < 0) idx = 0;
     var next = m.songs[(idx + (dir || 1) + m.songs.length) % m.songs.length];
     playSong(next.id);
+  }
+
+  function onTrackEnded() {
+    var c = currentContact();
+    if (!c) return;
+    var pc = playerConf(c.id);
+    if (pc.mode === 'single') {
+      if (_audio) { _audio.currentTime = 0; _audio.play().catch(function () {}); }
+      return;
+    }
+    nextSong(1);
   }
 
   function addSong() {
@@ -556,9 +667,10 @@
       if (m.sender === 'system') return '<div class="ent-msg-sys">' + esc(m.text) + '</div>';
       var isUser = m.sender === 'user';
       var av = isUser ? myAvatar() : contactAvatar(c);
+      var bs = (kind === 'music') ? playerConf(c.id).bubbleStyle : 'standard';
       return '<div class="ent-msg ' + (isUser ? 'user' : '') + '">' +
         '<span class="ent-msg-av">' + (av ? '<img src="' + esc(av) + '" alt="">' : '') + '</span>' +
-        '<div class="ent-msg-b">' + esc(m.text) + '</div>' +
+        '<div class="ent-msg-b bubble-' + esc(bs) + '">' + esc(m.text) + '</div>' +
       '</div>';
     }).join('');
   }
@@ -571,57 +683,12 @@
   function openInviteSheet() {
     var c = currentContact();
     if (!c) return;
-    var d = new Date();
-    var defDate = d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
-    var html =
-      '<div class="app-field"><div class="app-label">电影名字</div>' +
-        '<input class="app-input" id="cinema-title" placeholder="看什么"></div>' +
-      '<div class="app-row">' +
-        '<div class="app-field"><div class="app-label">日期</div>' +
-          '<input class="app-input" id="cinema-date" type="date" value="' + defDate + '"></div>' +
-        '<div class="app-field"><div class="app-label">时间</div>' +
-          '<input class="app-input" id="cinema-time" type="time" value="20:30"></div>' +
-      '</div>' +
-      '<div class="app-actions">' +
-        '<button class="app-btn" data-act="closeSheet">取消</button>' +
-        '<button class="app-btn primary" data-act="sendInvite">邀请</button>' +
-      '</div>';
-    openSheet('观影邀请', html, function (wrap) {
-      wrap.addEventListener('click', function (e) {
-        var btn = e.target.closest('[data-act]');
-        if (!btn) return;
-        if (btn.dataset.act === 'closeSheet') { closeSheet(); return; }
-        if (btn.dataset.act === 'sendInvite') {
-          var title = (wrap.querySelector('#cinema-title').value || '').trim();
-          if (!title) { toastMsg('先写电影名字'); return; }
-          var date = wrap.querySelector('#cinema-date').value || defDate;
-          var time = wrap.querySelector('#cinema-time').value || '20:30';
-          var dt = parseYmdHm(date, time);
-          var st = stateFor(c.id);
-          st.cinema.appt = {
-            title: title, date: date, time: time,
-            ts: dt ? dt.getTime() : Date.now(),
-            state: 'waiting', position: 0, mediaId: ''
-          };
-          pushMsg(st.cinema.messages, 'system', '已向 ' + c.name + ' 发出观影邀请：' + title);
-          save();
-          closeSheet();
-          renderAll();
-          addMainMsg(c.id, 'user', '［观影邀请］《' + title + '》' + date + ' ' + time + '，和我一起看电影吧');
-          if (typeof settings === 'undefined' || settings.replyEnabled !== false) {
-            setTimeout(function () {
-              var st2 = stateFor(c.id);
-              pushMsg(st2.cinema.messages, 'system', c.name + ' 答应了这次观影');
-              pushMsg(st2.cinema.messages, 'partner', '好呀，我记下了，到点我们一起看～');
-              save();
-              addMainMsg(c.id, 'partner', '好呀，我记下了，到点我们一起看～');
-              renderChat('cinema');
-              scrollChat('cinema');
-            }, 1400);
-          }
-        }
-      });
-    });
+    if (window.InviteCenter && InviteCenter.openCompose) {
+      var st0 = stateFor(c.id);
+      var first = st0.cinema.watchlist[0];
+      InviteCenter.openCompose('cinema', c.id, { subject: first ? first.title : '' });
+      return;
+    }
   }
 
   function pickVideo() {
@@ -758,22 +825,9 @@
     var st = stateFor(c.id);
     var song = currentSong(st.music);
     if (!song) { toastMsg('先添加一首歌'); return; }
-    st.music.invite = { active: true, since: Date.now() };
-    pushMsg(st.music.messages, 'system', '邀请 ' + c.name + ' 一起听《' + song.name + '》');
-    save();
-    renderAll();
-    addMainMsg(c.id, 'user', '［一起听］《' + song.name + '》，陪我听一会儿吧');
-    if (typeof settings === 'undefined' || settings.replyEnabled !== false) {
-      setTimeout(function () {
-        var st2 = stateFor(c.id);
-        pushMsg(st2.music.messages, 'partner', '好呀，我戴上耳机了～');
-        save();
-        addMainMsg(c.id, 'partner', '好呀，我戴上耳机了～');
-        renderChat('music');
-        scrollChat('music');
-      }, 1400);
+    if (window.InviteCenter && InviteCenter.openCompose) {
+      InviteCenter.openCompose('music', c.id, { subject: song.name });
     }
-    if (!_audio) playSong(song.id);
   }
 
   function endMusic() {
@@ -784,6 +838,170 @@
     pushMsg(st.music.messages, 'system', '结束了这次一起听');
     save();
     renderAll();
+  }
+
+  // ---------- 播放器自定义 ----------
+  function mpSwatches(key, cur) {
+    var known = MP_SWATCHES.indexOf(cur) >= 0;
+    return '<div class="mp-swatches">' +
+      MP_SWATCHES.map(function (col) {
+        return '<button class="mp-swatch' + (col === cur ? ' on' : '') + '" data-mp="color" data-key="' + key +
+          '" data-color="' + col + '" style="background:' + col + '"></button>';
+      }).join('') +
+      '<button class="mp-swatch mp-swatch--custom' + (known ? '' : ' on') + '" data-mp="wheel" data-key="' + key + '" title="自定义颜色"></button>' +
+      '<input type="color" id="mp-wheel-' + key + '" value="' + esc(cur) + '" style="display:none">' +
+    '</div>';
+  }
+
+  function openMusicSettings() {
+    var c = currentContact();
+    if (!c) return;
+    var pc = playerConf(c.id);
+    var modeOpts = [
+      { v: 'list', name: '歌单循环' },
+      { v: 'single', name: '单曲循环' },
+      { v: 'shuffle', name: '随机播放' }
+    ];
+    var bubbleOpts = [
+      { v: 'standard', name: '标准尖角' },
+      { v: 'rounded', name: '圆角' },
+      { v: 'rounded-large', name: '大圆角胶囊' },
+      { v: 'square', name: '方形直角' }
+    ];
+    var html =
+      '<div class="mp-section"><div class="mp-section-title">播放模式</div><div class="mp-mode-row">' +
+        modeOpts.map(function (o) {
+          return '<button class="mp-chip' + (pc.mode === o.v ? ' on' : '') + '" data-mp="mode" data-mode="' + o.v + '">' + o.name + '</button>';
+        }).join('') +
+      '</div></div>' +
+
+      '<div class="mp-section"><div class="mp-section-title">自定义唱片</div>' +
+        '<div class="mp-vinyl-preview" id="mp-vinyl-preview"></div>' +
+        '<div class="mp-css-actions">' +
+          '<button class="app-btn sm" data-mp="uploadVinyl">上传唱片图</button>' +
+          '<button class="app-btn sm" data-mp="resetVinyl">恢复默认</button>' +
+        '</div>' +
+        '<input type="file" id="mp-vinyl-file" accept="image/*" style="display:none">' +
+      '</div>' +
+
+      '<div class="mp-section"><div class="mp-section-title">心跳线颜色</div>' + mpSwatches('hb', pc.hbColor) + '</div>' +
+      '<div class="mp-section"><div class="mp-section-title">播放进度线颜色</div>' + mpSwatches('prog', pc.progColor) + '</div>' +
+      '<div class="mp-section"><div class="mp-section-title">控制按钮颜色</div>' + mpSwatches('ctrl', pc.ctrlColor) + '</div>' +
+
+      '<div class="mp-section"><div class="mp-section-title">气泡样式</div><div class="mp-mode-row">' +
+        bubbleOpts.map(function (o) {
+          return '<button class="mp-chip' + (pc.bubbleStyle === o.v ? ' on' : '') + '" data-mp="bubble" data-bubble="' + o.v + '">' + o.name + '</button>';
+        }).join('') +
+      '</div></div>' +
+
+      '<div class="mp-section"><div class="mp-section-title">自定义 CSS</div>' +
+        '<textarea class="mp-css-area" id="mp-css" spellcheck="false" placeholder=".ent-msg-b { border-radius: 18px; }">' + esc(pc.customCss) + '</textarea>' +
+        '<div class="mp-css-actions">' +
+          '<button class="app-btn sm" data-mp="applyCss">应用</button>' +
+          '<button class="app-btn sm" data-mp="clearCss">清空</button>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="app-actions"><button class="app-btn primary" data-mp="close">完成</button></div>';
+
+    openSheet('播放器自定义', html, function (wrap) {
+      var prev = wrap.querySelector('#mp-vinyl-preview');
+      function setPreview(url) {
+        if (!prev) return;
+        prev.style.backgroundImage = url ? 'url("' + url + '")' : '';
+      }
+      if (pc.vinylId) {
+        MediaStore.get(pc.vinylId).then(function (blob) {
+          if (!blob) return;
+          var u = URL.createObjectURL(blob);
+          setPreview(u);
+          setTimeout(function () { URL.revokeObjectURL(u); }, 60000);
+        }).catch(function () {});
+      }
+
+      var fileInput = wrap.querySelector('#mp-vinyl-file');
+      if (fileInput) fileInput.addEventListener('change', function () {
+        var f = fileInput.files && fileInput.files[0];
+        if (!f) return;
+        var id = uid('vinyl');
+        MediaStore.put(id, f).then(function () {
+          pc.vinylId = id;
+          save();
+          mountVinylArt(c.id);
+          var u = URL.createObjectURL(f);
+          setPreview(u);
+          setTimeout(function () { URL.revokeObjectURL(u); }, 60000);
+          toastMsg('唱片图已更换');
+        }).catch(function () { toastMsg('保存失败（图片太大？）'); });
+        fileInput.value = '';
+      });
+
+      function setColor(key, color) {
+        pc[key === 'hb' ? 'hbColor' : (key === 'prog' ? 'progColor' : 'ctrlColor')] = color;
+        save();
+        var card = document.getElementById('mh-card');
+        if (card) card.style.setProperty(MP_VAR[key], color);
+        wrap.querySelectorAll('.mp-swatch[data-key="' + key + '"][data-color]').forEach(function (s) {
+          s.classList.toggle('on', s.getAttribute('data-color') === color);
+        });
+        var custom = wrap.querySelector('.mp-swatch[data-key="' + key + '"][data-mp="wheel"]');
+        if (custom) custom.classList.toggle('on', MP_SWATCHES.indexOf(color) < 0);
+      }
+
+      ['hb', 'prog', 'ctrl'].forEach(function (key) {
+        var wheel = wrap.querySelector('#mp-wheel-' + key);
+        if (wheel) wheel.addEventListener('input', function () { setColor(key, wheel.value); });
+      });
+
+      wrap.addEventListener('click', function (e) {
+        var b = e.target.closest('[data-mp]');
+        if (!b) return;
+        var mp = b.getAttribute('data-mp');
+        if (mp === 'close') { closeSheet(); return; }
+        if (mp === 'uploadVinyl') { if (fileInput) fileInput.click(); return; }
+        if (mp === 'resetVinyl') {
+          pc.vinylId = '';
+          save();
+          mountVinylArt(c.id);
+          setPreview('');
+          toastMsg('已恢复默认唱片');
+          return;
+        }
+        if (mp === 'color') { setColor(b.getAttribute('data-key'), b.getAttribute('data-color')); return; }
+        if (mp === 'wheel') {
+          var key = b.getAttribute('data-key');
+          var wheel = wrap.querySelector('#mp-wheel-' + key);
+          if (wheel) wheel.click();
+          return;
+        }
+        if (mp === 'mode') {
+          pc.mode = b.getAttribute('data-mode') || 'list';
+          save();
+          wrap.querySelectorAll('[data-mp="mode"]').forEach(function (x) {
+            x.classList.toggle('on', x.getAttribute('data-mode') === pc.mode);
+          });
+          return;
+        }
+        if (mp === 'bubble') {
+          pc.bubbleStyle = b.getAttribute('data-bubble') || 'standard';
+          save();
+          wrap.querySelectorAll('[data-mp="bubble"]').forEach(function (x) {
+            x.classList.toggle('on', x.getAttribute('data-bubble') === pc.bubbleStyle);
+          });
+          renderChat('music');
+          return;
+        }
+        if (mp === 'applyCss' || mp === 'clearCss') {
+          var ta = wrap.querySelector('#mp-css');
+          var css = mp === 'clearCss' ? '' : (ta ? ta.value : '');
+          if (ta && mp === 'clearCss') ta.value = '';
+          pc.customCss = css;
+          save();
+          applyMusicCustomCss(css);
+          toastMsg(css ? '自定义 CSS 已应用' : '已清空自定义 CSS');
+        }
+      });
+    });
   }
 
   // ---------- 梦角切换 ----------
@@ -819,10 +1037,7 @@
     if (_bound) return;
     _bound = true;
 
-    var topBtn = document.getElementById('ent-contact-btn');
-    if (topBtn) topBtn.addEventListener('click', openContactPicker);
-
-    // 事件委托挂在整页上：梦角切换条 / 影院音乐厅 pill / 面板内容都在这个范围里
+    // 事件委托挂在整页上：梦角切换条 / 影院音乐厅钉 / 面板内容都在这个范围里
     var view = document.getElementById('view-entertainment');
     if (!view) return;
 
@@ -833,6 +1048,17 @@
 
       if (act === 'pickContact') openContactPicker();
       else if (act === 'invite') openInviteSheet();
+      else if (act === 'musicSettings') openMusicSettings();
+      else if (act === 'gotoChat') {
+        var cg = currentContact();
+        if (cg && typeof openChat === 'function') openChat(cg.id);
+      }
+      else if (act === 'cancelInvite') {
+        var ci = currentContact();
+        if (ci && window.InviteCenter && InviteCenter.cancel) {
+          InviteCenter.cancel(ci.id, el.dataset.kind === 'music' ? 'music' : 'cinema');
+        }
+      }
       else if (act === 'pickVideo') pickVideo();
       else if (act === 'cancelAppt') {
         var c1 = currentContact();
@@ -840,6 +1066,7 @@
         confirmModal('取消约定', '确定取消这次观影约定吗？', function () {
           var st = stateFor(c1.id);
           st.cinema.appt = null;
+          if (window.InviteCenter && InviteCenter.cancelAppt) InviteCenter.cancelAppt(c1.id, 'cinema');
           save();
           renderAll();
         }, { danger: true });
@@ -933,6 +1160,72 @@
       _entryTab = (tab === 'music') ? 'music' : 'cinema';
       showView('entertainment');
     },
-    render: renderAll
+    // 邀请卡跳转：指定梦角打开对应入口
+    openFor: function (tab, cid) {
+      if (cid) {
+        var c = (typeof memberById === 'function') ? memberById(cid) : null;
+        if (c && !isGroupContact(c)) {
+          stopAudio();
+          _cid = cid;
+          Storage.set(KEY_CID, cid);
+        }
+      }
+      this.open(tab);
+    },
+    render: renderAll,
+
+    // ---------- 邀请中心对接 ----------
+    applyInviteAccept: function (kind, cid, n) {
+      var st = stateFor(cid);
+      var c = (typeof memberById === 'function') ? memberById(cid) : null;
+      var name = (c && c.name) ? c.name : '梦角';
+      if (kind === 'cinema') {
+        st.cinema.appt = {
+          title: n.subject || '电影',
+          date: n.date || '',
+          time: n.time || '',
+          ts: n.ts || 0,
+          state: 'waiting',
+          position: 0,
+          mediaId: ''
+        };
+        if (Array.isArray(st.cinema.messages)) {
+          pushMsg(st.cinema.messages, 'system', '和 ' + name + ' 约好一起看《' + (n.subject || '电影') + '》' + (n.date ? ' ' + n.date + ' ' + (n.time || '') : ''));
+        }
+        save();
+      } else if (kind === 'music') {
+        st.music.invite = { active: true, since: Date.now() };
+        var song = null;
+        if (n.subject) {
+          song = st.music.songs.find(function (s) { return s.name === n.subject; });
+          if (song) st.music.currentId = song.id;
+        }
+        if (Array.isArray(st.music.messages)) {
+          pushMsg(st.music.messages, 'system', name + ' 答应了一起听' + (n.subject ? '《' + n.subject + '》' : ''));
+        }
+        save();
+        if (song && _cid === cid) {
+          var v = document.getElementById('cinema-video');
+          if (v) { try { v.pause(); } catch (e) {} }
+          playSong(song.id);
+        }
+      }
+      if (_cid === cid) renderAll();
+    },
+    hasCinemaAppt: function (cid) { return !!stateFor(cid).cinema.appt; },
+    hasMusicTogether: function (cid) { return !!stateFor(cid).music.invite.active; },
+    songNames: function (cid) {
+      return (stateFor(cid).music.songs || []).map(function (s) { return s.name; });
+    },
+    pickMovieTitle: function (cid) {
+      var ci = stateFor(cid).cinema;
+      var pool = [];
+      (ci.watchlist || []).forEach(function (w) { if (w && w.title) pool.push(w.title); });
+      (ci.history || []).forEach(function (h) { if (h && h.title) pool.push(h.title); });
+      if (!pool.length) {
+        pool = ['爱在黎明破晓前', '千与千寻', '爱乐之城', '你的名字', '星际穿越', '海蒂和爷爷', '魔女宅急便'];
+      }
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
   };
 })();

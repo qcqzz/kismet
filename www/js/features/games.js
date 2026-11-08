@@ -84,6 +84,9 @@
     var _bound = false;
     var KEY_CID = 'gameContactId';
     var _gcid = Storage.get(KEY_CID) || '';
+    var KEY_APPT = 'gameAppts';
+    var _appts = Storage.get(KEY_APPT);
+    if (!_appts || typeof _appts !== 'object') _appts = {};
 
     // 调试/测试取数钩子（浏览器控制台与自动化验证用）
     global._goDebug = function () { return state; };
@@ -102,6 +105,68 @@
     }
     function myName() {
         return (typeof _myName === 'function' && _myName()) || '我';
+    }
+
+    // ── 游戏约定（与邀请中心对接，按梦角独立） ─────────
+    function saveAppts() { Storage.set(KEY_APPT, _appts); }
+    function gameAppt(cid) {
+        var a = cid ? _appts[cid] : null;
+        return (a && a.game) ? a : null;
+    }
+    function setGameAppt(cid, a) {
+        if (!cid) return;
+        if (a) _appts[cid] = a; else delete _appts[cid];
+        saveAppts();
+    }
+    function clearGameAppt(cid) {
+        setGameAppt(cid, null);
+        if (window.InviteCenter && InviteCenter.cancelAppt) InviteCenter.cancelAppt(cid, 'game');
+    }
+    function inviteNego(cid) {
+        try { return (window.InviteCenter && InviteCenter.nego) ? InviteCenter.nego(cid, 'game') : null; }
+        catch (e) { return null; }
+    }
+    function gameNameOf(id) {
+        return (GAME_META[id] && GAME_META[id].name) || id || '游戏';
+    }
+    function apptCountdown(a) {
+        if (!a || !a.ts) return '';
+        var diff = a.ts - Date.now();
+        if (diff <= 0) return '约定时间到啦，可以开始';
+        var mins = Math.ceil(diff / 60000);
+        if (mins < 60) return mins + ' 分钟后开始';
+        var h = Math.floor(mins / 60), m = mins % 60;
+        return h + ' 小时后' + (m ? ' ' + m + ' 分' : '') + '开始';
+    }
+    function apptBlockHtml(cid) {
+        var a = gameAppt(cid);
+        if (a) {
+            return '<div class="app-card gr-appt">' +
+                '<div class="app-card-title"><span>游戏约定</span><span class="app-mini" id="gr-appt-count">' + esc(apptCountdown(a)) + '</span></div>' +
+                '<div class="ent-list-main"><div class="ent-list-title">' + esc(gameNameOf(a.game)) + '</div>' +
+                '<div class="ent-list-sub">' + esc((a.date || '') + ' ' + (a.time || '')) + ' · 和 ' + esc(partnerName()) + ' 一起</div></div>' +
+                '<div class="ent-toolbar" style="margin-top:10px">' +
+                    '<button class="app-btn sm primary" data-act="startAppt"><i class="fas fa-play"></i> 开始游戏</button>' +
+                    '<button class="app-btn sm" data-act="cancelGameAppt">取消约定</button>' +
+                '</div>' +
+            '</div>';
+        }
+        var ing = inviteNego(cid);
+        if (ing) {
+            var line = ing.state === 'pending'
+                ? '已向 ' + partnerName() + ' 发出游戏邀请，等 TA 回复'
+                : partnerName() + ' 提议玩「' + (ing.subject || gameNameOf(ing.meta && ing.meta.game)) + '」' + (ing.date ? ' ' + ing.date + ' ' + (ing.time || '') : '');
+            return '<div class="app-card gr-appt">' +
+                '<div class="app-card-title"><span>' + (ing.state === 'pending' ? '等待回复' : 'TA 有新提议') + '</span></div>' +
+                '<div class="app-mini" style="line-height:1.6">' + esc(line) + '</div>' +
+                '<div class="ent-toolbar" style="margin-top:10px">' +
+                    '<button class="app-btn sm" data-act="gotoChat">去聊天回复</button>' +
+                    '<button class="app-btn sm danger" data-act="cancelGameInvite">取消邀请</button>' +
+                '</div>' +
+            '</div>';
+        }
+        return '<button class="app-btn primary gr-invite-btn" data-act="gameInvite">' +
+            '<i class="fas fa-gamepad"></i> 邀请 TA 一起玩</button>';
     }
     function avHTML(isPartner, size) {
         var s = size || 34;
@@ -168,6 +233,8 @@
             '.gr-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}',
             '.gr-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:24px 10px 20px;border-radius:18px;background:var(--card-bg);border:1px solid var(--line);box-shadow:var(--shadow);cursor:pointer;color:var(--ink);font-family:inherit;transition:transform .14s,box-shadow .14s;}',
             '.gr-card:active{transform:scale(.96);}',
+            '.gr-appt{margin-bottom:14px;}',
+            '.gr-invite-btn{width:100%;margin-bottom:14px;}',
             '.gr-icon{width:54px;height:54px;border-radius:16px;display:flex;align-items:center;justify-content:center;background:var(--bg);border:1px solid var(--line);color:var(--ink-2);margin-bottom:2px;}',
             '.gr-icon svg{width:27px;height:27px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;}',
             '.gr-name{font-size:14px;font-weight:700;}',
@@ -1453,9 +1520,11 @@
                 + '<span class="gr-desc">' + g.desc + '</span>'
                 + '</button>';
         }).join('');
+        var c = gameContact();
         body.innerHTML =
             '<div class="gr-wrap">'
             + '<div class="gr-sub">双人小游戏 · 选择一项开始</div>'
+            + (c ? apptBlockHtml(c.id) : '')
             + '<div class="gr-grid">' + cards + '</div>'
             + '</div>';
     }
@@ -1537,10 +1606,42 @@
         var view = document.getElementById('view-games');
         if (!view) return;
         view.addEventListener('click', function (e) {
-            var el = e.target.closest('[data-act="pickContact"]');
-            if (el) openContactPicker();
+            var el = e.target.closest('[data-act]');
+            if (!el) return;
+            var act = el.getAttribute('data-act');
+            if (act === 'pickContact') { openContactPicker(); return; }
+            var c = gameContact();
+            if (!c) return;
+            if (act === 'gameInvite') {
+                if (window.InviteCenter && InviteCenter.openCompose) {
+                    InviteCenter.openCompose('game', c.id, { game: 'gomoku' });
+                }
+            } else if (act === 'startAppt') {
+                var a = gameAppt(c.id);
+                if (!a) { renderGrid(); return; }
+                clearGameAppt(c.id);
+                openGame(a.game);
+            } else if (act === 'cancelGameAppt') {
+                confirmModal('取消约定', '确定取消这次游戏约定吗？', function () {
+                    clearGameAppt(c.id);
+                    renderGrid();
+                }, { danger: true });
+            } else if (act === 'cancelGameInvite') {
+                if (window.InviteCenter && InviteCenter.cancel) InviteCenter.cancel(c.id, 'game');
+            } else if (act === 'gotoChat') {
+                if (typeof openChat === 'function') openChat(c.id);
+            }
         });
     }
+
+    // 约定倒计时每 30 秒刷新一次
+    setInterval(function () {
+        var el = document.getElementById('gr-appt-count');
+        if (!el) return;
+        var c = gameContact();
+        var a = c ? gameAppt(c.id) : null;
+        if (a) el.textContent = apptCountdown(a);
+    }, 30000);
 
     window.GamesApp = {
         onShow: function () {
@@ -1554,7 +1655,40 @@
             renderSwitch();
             renderGrid();
         },
-        render: renderGrid
+        render: renderGrid,
+        // 邀请中心刷新用：对局进行中不要把人踢回九宫格
+        refresh: function () {
+            if (state) return;
+            renderSwitch();
+            renderGrid();
+        },
+        // 邀请卡跳转：指定梦角打开游戏室
+        openFor: function (cid) {
+            if (cid) {
+                _gcid = cid;
+                Storage.set(KEY_CID, cid);
+            }
+            if (typeof showView === 'function') showView('games');
+            window.GamesApp.onShow();
+        },
+        // ---------- 邀请中心对接 ----------
+        applyInviteAccept: function (cid, n) {
+            var game = (n && n.meta && n.meta.game) || 'gomoku';
+            setGameAppt(cid, {
+                id: n.id,
+                game: game,
+                name: gameNameOf(game),
+                subject: n.subject || gameNameOf(game),
+                date: n.date || '',
+                time: n.time || '',
+                ts: n.ts || 0
+            });
+            if (cid === _gcid) {
+                renderSwitch();
+                if (!state) renderGrid();
+            }
+        },
+        hasGameAppt: function (cid) { return !!gameAppt(cid); }
     };
 
     // 预渲染一次，入口打开时不出现空屏

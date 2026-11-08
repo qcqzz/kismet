@@ -170,6 +170,18 @@ function notifyDeliver(cid, title, body, kind) {
 function _nbMsgBody(msg, cid) {
   var t = '';
   if (msg.type === 'redpacket') t = '🧧 收到一个红包';
+  else if (msg.type === 'invite') {
+    var inv = msg.inviteData || {};
+    var subj = inv.subject || '';
+    var when = inv.dateStr ? '（' + inv.dateStr + ' ' + (inv.timeStr || '') + '）' : '';
+    if (inv.state === 'accepted') {
+      if (inv.kind === 'cinema') t = '约定成功：一起看《' + subj + '》' + when;
+      else if (inv.kind === 'music') t = '约定成功：一起听' + (subj ? '《' + subj + '》' : '歌');
+      else t = '约定成功：一起玩「' + subj + '」' + when;
+    } else if (inv.kind === 'cinema') t = '想约你一起看电影《' + subj + '》' + when;
+    else if (inv.kind === 'music') t = '想和你一起听歌' + (subj ? '《' + subj + '》' : '');
+    else t = '想和你一起玩' + (subj ? '「' + subj + '」' : '') + when;
+  }
   else if (msg.voice) t = '[语音]' + (msg.voice.text ? ' ' + msg.voice.text : '');
   else if (msg.image && !msg.text) t = '[表情]';
   else if (msg.image) t = '[图片] ' + (msg.text || '');

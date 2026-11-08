@@ -42,6 +42,10 @@ function renderContactList() {
       if (last.recalled) preview = (last.sender === 'user' ? '你' : '对方') + '撤回了一条消息';
       else if (last.type === 'system') preview = last.text;
       else if (last.type === 'redpacket') preview = who + '[红包]';
+      else if (last.type === 'invite') {
+        var _id = last.inviteData || {};
+        preview = who + '[' + (_id.kind === 'cinema' ? '观影邀请' : (_id.kind === 'music' ? '一起听' : '游戏邀请')) + ']';
+      }
       else if (last.image) preview = who + '[图片]';
       else if (last.voice) preview = who + '[语音]';
       else preview = (last.sender === 'user' ? '我: ' : who) + last.text;
