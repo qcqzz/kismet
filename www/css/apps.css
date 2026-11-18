@@ -36,6 +36,34 @@
   font-size: 11.5px; font-weight: 600; color: var(--ink);
   letter-spacing: .3px; white-space: nowrap;
 }
+.home-page2 { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.home-illus {
+  flex: 1; min-height: 0; margin-top: 10px;
+  display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(3, 1fr);
+  gap: 10px;
+}
+.illus-cell {
+  position: relative; padding: 0; overflow: hidden; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 16px;
+  background: var(--home-card-bg, var(--card-bg));
+  box-shadow: var(--shadow);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform .12s ease;
+}
+.illus-cell:active { transform: scale(.985); }
+.illus-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.illus-cell.empty {
+  border-style: dashed; box-shadow: none; background: transparent;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  color: var(--ink-3);
+}
+.illus-plus {
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px;
+}
+.illus-t { font-size: 10.5px; letter-spacing: .3px; }
 
 /* ── 全屏次级页通用 ── */
 .app-page {

@@ -47,6 +47,10 @@ function loadAllData() {
   photoWall = Array.isArray(savedPhotos) && savedPhotos.length === 6
     ? savedPhotos
     : [null, null, null, null, null, null];
+  var savedIllus = Storage.get('illusWall');
+  illusWall = Array.isArray(savedIllus) && savedIllus.length === 6
+    ? savedIllus
+    : [null, null, null, null, null, null];
   homeBoxBg = Storage.get('homeBoxBg') || null;
   weatherNow = Storage.get('weatherNow');
 
@@ -190,6 +194,7 @@ function saveData() {
     Storage.set('anniversaries', anniversaries);
     Storage.set('musicTracks', musicTracks);
     Storage.set('photoWall', photoWall);
+    Storage.set('illusWall', illusWall);
     Storage.set('homeBoxBg', homeBoxBg);
     Storage.set('weatherNow', weatherNow);
     // 朋友圈

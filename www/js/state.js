@@ -40,6 +40,7 @@ var homeProfile = null;       // {name, avatar, location, expression, signature}
 var anniversaries = [];       // [{id, name, date, type}] type: anniversary=纪念日 / countdown=倒数日
 var musicTracks = [];         // [{id, name, lyric, hasAudio}]（音乐功能待定，数据保留）
 var photoWall = [];           // 6 个照片位（2-5 为底部拍立得，0-1 保留待用），null 或 dataURL
+var illusWall = [];           // 第二页 6 个插画位，null 或 dataURL
 var homeBoxBg = null;         // 首页大方框背景图（dataURL）
 var weatherNow = null;        // {city, temp, code, desc, icon, updatedAt}
 var _dreamSignCache = null;   // 梦角展示栏个签（本次打开抽取一次）

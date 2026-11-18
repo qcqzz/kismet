@@ -41,6 +41,7 @@ function initHome() {
         else showView('entertainment');
       } else if (name) showView(name);
     }
+    else if (act === 'illus') openIllusSheet(Number(el.dataset.slot));
   });
 
   // 方框长按 → 编辑背景图
@@ -171,7 +172,7 @@ function renderHomePage2() {
   var fit = document.getElementById('home-fit-1');
   if (!fit) return;
   fit.innerHTML =
-    '<div class="home-apps">' +
+    '<div class="home-apps home-page2">' +
       '<div class="home-app-grid">' +
         '<button class="home-app-cell" type="button" data-act="app" data-app="cinema">' +
           '<span class="home-app-ico"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="13" rx="2.2"/><path d="M10 9.3l4.2 2.7-4.2 2.7z"/><path d="M8 21h8"/></svg></span>' +
@@ -194,7 +195,23 @@ function renderHomePage2() {
           '<span class="home-app-name">游戏室</span>' +
         '</button>' +
       '</div>' +
+      '<div class="home-illus">' + illusGridHtml() + '</div>' +
     '</div>';
+}
+
+// 第二页插画位：两列三行，空位点一下插入，已插入点一下可查看/更换/删除
+function illusGridHtml() {
+  var html = '';
+  for (var i = 0; i < 6; i++) {
+    var src = illusWall[i];
+    html += '<button class="illus-cell' + (src ? '' : ' empty') + '" type="button" ' +
+      'data-act="illus" data-slot="' + i + '" aria-label="' + (src ? '插画 ' + (i + 1) : '插入插画') + '">' +
+      (src
+        ? '<img src="' + src + '" alt="">'
+        : '<span class="illus-plus"><i class="fas fa-plus"></i></span><span class="illus-t">插入插画</span>') +
+    '</button>';
+  }
+  return html;
 }
 
 function renderHome() {
@@ -823,6 +840,48 @@ function pickPhotoFile(slot) {
       saveData();
       renderHome();
     });
+  };
+  input.click();
+}
+
+// ---------- 第二页插画位 ----------
+function openIllusSheet(slot) {
+  var src = illusWall[slot];
+  if (!src) {
+    pickIllusFile(slot);
+    return;
+  }
+  showSheet('插画', [
+    { label: '<i class="fas fa-search"></i> 查看大图', act: 'view' },
+    { label: '<i class="fas fa-sync"></i> 更换插画', act: 'replace' },
+    { label: '<i class="fas fa-trash-alt"></i> 删除', act: 'del', danger: true },
+    { label: '取消', act: 'cancel', cancel: true }
+  ], function (act) {
+    if (act === 'view') openImageViewer(illusWall[slot]);
+    else if (act === 'replace') pickIllusFile(slot);
+    else if (act === 'del') {
+      illusWall[slot] = null;
+      saveData();
+      renderHome();
+    }
+  });
+}
+
+function pickIllusFile(slot) {
+  var input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = function () {
+    var file = input.files[0];
+    this.value = '';
+    if (!file) return;
+    if (file.size > MAX_IMAGE_SIZE) { toast('图片请小于 5MB'); return; }
+    // 插画不做裁剪，只等比压缩，展示时按格子裁切
+    compressImage(file, 720, 0.75).then(function (dataUrl) {
+      illusWall[slot] = dataUrl;
+      saveData();
+      renderHome();
+    }).catch(function () { toast('图片读取失败'); });
   };
   input.click();
 }
