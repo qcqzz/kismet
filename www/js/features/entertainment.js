@@ -473,18 +473,23 @@
 
     html += '<div class="mh-card" id="mh-card" style="--mh-hb-c:' + esc(pc.hbColor) + ';--mh-prog-c:' + esc(pc.progColor) + ';--mh-ctrl-c:' + esc(pc.ctrlColor) + ';--mh-ctrl-ink:' + esc(inkFor(pc.ctrlColor)) + '">' +
       '<button class="mh-set-btn" data-act="musicSettings" title="播放器自定义"><i class="fas fa-sliders-h"></i></button>' +
-      '<div class="mh-vinyl' + (_audio && !_audio.paused && _audioSongId === (song && song.id) ? ' playing' : '') + '" id="mh-vinyl">' +
-        '<div class="mh-vinyl-art" id="mh-vinyl-art"></div>' +
-      '</div>' +
-      '<div class="mh-hb"><svg viewBox="0 0 372 165" preserveAspectRatio="none"><path d="' + HB_PATH + '"/></svg></div>' +
-      '<div class="mh-title" id="mh-title">' + (song ? esc(song.name) : '还没有歌曲') + '</div>' +
-      '<div class="mh-sub" id="mh-sub">' + (song ? esc(song.lyric || (m.invite.active ? '和 ' + c.name + ' 一起听' : '本地音乐')) : '先添加一首歌吧') + '</div>' +
-      '<div class="mh-progress" id="mh-progress"><i id="mh-progress-bar"></i></div>' +
-      '<div class="mh-times"><span id="mh-time-cur">0:00</span><span id="mh-time-all">0:00</span></div>' +
-      '<div class="mh-ctrl">' +
-        '<button data-act="prevSong" aria-label="上一首"><i class="fas fa-step-backward"></i></button>' +
-        '<button class="mh-play" data-act="togglePlay" aria-label="播放"><i class="fas ' + (_audio && !_audio.paused ? 'fa-pause' : 'fa-play') + '"></i></button>' +
-        '<button data-act="nextSong" aria-label="下一首"><i class="fas fa-step-forward"></i></button>' +
+      '<div class="mh-top">' +
+        '<div class="mh-vinyl-wrap">' +
+          '<div class="mh-vinyl' + (_audio && !_audio.paused && _audioSongId === (song && song.id) ? ' playing' : '') + '" id="mh-vinyl">' +
+            '<div class="mh-vinyl-art" id="mh-vinyl-art"></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="mh-info">' +
+          '<div class="mh-title" id="mh-title">' + (song ? esc(song.name) : '还没有歌曲') + '</div>' +
+          '<div class="mh-sub" id="mh-sub">' + (song ? esc(song.lyric || (m.invite.active ? '和 ' + c.name + ' 一起听' : '本地音乐')) : '先添加一首歌吧') + '</div>' +
+          '<div class="mh-hb"><svg viewBox="0 0 372 165" preserveAspectRatio="none"><path d="' + HB_PATH + '"/></svg></div>' +
+          '<div class="mh-ctrl">' +
+            '<button data-act="prevSong" aria-label="上一首"><i class="fas fa-step-backward"></i></button>' +
+            '<button class="mh-play" data-act="togglePlay" aria-label="播放"><i class="fas ' + (_audio && !_audio.paused ? 'fa-pause' : 'fa-play') + '"></i></button>' +
+            '<button data-act="nextSong" aria-label="下一首"><i class="fas fa-step-forward"></i></button>' +
+          '</div>' +
+          '<div class="mh-times"><span id="mh-time-cur">0:00</span><div class="mh-progress" id="mh-progress"><i id="mh-progress-bar"></i></div><span id="mh-time-all">0:00</span></div>' +
+        '</div>' +
       '</div>' +
     '</div>';
 
