@@ -172,7 +172,6 @@ function renderHomePage2() {
   if (!fit) return;
   fit.innerHTML =
     '<div class="home-apps">' +
-      '<div class="home-apps-title">更多</div>' +
       '<div class="home-app-grid">' +
         '<button class="home-app-cell" type="button" data-act="app" data-app="cinema">' +
           '<span class="home-app-ico"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="13" rx="2.2"/><path d="M10 9.3l4.2 2.7-4.2 2.7z"/><path d="M8 21h8"/></svg></span>' +
