@@ -18,7 +18,7 @@
   var _booted = false;
   var TICK_MS = 30000;
   var KINDS = ['cinema', 'music', 'game'];
-  var GAME_NAMES = { gomoku: '五子棋', '2048': '2048', go: '围棋', guessnum: '猜数字对决' };
+  var GAME_NAMES = { gomoku: '五子棋', '2048': '2048', go: '围棋', guessnum: '猜数字对决', memory: '记忆翻牌', reversi: '黑白棋' };
   var KIND_META = {
     cinema: { label: '看电影', icon: '🍿', banner: 'CINEMA', hasTime: true },
     music: { label: '一起听歌', icon: '🎧', banner: 'MUSIC', hasTime: false },
@@ -644,7 +644,8 @@
     } else {
       var games = [
         { id: 'gomoku', name: '五子棋' }, { id: '2048', name: '2048' },
-        { id: 'go', name: '围棋' }, { id: 'guessnum', name: '猜数字对决' }
+        { id: 'go', name: '围棋' }, { id: 'guessnum', name: '猜数字对决' },
+        { id: 'memory', name: '记忆翻牌' }, { id: 'reversi', name: '黑白棋' }
       ];
       html = '<div class="app-field"><div class="app-label">玩什么</div>' +
         '<select class="app-select" id="inv-subject">' + games.map(function (g) {

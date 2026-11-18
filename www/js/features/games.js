@@ -1,8 +1,10 @@
-/* ============ 字卡传讯 · 游戏室（五子棋 / 2048 / 围棋 / 猜数字对决） ============ */
+/* ============ 字卡传讯 · 游戏室（五子棋 / 2048 / 围棋 / 猜数字 / 记忆翻牌 / 黑白棋） ============ */
 /*
  * 从 chat 的游戏室移植：
  *   棋局 = 撒娇 / 开始 / 耍赖，输一盘碎一颗心，三颗碎完整局结束；
- *   2048 = 双人轮流滑动合并；猜数字 = 双人回合在范围内猜数。
+ *   2048 = 双人轮流滑动合并；猜数字 = 双人回合在范围内猜数；
+ *   记忆翻牌 = 轮流翻两张配对，配对多者赢下本轮；
+ *   黑白棋 = 夹子翻转，双方无子可下时数子定胜负。
  *
  * 与 chat 的差异：
  *   - 对战记录按梦角独立存（Storage: gameRecords_<contactId>）
@@ -20,7 +22,9 @@
         gomoku: { name: '五子棋', n: 15, go: false },
         go:     { name: '围棋',   n: 13, go: true  },
         '2048': { name: '2048',   n: 4,  go: false, g2: true },
-        guessnum: { name: '猜数字对决', n: 100, go: false, gn: true }
+        guessnum: { name: '猜数字对决', n: 100, go: false, gn: true },
+        memory: { name: '记忆翻牌', n: 4, go: false, mem: true },
+        reversi: { name: '黑白棋', n: 8, go: false, rev: true }
     };
     // 每个游戏的配色（极简底 + 参考色点缀）：
     // 参考色：绿#E7EEC7 / 粉#F8D7DC / 蓝#DFEEFC
@@ -61,6 +65,24 @@
             boardbg: 'linear-gradient(160deg,#ffffff 0%,#fbfcf8 55%,#effaf4 100%)',
             boardsh: 'inset 0 0 0 1px rgba(159,212,192,.22),0 12px 28px rgba(120,190,165,.16),0 4px 12px rgba(0,0,0,.05)',
             stroke: 'rgba(120,185,165,.26)'
+        },
+        memory: {
+            ac: '#b7a5e0', acRgb: '183,165,224',
+            softbg: 'linear-gradient(145deg,#fde9ed,#f8d3db)', softc: '#dd94a8',
+            dropbg: 'linear-gradient(145deg,#f4f1fa,#e9e3f4)', dropc: '#6a6280',
+            grid: 'rgba(183,165,224,.35)', dot: 'rgba(183,165,224,.5)',
+            boardbg: 'linear-gradient(160deg,#ffffff 0%,#fbf8ff 55%,#f0e9fb 100%)',
+            boardsh: 'inset 0 0 0 1px rgba(183,165,224,.24),0 12px 28px rgba(160,135,215,.16),0 4px 12px rgba(0,0,0,.05)',
+            stroke: 'rgba(170,150,215,.28)'
+        },
+        reversi: {
+            ac: '#8fc0c8', acRgb: '143,192,200',
+            softbg: 'linear-gradient(145deg,#fde9ed,#f8d3db)', softc: '#dd94a8',
+            dropbg: 'linear-gradient(145deg,#f0f6f6,#e2eeee)', dropc: '#5b7476',
+            grid: 'rgba(143,192,200,.38)', dot: 'rgba(143,192,200,.5)',
+            boardbg: 'linear-gradient(160deg,#ffffff 0%,#f7fdfd 55%,#e8f5f6 100%)',
+            boardsh: 'inset 0 0 0 1px rgba(143,192,200,.24),0 10px 24px rgba(120,185,195,.16),0 4px 10px rgba(0,0,0,.05)',
+            stroke: 'rgba(140,185,195,.28)'
         }
     };
     function applyPalette(el, game) {
@@ -206,8 +228,10 @@
             if (!data.go) data.go = [];
             if (!data['2048']) data['2048'] = [];
             if (!data.guessnum) data.guessnum = [];
+            if (!data.memory) data.memory = [];
+            if (!data.reversi) data.reversi = [];
             return data;
-        } catch (e) { return { gomoku: [], go: [], '2048': [], guessnum: [] }; }
+        } catch (e) { return { gomoku: [], go: [], '2048': [], guessnum: [], memory: [], reversi: [] }; }
     }
     function saveRecords(data) {
         try { Storage.set(recordsKey(), data); }
@@ -360,6 +384,42 @@
             '.gn-input:focus{box-shadow:inset 0 2px 6px rgba(120,190,165,.14),0 0 0 3px rgba(159,212,192,.35);}',
             '.gn-submit{border:none;border-radius:999px;padding:12px 26px;font-size:15px;font-weight:800;background:linear-gradient(135deg,#7fc9ae,#4fae90);color:#fff;cursor:pointer;box-shadow:0 6px 14px rgba(79,174,144,.30);transition:transform .12s;}',
             '.gn-submit:active{transform:scale(.95);box-shadow:0 3px 8px rgba(79,174,144,.20);}',
+            // ── 记忆翻牌 ──
+            '.gm-score{display:flex;align-items:center;justify-content:center;gap:8px;margin:0 auto;padding:7px 18px;border-radius:999px;background:linear-gradient(135deg,#f8f5ff,#eee7fb);color:#6c5f92;font-size:12px;font-weight:800;letter-spacing:.4px;box-shadow:inset 0 0 0 1px rgba(183,165,224,.28),0 6px 14px rgba(160,135,215,.12);}',
+            '.gm-score b{font-size:16px;color:var(--ac-strong,#7c66b8);font-variant-numeric:tabular-nums;}',
+            '.gm-score i{font-style:normal;opacity:.45;margin:0 1px;}',
+            '.gm-score span{font-size:11px;font-weight:600;color:#8b80a8;}',
+            '.gm-wrap{position:relative;width:100%;max-width:340px;margin:0 auto;aspect-ratio:1/1;}',
+            '.gm-grid{width:100%;height:100%;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(4,1fr);gap:8px;}',
+            '.gm-card{perspective:640px;border:none;background:none;padding:0;cursor:pointer;font-family:inherit;}',
+            '.gm-inner{position:relative;display:block;width:100%;height:100%;transform-style:preserve-3d;transition:transform .38s ease;}',
+            '.gm-card.on .gm-inner{transform:rotateY(180deg);}',
+            '.gm-side{position:absolute;inset:0;border-radius:14px;display:flex;align-items:center;justify-content:center;backface-visibility:hidden;-webkit-backface-visibility:hidden;}',
+            '.gm-back{background:linear-gradient(145deg,#f0e8fd,#dccbf3);box-shadow:inset 0 0 0 1px rgba(255,255,255,.7),0 4px 10px rgba(160,135,215,.16);}',
+            '.gm-back::after{content:"";width:30%;height:30%;border-radius:50%;border:2px solid rgba(150,120,200,.32);}',
+            '.gm-face{background:#fff;transform:rotateY(180deg);font-size:26px;line-height:1;box-shadow:inset 0 0 0 1px rgba(183,165,224,.2),0 3px 8px rgba(0,0,0,.06);}',
+            '.gm-card.match .gm-face{background:linear-gradient(145deg,#fff,#f2e9ff);box-shadow:inset 0 0 0 1.5px rgba(160,135,215,.45),0 3px 8px rgba(0,0,0,.06);}',
+            '.gm-card.match{animation:gmPop .32s ease;}',
+            '@keyframes gmPop{0%{transform:scale(1);}50%{transform:scale(1.07);}100%{transform:scale(1);}}',
+            '.gm-status{text-align:center;font-size:12px;color:#9b9b93;min-height:16px;font-weight:600;letter-spacing:.3px;}',
+            // ── 黑白棋 ──
+            '.rv-score{display:flex;align-items:center;justify-content:center;gap:10px;margin:0 auto;padding:7px 18px;border-radius:999px;background:linear-gradient(135deg,#f4fbfb,#e2f2f3);color:#4f7377;font-size:12px;font-weight:800;letter-spacing:.4px;box-shadow:inset 0 0 0 1px rgba(143,192,200,.3),0 6px 14px rgba(120,185,195,.12);}',
+            '.rv-score b{font-size:16px;color:var(--ac-strong,#4f858c);font-variant-numeric:tabular-nums;margin:0 2px;}',
+            '.rv-score i{font-style:normal;opacity:.45;}',
+            '.rv-score .rv-dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:3px;vertical-align:-1px;}',
+            '.rv-score .rv-dot.u{background:#2f2f35;}',
+            '.rv-score .rv-dot.d{background:#f5f5f2;box-shadow:inset 0 0 0 1px rgba(120,130,170,.45);}',
+            'html[data-theme="dark"] .rv-score{background:linear-gradient(135deg,#20302f,#1b292c);color:#9fc4c6;box-shadow:inset 0 0 0 1px rgba(143,192,200,.18);}',
+            'html[data-theme="dark"] .rv-score b{color:#a9d3d6;}',
+            'html[data-theme="dark"] .rv-score .rv-dot.d{background:#d8d8d4;}',
+            'html[data-theme="dark"] .gm-score{background:linear-gradient(135deg,#262233,#211d2c);color:#b6a9d6;box-shadow:inset 0 0 0 1px rgba(183,165,224,.16);}',
+            'html[data-theme="dark"] .gm-score b{color:#c7b6ee;}',
+            'html[data-theme="dark"] .gm-score span{color:#9d93b5;}',
+            'html[data-theme="dark"] .gm-back{background:linear-gradient(145deg,#3a3348,#2b2637);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06),0 4px 10px rgba(0,0,0,.35);}',
+            'html[data-theme="dark"] .gm-back::after{border-color:rgba(200,180,240,.24);}',
+            'html[data-theme="dark"] .gm-face{background:#2a2634;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06),0 3px 8px rgba(0,0,0,.3);}',
+            'html[data-theme="dark"] .gm-card.match .gm-face{background:linear-gradient(145deg,#363045,#2b2636);box-shadow:inset 0 0 0 1.5px rgba(183,165,224,.4);}',
+            'html[data-theme="dark"] .gm-status{color:#9a9aa5;}',
             // ── 深色跟随系统 ──
             'html[data-theme="dark"] .gs-screen{--gs-bg1:#17181c;--gs-bg2:#1e1f24;--gs-txt:#e7e6ee;--gs-muted:#9a9aa5;--gs-muted2:#a9a9b5;}',
             'html[data-theme="dark"] .gs-player .gs-pn{color:#e7e6ee;}',
@@ -404,6 +464,11 @@
         var n = GAME_META[game].n;
         var board = [];
         for (var i = 0; i < n; i++) { board.push(new Array(n).fill(0)); }
+        // 黑白棋：中心四子开局（黑=玩家，白=梦角）
+        if (game === 'reversi') {
+            board[3][3] = USER; board[4][4] = USER;
+            board[3][4] = DREAM; board[4][3] = DREAM;
+        }
         state = {
             game: game,
             n: n,
@@ -431,7 +496,14 @@
             userPassed: false,   // 围棋：玩家是否让手
             dreamPassed: false,  // 围棋：梦角是否让手
             result: null,         // 整局结果 {winner, dBroken, uBroken}
-            dreamMercy: (game === 'gomoku' || game === 'go') && Math.random() < 0.15  // 棋类：本盘 15% 概率梦角让着用户，整体下弱
+            memCards: game === 'memory' ? memDeck() : [],        // 记忆翻牌：牌面 {v,done}
+            memUp: [],           // 记忆翻牌：当前翻开的牌
+            memBusy: false,      // 记忆翻牌：结算两张牌中
+            memKnown: {},        // 记忆翻牌：梦角记住的牌 position -> 值
+            userPairs: 0,        // 记忆翻牌：本轮玩家配对数
+            dreamPairs: 0,       // 记忆翻牌：本轮梦角配对数
+            revScore: null,      // 黑白棋：终局子数 {u,d}
+            dreamMercy: (game === 'gomoku' || game === 'go' || game === 'reversi') && Math.random() < 0.15  // 棋类：本盘 15% 概率梦角让着用户，整体下弱
         };
     }
 
@@ -465,6 +537,7 @@
         if (!panel) return;
         if (state.game === '2048') { renderScreen2048(panel); return; }
         if (state.game === 'guessnum') { renderScreenGuessNum(panel); return; }
+        if (state.game === 'memory') { renderScreenMemory(panel); return; }
         var m = GAME_META[state.game];
         var dream = partnerName(), you = myName();
         panel.innerHTML =
@@ -480,6 +553,7 @@
             + '<div class="gs-body">'
             +   '<div class="gs-board-col">'
             +     ctlHTML()
+            +     (state.game === 'reversi' ? rvScoreHTML() : '')
             +     '<div class="gs-board-wrap" id="gs-board-wrap">'
             +       '<canvas id="gs-board"></canvas>'
             +      (state.started && !state.sessionOver ? '<div class="gs-hint">' + (state.turn === 'user' ? '轮到' + esc(myName()) + '落子' : esc(dream) + '思考中…') + '</div>' : '')
@@ -559,6 +633,8 @@
     function recordHTML(r) {
         if (state.game === '2048') return recordHTML2048(r);
         var who = r.winner === 'user' ? myName() + ' 获胜' : partnerName() + ' 获胜';
+        if (r.uPairs != null) who += ' · ' + r.uPairs + ':' + r.dPairs;
+        if (r.uScore != null) who += ' · ' + r.uScore + ':' + r.dScore;
         return '<div class="gs-rec">'
             + '<span class="gs-recd">' + esc(r.d) + '</span>'
             + '<span class="gs-rec-who">' + esc(who) + '</span>'
@@ -603,6 +679,37 @@
             state.turn = firstTurn;
             renderScreen();
             if (firstTurn === 'dream') scheduleGnAI();
+            return;
+        }
+        if (state.game === 'memory') {
+            state.over = false;
+            state.sessionOver = false;
+            state.started = true;
+            state.memCards = memDeck();
+            state.memUp = [];
+            state.memBusy = false;
+            state.memKnown = {};
+            state.userPairs = 0;
+            state.dreamPairs = 0;
+            state.memRoundInfo = null;
+            state.userUndo = [];
+            state.turn = firstTurn;
+            renderScreen();
+            if (firstTurn === 'dream') scheduleMemoryAi();
+            return;
+        }
+        if (state.game === 'reversi') {
+            state.over = false;
+            state.sessionOver = false;
+            state.started = true;
+            state.board = emptyBoard(8);
+            state.board[3][3] = USER; state.board[4][4] = USER;
+            state.board[3][4] = DREAM; state.board[4][3] = DREAM;
+            state.lastMove = null;
+            state.userUndo = [];
+            state.revScore = null;
+            state.turn = 'user';
+            renderScreen();
             return;
         }
         state.over = false;
@@ -662,6 +769,12 @@
         var scale = rect.width / cv.width;
         var x = (e.clientX - rect.left) / scale;
         var y = (e.clientY - rect.top) / scale;
+        if (state.game === 'reversi') {
+            var rc = BOARD_PX / 8;
+            var col2 = Math.floor(x / rc), row2 = Math.floor(y / rc);
+            if (row2 >= 0 && row2 < 8 && col2 >= 0 && col2 < 8) doReversiMove(row2, col2);
+            return;
+        }
         var n = state.n, cell = (BOARD_PX - 2 * MARGIN) / (n - 1);
         var col = Math.round((x - MARGIN) / cell), row = Math.round((y - MARGIN) / cell);
         if (row < 0 || row >= n || col < 0 || col >= n) return;
@@ -722,7 +835,7 @@
             }
         }, delay);
     }
-    function clearAi() { if (aiTimer) { clearTimeout(aiTimer); aiTimer = null; } }
+    function clearAi() { if (aiTimer) { clearTimeout(aiTimer); aiTimer = null; } memClearTimer(); }
 
     // 围棋让手：一方无棋可下（或主动放弃）时跳过。双方连续让手则按数子法结算本轮。
     function passRound(player) {
@@ -743,14 +856,434 @@
     function undoMove() {
         if (state.userUndo.length === 0) return;
         var snap = state.userUndo.pop();
+        if (state.game === 'memory' && snap.mem) {
+            var m = snap.mem;
+            state.memCards = m.cards.map(function (c) { return { v: c.v, done: c.done }; });
+            state.memUp = m.up.slice();
+            state.userPairs = m.uP;
+            state.dreamPairs = m.dP;
+            state.memBusy = false;
+            state.turn = 'user';
+            state.memKnown = {};
+            memClearTimer();
+            clearAi();
+            return;
+        }
         state.board = snap.board;
-        state.prisoners = snap.prisoners;
-        state.koHist.length = snap.koLen;
+        if (snap.prisoners) state.prisoners = snap.prisoners;
+        if (typeof snap.koLen === 'number') state.koHist.length = snap.koLen;
         state.turn = 'user';
         state.lastMove = null;
         state.userPassed = false;
         state.dreamPassed = false;
         clearAi();
+    }
+
+    // ══ 记忆翻牌 ═════════════════════════════
+    // 4×4 共十六张牌（八对），轮流翻两张：配对成功得一分并继续，配错换手。
+    // 八对全部翻完比较配对数，多者赢下本轮，输方碎一颗心。
+    var MEM_FACES = ['🍓', '🌸', '🌙', '⭐', '🎀', '🍰', '🐱', '💌'];
+    var _memTimer = null;
+    function memClearTimer() { if (_memTimer) { clearTimeout(_memTimer); _memTimer = null; } }
+
+    function memDeck() {
+        var cards = [];
+        for (var i = 0; i < MEM_FACES.length; i++) {
+            cards.push({ v: MEM_FACES[i], done: false });
+            cards.push({ v: MEM_FACES[i], done: false });
+        }
+        for (var j = cards.length - 1; j > 0; j--) {
+            var k = Math.floor(Math.random() * (j + 1));
+            var t = cards[j]; cards[j] = cards[k]; cards[k] = t;
+        }
+        return cards;
+    }
+    function memLeft() {
+        var n = 0;
+        for (var i = 0; i < state.memCards.length; i++) if (!state.memCards[i].done) n++;
+        return Math.ceil(n / 2);
+    }
+    function memStatusText() {
+        if (state.sessionOver) return '';
+        if (!state.started) return '点击「开始」开始游戏';
+        if (state.memBusy) return '看看翻到了什么…';
+        if (state.memUp.length === 1) return state.turn === 'user' ? '再翻一张' : partnerName() + '正在翻牌…';
+        return state.turn === 'user' ? '轮到' + myName() + '翻牌' : partnerName() + '正在翻牌…';
+    }
+    function memGridHTML() {
+        var h = '';
+        for (var i = 0; i < state.memCards.length; i++) {
+            var c = state.memCards[i];
+            var up = c.done || state.memUp.indexOf(i) >= 0;
+            h += '<button type="button" class="gm-card' + (up ? ' on' : '') + (c.done ? ' match' : '')
+                + '" data-i="' + i + '" onclick="window._gmFlip(' + i + ')">'
+                + '<span class="gm-inner">'
+                + '<span class="gm-side gm-back"></span>'
+                + '<span class="gm-side gm-face">' + c.v + '</span>'
+                + '</span></button>';
+        }
+        return h;
+    }
+    function memPaint() {
+        if (!state || state.game !== 'memory') return;
+        var grid = document.getElementById('gm-grid');
+        if (grid) {
+            var els = grid.querySelectorAll('.gm-card');
+            for (var i = 0; i < els.length; i++) {
+                var card = state.memCards[i];
+                var done = !!(card && card.done);
+                var up = done || state.memUp.indexOf(i) >= 0;
+                els[i].classList.toggle('on', up);
+                els[i].classList.toggle('match', done);
+            }
+        }
+        var pd = document.getElementById('gm-pd'), pu = document.getElementById('gm-pu'), lf = document.getElementById('gm-left');
+        if (pd) pd.textContent = state.dreamPairs || 0;
+        if (pu) pu.textContent = state.userPairs || 0;
+        if (lf) lf.textContent = memLeft();
+        var st = document.getElementById('gm-status');
+        if (st) st.textContent = memStatusText();
+    }
+    function renderScreenMemory(panel) {
+        var m = GAME_META[state.game], dream = partnerName(), you = myName();
+        panel.innerHTML =
+            '<div class="gs-screen gm-screen">'
+            + '<div class="gs-topbar">'
+            +   '<button class="gs-ibtn" onclick="window._goBack()"><i class="fas fa-chevron-left"></i></button>'
+            +   '<span class="gs-title">' + esc(m.name) + '</span>'
+            +   '<div class="gs-seg">'
+            +     '<button data-v="board" class="on" onclick="window._goSwitchView(\'board\',this)">游戏</button>'
+            +     '<button data-v="hist" onclick="window._goSwitchView(\'hist\',this)">历史</button>'
+            +   '</div>'
+            + '</div>'
+            + '<div class="gs-body">'
+            +   '<div class="gs-board-col">'
+            +     ctlHTML()
+            +     '<div class="gm-score">'
+            +       '<span>' + esc(dream) + '</span> <b id="gm-pd">' + (state.dreamPairs || 0) + '</b><i>:</i><b id="gm-pu">' + (state.userPairs || 0) + '</b> <span>' + esc(you) + '</span>'
+            +       '<i>·</i><span>还剩 <b id="gm-left" style="font-size:12px">' + memLeft() + '</b> 对</span>'
+            +     '</div>'
+            +     '<div class="gm-wrap" id="gs-board-wrap">'
+            +       '<div class="gm-grid" id="gm-grid">' + memGridHTML() + '</div>'
+            +     '</div>'
+            +     '<div class="gm-status" id="gm-status">' + esc(memStatusText()) + '</div>'
+            +     heartsHTML(dream, you)
+            +     resultHTML()
+            +   '</div>'
+            +   histPanelHTML()
+            + '</div>'
+            + '</div>';
+        var scr = panel.querySelector('.gs-screen');
+        if (scr) applyPalette(scr, state.game);
+    }
+    global._gmFlip = function (i) {
+        if (!state || state.game !== 'memory' || !state.started || state.sessionOver || state.over) return;
+        if (state.turn !== 'user' || state.memBusy) return;
+        memFlip(i, 'user');
+    };
+    function memFlip(i, by) {
+        if (!state || state.game !== 'memory' || state.sessionOver || state.over) return;
+        var card = state.memCards[i];
+        if (!card || card.done || state.memUp.indexOf(i) >= 0) return;
+        if (by === 'user') {
+            state.userUndo.push({
+                mem: {
+                    cards: state.memCards.map(function (c) { return { v: c.v, done: c.done }; }),
+                    up: state.memUp.slice(),
+                    uP: state.userPairs,
+                    dP: state.dreamPairs,
+                    turn: state.turn
+                }
+            });
+        }
+        state.memUp.push(i);
+        // 翻开的牌双方都能看到；梦角按概率记住，模拟记牌水平
+        if (Math.random() < 0.85) state.memKnown[i] = card.v;
+        memPaint();
+        if (state.memUp.length < 2) {
+            // 第一张：梦角稍后再翻第二张
+            if (by === 'dream') {
+                memClearTimer();
+                _memTimer = setTimeout(function () {
+                    _memTimer = null;
+                    if (!state || state.game !== 'memory' || state.turn !== 'dream' || state.sessionOver) return;
+                    var j = memPickSecond(i);
+                    if (j != null) memFlip(j, 'dream');
+                }, 780);
+            }
+            return;
+        }
+        var same = state.memCards[state.memUp[0]].v === state.memCards[state.memUp[1]].v;
+        state.memBusy = true;
+        memPaint();
+        memClearTimer();
+        _memTimer = setTimeout(function () {
+            _memTimer = null;
+            if (!state || state.game !== 'memory' || state.sessionOver) return;
+            if (same) {
+                for (var k = 0; k < state.memUp.length; k++) {
+                    var idx = state.memUp[k];
+                    if (state.memCards[idx]) state.memCards[idx].done = true;
+                    delete state.memKnown[idx];
+                }
+                if (by === 'user') state.userPairs++; else state.dreamPairs++;
+            }
+            state.memUp = [];
+            state.memBusy = false;
+            if (same) {
+                var left = 0;
+                for (var q = 0; q < state.memCards.length; q++) if (!state.memCards[q].done) left++;
+                if (!left) { memRoundEnd(); return; }
+                memPaint();
+                if (by === 'dream') { state.turn = 'dream'; scheduleMemoryAi(); }
+                return;
+            }
+            state.turn = by === 'user' ? 'dream' : 'user';
+            memPaint();
+            if (state.turn === 'dream') scheduleMemoryAi();
+        }, same ? 470 : 900);
+    }
+    function memRoundEnd() {
+        state.over = true;
+        state.memBusy = false;
+        var u = state.userPairs || 0, d = state.dreamPairs || 0;
+        state.memRoundInfo = { u: u, d: d };
+        if (u === d) {
+            notify('这一局 ' + u + ' : ' + d + ' 打平，重新开一局');
+            beginRound(Math.random() < 0.5 ? 'user' : 'dream');
+            return;
+        }
+        resolveHearts(u > d, '配对数 ' + u + ' : ' + d);
+        renderScreen();
+    }
+    // 梦角选第一张：优先翻已知成对的牌，否则随机
+    function memPickFirst() {
+        var down = [];
+        for (var i = 0; i < state.memCards.length; i++) {
+            if (!state.memCards[i].done && state.memUp.indexOf(i) < 0) down.push(i);
+        }
+        if (!down.length) return null;
+        var byVal = {};
+        for (var j = 0; j < down.length; j++) {
+            var v = state.memKnown[down[j]];
+            if (v != null) { if (!byVal[v]) byVal[v] = []; byVal[v].push(down[j]); }
+        }
+        for (var key in byVal) {
+            if (byVal[key].length >= 2) return byVal[key][0];
+        }
+        return down[Math.floor(Math.random() * down.length)];
+    }
+    function memPickSecond(first) {
+        var down = [];
+        for (var i = 0; i < state.memCards.length; i++) {
+            if (i === first || state.memCards[i].done || state.memUp.indexOf(i) >= 0) continue;
+            down.push(i);
+        }
+        if (!down.length) return null;
+        var fv = state.memCards[first] ? state.memCards[first].v : '';
+        for (var j = 0; j < down.length; j++) {
+            if (state.memKnown[down[j]] === fv) return down[j];
+        }
+        return down[Math.floor(Math.random() * down.length)];
+    }
+    function scheduleMemoryAi() {
+        clearAi();
+        if (!state || state.game !== 'memory' || !state.started || state.sessionOver || state.over || state.turn !== 'dream') return;
+        var delay = 1200 + Math.floor(Math.random() * 2000);
+        aiTimer = setTimeout(function () {
+            aiTimer = null;
+            if (!state || state.game !== 'memory' || state.sessionOver || state.turn !== 'dream' || state.memBusy) return;
+            var i = memPickFirst();
+            if (i == null) return;
+            memFlip(i, 'dream');
+        }, delay);
+    }
+
+    // ══ 黑白棋 ═════════════════════════════
+    // 8×8 棋盘，夹住对方棋子即翻转；双方都无子可下时终局，子多者胜。
+    var RV_DIRS = [[-1, -1], [-1, 0], [-1, 1], [0, -1], [0, 1], [1, -1], [1, 0], [1, 1]];
+    // 位置权重：角最稳，角旁和边线差
+    var RV_W = [
+        [120, -20, 20, 5, 5, 20, -20, 120],
+        [-20, -40, -5, -5, -5, -5, -40, -20],
+        [20, -5, 15, 3, 3, 15, -5, 20],
+        [5, -5, 3, 3, 3, 3, -5, 5],
+        [5, -5, 3, 3, 3, 3, -5, 5],
+        [20, -5, 15, 3, 3, 15, -5, 20],
+        [-20, -40, -5, -5, -5, -5, -40, -20],
+        [120, -20, 20, 5, 5, 20, -20, 120]
+    ];
+    function revOpp(color) { return color === USER ? DREAM : USER; }
+    function revFlips(b, r, c, color) {
+        if (!inb(r, c, 8) || b[r][c]) return [];
+        var out = [], opp = revOpp(color);
+        for (var d = 0; d < RV_DIRS.length; d++) {
+            var dr = RV_DIRS[d][0], dc = RV_DIRS[d][1], line = [];
+            var rr = r + dr, cc = c + dc;
+            while (inb(rr, cc, 8) && b[rr][cc] === opp) { line.push([rr, cc]); rr += dr; cc += dc; }
+            if (line.length && inb(rr, cc, 8) && b[rr][cc] === color) out = out.concat(line);
+        }
+        return out;
+    }
+    function revApply(b, r, c, color, flips) {
+        b[r][c] = color;
+        for (var i = 0; i < flips.length; i++) b[flips[i][0]][flips[i][1]] = color;
+    }
+    function revMoves(b, color) {
+        var list = [];
+        for (var r = 0; r < 8; r++) {
+            for (var c = 0; c < 8; c++) {
+                if (b[r][c]) continue;
+                var f = revFlips(b, r, c, color);
+                if (f.length) list.push({ r: r, c: c, flips: f });
+            }
+        }
+        return list;
+    }
+    function revCount(b) {
+        var u = 0, d = 0;
+        for (var r = 0; r < 8; r++) for (var c = 0; c < 8; c++) {
+            if (b[r][c] === USER) u++;
+            else if (b[r][c] === DREAM) d++;
+        }
+        return { u: u, d: d };
+    }
+    function rvScoreHTML() {
+        var s = revCount(state.board);
+        return '<div class="rv-score">'
+            + '<span><i class="rv-dot u"></i>' + esc(myName()) + ' <b id="rv-u">' + s.u + '</b></span>'
+            + '<i>:</i>'
+            + '<span><i class="rv-dot d"></i>' + esc(partnerName()) + ' <b id="rv-d">' + s.d + '</b></span>'
+            + '</div>';
+    }
+    function doReversiMove(r, c) {
+        if (!state || state.game !== 'reversi' || !state.started || state.sessionOver || state.over || state.turn !== 'user') return;
+        var flips = revFlips(state.board, r, c, USER);
+        if (!flips.length) { notify('要能夹住对方的棋子才能落子'); return; }
+        state.userUndo.push({ board: cloneBoard(state.board) });
+        revApply(state.board, r, c, USER, flips);
+        state.lastMove = { r: r, c: c, color: USER };
+        revAfter('user');
+    }
+    function revAfter(mover) {
+        var um = revMoves(state.board, USER).length;
+        var dm = revMoves(state.board, DREAM).length;
+        if (!um && !dm) { revEnd(); return; }
+        if (mover === 'user') {
+            if (!dm) {
+                state.turn = 'user';
+                notify(partnerName() + '没有位置可下，让一手');
+                refresh();
+                return;
+            }
+            state.turn = 'dream';
+            refresh();
+            scheduleReversiAi();
+        } else {
+            if (!um) {
+                state.turn = 'dream';
+                notify('你没有位置可下，' + partnerName() + '继续');
+                refresh();
+                scheduleReversiAi();
+                return;
+            }
+            state.turn = 'user';
+            refresh();
+        }
+    }
+    function aiReversi() {
+        var moves = revMoves(state.board, DREAM);
+        if (!moves.length) return null;
+        var best = null, bestS = -1e9;
+        for (var i = 0; i < moves.length; i++) {
+            var m = moves[i], nb = cloneBoard(state.board);
+            revApply(nb, m.r, m.c, DREAM, m.flips);
+            var cnt = revCount(nb);
+            var s = RV_W[m.r][m.c] + m.flips.length * 5 + (cnt.d - cnt.u) * 1.6;
+            s -= revMoves(nb, USER).length * 5;      // 限制对手的选择
+            s += revMoves(nb, DREAM).length * 1.2;   // 保留自己的后续
+            s += Math.random() * 2.5;                // 打破平分
+            if (s > bestS) { bestS = s; best = m; }
+        }
+        if (state.dreamMercy && moves.length > 1 && Math.random() < 0.5) {
+            // 让着用户：在偏弱的合法手里随机挑一个
+            var pool = moves.slice().sort(function (a, b) { return RV_W[a.r][a.c] - RV_W[b.r][b.c]; });
+            best = pool[Math.floor(Math.random() * Math.ceil(pool.length / 2))];
+        }
+        return best;
+    }
+    function scheduleReversiAi() {
+        clearAi();
+        if (!state || state.game !== 'reversi' || !state.started || state.sessionOver || state.over || state.turn !== 'dream') return;
+        var delay = 1500 + Math.floor(Math.random() * 4500);
+        aiTimer = setTimeout(function () {
+            aiTimer = null;
+            if (!state || state.game !== 'reversi' || state.sessionOver || state.over || state.turn !== 'dream') return;
+            var mv = aiReversi();
+            if (!mv) {
+                if (!revMoves(state.board, USER).length) { revEnd(); return; }
+                state.turn = 'user';
+                refresh();
+                return;
+            }
+            revApply(state.board, mv.r, mv.c, DREAM, mv.flips);
+            state.lastMove = { r: mv.r, c: mv.c, color: DREAM };
+            revAfter('dream');
+        }, delay);
+    }
+    function revEnd() {
+        state.over = true;
+        var s = revCount(state.board);
+        state.revScore = { u: s.u, d: s.d };
+        if (s.u === s.d) {
+            notify('黑白棋 ' + s.u + ' : ' + s.d + ' 平手，再来一局');
+            beginRound('user');
+            return;
+        }
+        resolveHearts(s.u > s.d, '黑白棋 ' + myName() + ' ' + s.u + ' : ' + s.d + ' ' + partnerName());
+        renderScreen();
+    }
+    function renderReversiBoard(ctx) {
+        var cell = BOARD_PX / 8;
+        var pal = state.pal || PALETTES.reversi;
+        ctx.strokeStyle = pal.grid;
+        ctx.lineWidth = 1;
+        for (var i = 1; i < 8; i++) {
+            ctx.beginPath(); ctx.moveTo(i * cell, 0); ctx.lineTo(i * cell, BOARD_PX); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, i * cell); ctx.lineTo(BOARD_PX, i * cell); ctx.stroke();
+        }
+        ctx.strokeRect(0.5, 0.5, BOARD_PX - 1, BOARD_PX - 1);
+        // 当前可落子位置提示
+        if (state.started && !state.sessionOver && !state.over && state.turn === 'user') {
+            var mv = revMoves(state.board, USER);
+            ctx.fillStyle = 'rgba(143,192,200,.28)';
+            for (var k = 0; k < mv.length; k++) {
+                ctx.beginPath();
+                ctx.arc((mv[k].c + 0.5) * cell, (mv[k].r + 0.5) * cell, cell * 0.13, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+        }
+        for (var r = 0; r < 8; r++) {
+            for (var c = 0; c < 8; c++) {
+                var v = state.board[r][c];
+                if (!v) continue;
+                var cx = (c + 0.5) * cell, cy = (r + 0.5) * cell, rad = cell * 0.42;
+                var grad = ctx.createRadialGradient(cx - rad * 0.35, cy - rad * 0.35, rad * 0.15, cx, cy, rad);
+                if (v === USER) { grad.addColorStop(0, '#6f6f78'); grad.addColorStop(1, '#232329'); }
+                else { grad.addColorStop(0, '#ffffff'); grad.addColorStop(1, '#e2e2de'); }
+                ctx.fillStyle = grad;
+                ctx.beginPath(); ctx.arc(cx, cy, rad, 0, 2 * Math.PI); ctx.fill();
+                ctx.strokeStyle = pal.stroke;
+                ctx.lineWidth = 0.8; ctx.stroke();
+            }
+        }
+        if (state.lastMove) {
+            ctx.strokeStyle = state.lastMove.color === USER ? 'rgba(95,143,201,.9)' : 'rgba(183,165,224,.9)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc((state.lastMove.c + 0.5) * cell, (state.lastMove.r + 0.5) * cell, cell * 0.46, 0, 2 * Math.PI);
+            ctx.stroke();
+        }
     }
 
     // ══ 2048 ═════════════════════════════════
@@ -1144,7 +1677,7 @@
         renderScreen();
     }
 
-    function resolveHearts(userWon) {
+    function resolveHearts(userWon, detail) {
         if (userWon === undefined) { /* 保留占位 */ }
         var loser = userWon ? 'dream' : 'user';
         var arr = loser === 'dream' ? state.dreamHearts : state.userHearts;
@@ -1155,9 +1688,9 @@
             state.over = true;
             state.result = { winner: whoLostAll === 'dream' ? 'user' : 'dream', dBroken: brokenCount(state.dreamHearts), uBroken: brokenCount(state.userHearts) };
             recordGame(state.game, state.result);
-            notify((state.result.winner === 'user' ? myName() : partnerName()) + ' 获胜，本局结束！');
+            notify((detail ? detail + '，' : '') + (state.result.winner === 'user' ? myName() : partnerName()) + ' 获胜，本局结束！');
         } else {
-            if (userWon !== undefined) notify((userWon ? myName() : partnerName()) + ' 赢了这一局');
+            if (userWon !== undefined) notify((detail ? detail + '，' : '') + (userWon ? myName() : partnerName()) + ' 赢了这一局');
             // 非终局：自动开启下一轮，且上一轮输家先手（本局已碎一颗心）
             beginRound(userWon ? 'dream' : 'user');
         }
@@ -1165,7 +1698,16 @@
 
     function recordGame(game, result) {
         var data = getRecords();
-        data[game].push({ d: dateStr(), dBroken: result.dBroken, uBroken: result.uBroken, winner: result.winner });
+        var rec = { d: dateStr(), dBroken: result.dBroken, uBroken: result.uBroken, winner: result.winner };
+        if (game === 'memory' && state && state.memRoundInfo) {
+            rec.uPairs = state.memRoundInfo.u;
+            rec.dPairs = state.memRoundInfo.d;
+        }
+        if (game === 'reversi' && state && state.revScore) {
+            rec.uScore = state.revScore.u;
+            rec.dScore = state.revScore.d;
+        }
+        data[game].push(rec);
         if (data[game].length > 60) data[game].shift();
         saveRecords(data);
     }
@@ -1173,6 +1715,12 @@
     // ── 图形渲染 ───────────────────────────
     function refresh() {
         renderBoard();
+        if (state.game === 'reversi') {
+            var s = revCount(state.board);
+            var eu = document.getElementById('rv-u'), ed = document.getElementById('rv-d');
+            if (eu) eu.textContent = s.u;
+            if (ed) ed.textContent = s.d;
+        }
         var st = document.getElementById('gs-status');
         var hintEl = document.querySelector('#gs-board-wrap .gs-hint');
         if (st) {
@@ -1194,6 +1742,7 @@
         if (!cv || !state) return;
         var ctx = cv.getContext('2d');
         ctx.clearRect(0, 0, BOARD_PX, BOARD_PX);
+        if (state.game === 'reversi') { renderReversiBoard(ctx); return; }
         var n = state.n, cell = (BOARD_PX - 2 * MARGIN) / (n - 1);
         var pal = (state.pal) || PALETTES.gomoku;
         ctx.strokeStyle = pal.grid;
@@ -1482,7 +2031,9 @@
         { id: 'gomoku', name: '五子棋', desc: '双人轮流 · 五子连珠' },
         { id: '2048',   name: '2048',   desc: '双人轮流 · 合并数字' },
         { id: 'go',     name: '围棋',   desc: '双人轮流 · 围地争胜' },
-        { id: 'guessnum', name: '猜数字对决', desc: '双人回合 · 快猜制胜' }
+        { id: 'guessnum', name: '猜数字对决', desc: '双人回合 · 快猜制胜' },
+        { id: 'memory', name: '记忆翻牌', desc: '双人轮流 · 翻牌配对' },
+        { id: 'reversi', name: '黑白棋', desc: '双人轮流 · 夹子翻转' }
     ];
     var GAME_ICONS = {
         gomoku:
@@ -1503,7 +2054,17 @@
         guessnum:
             '<circle cx="12" cy="12" r="8.5"/>' +
             '<circle cx="12" cy="12" r="4.8"/>' +
-            '<circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/>'
+            '<circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none"/>',
+        memory:
+            '<rect x="4" y="3.5" width="9" height="13" rx="2"/>' +
+            '<rect x="11" y="7.5" width="9" height="13" rx="2"/>' +
+            '<path d="M15.5 13.4c1.4-1 2.2-.3 2.2.5 0 .9-1.3 1.7-2.2 2.4-1-.7-2.3-1.5-2.3-2.4 0-.8.8-1.5 2.3-.5z" fill="currentColor" stroke="none"/>',
+        reversi:
+            '<rect x="3" y="3" width="18" height="18" rx="4"/>' +
+            '<circle cx="8.5" cy="8.5" r="2.3" fill="currentColor" stroke="none"/>' +
+            '<circle cx="15.5" cy="8.5" r="2.3"/>' +
+            '<circle cx="8.5" cy="15.5" r="2.3"/>' +
+            '<circle cx="15.5" cy="15.5" r="2.3" fill="currentColor" stroke="none"/>'
     };
 
     function renderGrid() {
