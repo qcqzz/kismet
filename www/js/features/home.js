@@ -41,7 +41,8 @@ function initHome() {
         else showView('entertainment');
       } else if (name) showView(name);
     }
-    else if (act === 'illus') openIllusSheet(Number(el.dataset.slot));
+    else if (act === 'cap') editP2Cap(Number(el.dataset.cap));
+    else if (act === 'p2cover') openP2CoverSheet();
   });
 
   // 方框长按 → 编辑背景图
@@ -55,9 +56,14 @@ function initHome() {
       openBoxBgSheet();
     }, 550);
   });
-  ['pointerup', 'pointercancel', 'pointerleave', 'pointermove'].forEach(function (ev) {
-    box.addEventListener(ev, function () { clearTimeout(_boxPressTimer); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) {
+    box.addEventListener(ev, function () {
+      clearTimeout(_boxPressTimer);
+      // 长按触发的点击在松手后立刻补发，这里等它过去再清标记
+      setTimeout(function () { _boxLongPressed = false; }, 350);
+    });
   });
+  box.addEventListener('pointermove', function () { clearTimeout(_boxPressTimer); });
 }
 
 // ---------- 渲染 ----------
@@ -166,52 +172,70 @@ function _bindHomeDrag(pager) {
   }, true);
 }
 
-// 第二页：五个入口（电影院 / 音乐厅 / 经期 / 日程 / 游戏室）
+// 第二页：桌面背景 + 资料卡（上封面 / 下白底 / 底部渐隐）+ 胶囊与入口
 // 图标统一用导航栏那套线条 SVG：fill:none + stroke:currentColor + 1.7 描边。
 function renderHomePage2() {
   var fit = document.getElementById('home-fit-1');
   if (!fit) return;
+  var p = homeProfile || {};
+  var face = myAvatar();
+  var handle = p.handle || p.name || '我';
+  var capA = settings.homeP2CapA || '点这里写一句';
+  var capB = settings.homeP2CapB || '点这里写一句';
+  var cover = settings.homeP2Cover || '';
+
   fit.innerHTML =
-    '<div class="home-apps home-page2">' +
-      '<div class="home-app-grid">' +
-        '<button class="home-app-cell" type="button" data-act="app" data-app="cinema">' +
-          '<span class="home-app-ico"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="13" rx="2.2"/><path d="M10 9.3l4.2 2.7-4.2 2.7z"/><path d="M8 21h8"/></svg></span>' +
-          '<span class="home-app-name">电影院</span>' +
-        '</button>' +
-        '<button class="home-app-cell" type="button" data-act="app" data-app="music">' +
-          '<span class="home-app-ico"><svg viewBox="0 0 24 24"><path d="M9 18V5.6l10-1.8V15"/><circle cx="6.4" cy="18" r="2.6"/><circle cx="16.4" cy="15" r="2.6"/></svg></span>' +
-          '<span class="home-app-name">音乐厅</span>' +
-        '</button>' +
-        '<button class="home-app-cell" type="button" data-act="app" data-app="period">' +
-          '<span class="home-app-ico"><svg viewBox="0 0 24 24"><path d="M12 3.5c3.4 4.2 5.5 7 5.5 9.7a5.5 5.5 0 0 1-11 0C6.5 10.5 8.6 7.7 12 3.5z"/></svg></span>' +
-          '<span class="home-app-name">经期</span>' +
-        '</button>' +
-        '<button class="home-app-cell" type="button" data-act="app" data-app="schedule">' +
-          '<span class="home-app-ico"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 9.5h17M8 3.5v3M16 3.5v3M9 14.5l2 2 4-4"/></svg></span>' +
-          '<span class="home-app-name">日程</span>' +
-        '</button>' +
-        '<button class="home-app-cell" type="button" data-act="app" data-app="games">' +
-          '<span class="home-app-ico"><svg viewBox="0 0 24 24"><rect x="2.5" y="7.5" width="19" height="9" rx="4.5"/><path d="M7.5 10.5v3M6 12h3"/><circle cx="15.4" cy="11" r="1.05" fill="currentColor" stroke="none"/><circle cx="17.6" cy="13.2" r="1.05" fill="currentColor" stroke="none"/></svg></span>' +
-          '<span class="home-app-name">游戏室</span>' +
-        '</button>' +
+    '<div class="home-p2">' +
+      '<div class="p2-hero">' +
+        '<div class="p2-card">' +
+          '<button class="p2-cover" type="button" data-act="p2cover"' +
+            (cover ? ' style="background-image:url(' + escapeHtml(cover) + ')"' : '') + '>' +
+            '<span class="p2-cover-btn"><i class="fas fa-image"></i></span>' +
+          '</button>' +
+          '<div class="p2-body" data-act="profile">' +
+            '<div class="p2-name">' + escapeHtml(p.name || '我') + '</div>' +
+            '<div class="p2-handle">@' + escapeHtml(handle) + '</div>' +
+            '<div class="p2-sign">' + escapeHtml(p.signature || '写一句喜欢的话') + '</div>' +
+            '<div class="p2-loc"><i class="fas fa-location-dot"></i> ' +
+              escapeHtml(p.location || '点这里设置位置') + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="p2-ava" data-act="profile">' + avatarHtml(face) + '</div>' +
       '</div>' +
-      '<div class="home-illus">' + illusGridHtml() + '</div>' +
+      '<div class="p2-lower">' +
+        '<div class="p2-caps">' +
+          '<button class="p2-cap" type="button" data-act="cap" data-cap="0">' +
+            '<span class="p2-cap-ava">' + avatarHtml(face) + '</span>' +
+            '<span class="p2-cap-t">' + escapeHtml(capA) + '</span>' +
+          '</button>' +
+          '<button class="p2-cap rev" type="button" data-act="cap" data-cap="1">' +
+            '<span class="p2-cap-t">' + escapeHtml(capB) + '</span>' +
+            '<span class="p2-cap-ava">' + avatarHtml(face) + '</span>' +
+          '</button>' +
+        '</div>' +
+        '<div class="p2-grid">' +
+          p2AppHtml('cinema', '电影院',
+            '<rect x="3" y="5" width="18" height="13" rx="2.2"/><path d="M10 9.3l4.2 2.7-4.2 2.7z"/><path d="M8 21h8"/>') +
+          p2AppHtml('music', '音乐厅',
+            '<path d="M9 18V5.6l10-1.8V15"/><circle cx="6.4" cy="18" r="2.6"/><circle cx="16.4" cy="15" r="2.6"/>') +
+          p2AppHtml('period', '经期',
+            '<path d="M12 3.5c3.4 4.2 5.5 7 5.5 9.7a5.5 5.5 0 0 1-11 0C6.5 10.5 8.6 7.7 12 3.5z"/>') +
+          p2AppHtml('schedule', '日程',
+            '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 9.5h17M8 3.5v3M16 3.5v3M9 14.5l2 2 4-4"/>') +
+          '<button class="p2-app p2-app-wide" type="button" data-act="app" data-app="games">' +
+            '<span class="p2-app-ico"><svg viewBox="0 0 24 24"><rect x="2.5" y="7.5" width="19" height="9" rx="4.5"/><path d="M7.5 10.5v3M6 12h3"/><circle cx="15.4" cy="11" r="1.05" fill="currentColor" stroke="none"/><circle cx="17.6" cy="13.2" r="1.05" fill="currentColor" stroke="none"/></svg></span>' +
+            '<span class="p2-app-name">游戏室</span>' +
+          '</button>' +
+        '</div>' +
+      '</div>' +
     '</div>';
 }
 
-// 第二页插画位：两列三行，空位点一下插入，已插入点一下可查看/更换/删除
-function illusGridHtml() {
-  var html = '';
-  for (var i = 0; i < 6; i++) {
-    var src = illusWall[i];
-    html += '<button class="illus-cell' + (src ? '' : ' empty') + '" type="button" ' +
-      'data-act="illus" data-slot="' + i + '" aria-label="' + (src ? '插画 ' + (i + 1) : '插入插画') + '">' +
-      (src
-        ? '<img src="' + src + '" alt="">'
-        : '<span class="illus-plus"><i class="fas fa-plus"></i></span><span class="illus-t">插入插画</span>') +
-    '</button>';
-  }
-  return html;
+function p2AppHtml(app, name, svg) {
+  return '<button class="p2-app" type="button" data-act="app" data-app="' + app + '">' +
+    '<span class="p2-app-ico"><svg viewBox="0 0 24 24">' + svg + '</svg></span>' +
+    '<span class="p2-app-name">' + name + '</span>' +
+  '</button>';
 }
 
 function renderHome() {
@@ -695,11 +719,13 @@ function daysSince(dateStr) {
 function openProfileSheet() {
   showSheet('个人资料', [
     { label: '<i class="fas fa-pen"></i> 改昵称', act: 'name' },
-    { label: '<i class="fas fa-user"></i> 改头像（上传图片）', act: 'avatar' },
+    { label: '<i class="fas fa-at"></i> 改用户名', act: 'handle' },
+    { label: '<i class="fas fa-user"></i> 改头像', act: 'avatar' },
     { label: '<i class="fas fa-comment"></i> 改个性签名', act: 'sign' },
     { label: '<i class="fas fa-location-dot"></i> 改位置', act: 'loc' },
     { label: '<i class="fas fa-smile"></i> 改状态', act: 'expr' },
     { label: '<i class="fas fa-image"></i> 桌面背景', act: 'homebg' },
+    { label: '<i class="fas fa-images"></i> 第二页封面', act: 'p2cover' },
     { label: '<i class="fas fa-cloud"></i> 设置天气城市', act: 'city' },
     { label: '取消', act: 'cancel', cancel: true }
   ], function (act) {
@@ -707,6 +733,11 @@ function openProfileSheet() {
       promptModal('昵称', '', homeProfile.name, function (v) {
         homeProfile.name = v; saveData(); renderHome();
       });
+    } else if (act === 'handle') {
+      confirmModal('用户名', '显示在昵称下面', function (v) {
+        homeProfile.handle = (v || '').trim();
+        saveData(); renderHome();
+      }, { input: homeProfile.handle || '' });
     } else if (act === 'avatar') {
       pickMyAvatar(function () { renderHome(); });
     } else if (act === 'sign') {
@@ -725,6 +756,9 @@ function openProfileSheet() {
     } else if (act === 'homebg') {
       closeSheet();
       openHomeBgEditor();
+    } else if (act === 'p2cover') {
+      closeSheet();
+      openP2CoverSheet();
     } else if (act === 'city') {
       promptWeatherCity();
     }
@@ -844,30 +878,35 @@ function pickPhotoFile(slot) {
   input.click();
 }
 
-// ---------- 第二页插画位 ----------
-function openIllusSheet(slot) {
-  var src = illusWall[slot];
-  if (!src) {
-    pickIllusFile(slot);
-    return;
+// ---------- 第二页：胶囊文字 / 封面 / 用户名 ----------
+function editP2Cap(idx) {
+  var key = idx === 1 ? 'homeP2CapB' : 'homeP2CapA';
+  confirmModal('胶囊文字', '留空就显示默认提示', function (v) {
+    settings[key] = (v || '').trim();
+    saveData();
+    renderHome();
+  }, { input: settings[key] || '' });
+}
+
+function openP2CoverSheet() {
+  var items = [{ label: '<i class="fas fa-image"></i> 更换封面图', act: 'pick' }];
+  if (settings.homeP2Cover) {
+    items.push({ label: '<i class="fas fa-rotate-left"></i> 恢复默认封面', act: 'clear' });
   }
-  showSheet('插画', [
-    { label: '<i class="fas fa-search"></i> 查看大图', act: 'view' },
-    { label: '<i class="fas fa-sync"></i> 更换插画', act: 'replace' },
-    { label: '<i class="fas fa-trash-alt"></i> 删除', act: 'del', danger: true },
-    { label: '取消', act: 'cancel', cancel: true }
-  ], function (act) {
-    if (act === 'view') openImageViewer(illusWall[slot]);
-    else if (act === 'replace') pickIllusFile(slot);
-    else if (act === 'del') {
-      illusWall[slot] = null;
+  items.push({ label: '取消', act: 'cancel', cancel: true });
+
+  showSheet('第二页封面', items, function (act) {
+    if (act === 'pick') pickP2Cover();
+    else if (act === 'clear') {
+      settings.homeP2Cover = '';
       saveData();
       renderHome();
+      toast('已恢复默认封面');
     }
   });
 }
 
-function pickIllusFile(slot) {
+function pickP2Cover() {
   var input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/*';
@@ -876,12 +915,12 @@ function pickIllusFile(slot) {
     this.value = '';
     if (!file) return;
     if (file.size > MAX_IMAGE_SIZE) { toast('图片请小于 5MB'); return; }
-    // 插画不做裁剪，只等比压缩，展示时按格子裁切
-    compressImage(file, 720, 0.75).then(function (dataUrl) {
-      illusWall[slot] = dataUrl;
+    openCropper(file, 'p2cover', function (dataUrl) {
+      settings.homeP2Cover = dataUrl;
       saveData();
       renderHome();
-    }).catch(function () { toast('图片读取失败'); });
+      toast('封面图已更换');
+    });
   };
   input.click();
 }

@@ -1579,7 +1579,6 @@ function exportData() {
     anniversaries: anniversaries,
     musicTracks: musicTracks,
     photoWall: photoWall,
-    illusWall: illusWall,
     homeBoxBg: homeBoxBg,
     weatherNow: weatherNow,
     momentsData: momentsData,
@@ -1635,8 +1634,6 @@ function importData() {
             ? data.musicTracks : DEFAULT_TRACKS.map(function (t) { return Object.assign({}, t); });
           photoWall = Array.isArray(data.photoWall) && data.photoWall.length === 6
             ? data.photoWall : [null, null, null, null, null, null];
-          illusWall = Array.isArray(data.illusWall) && data.illusWall.length === 6
-            ? data.illusWall : [null, null, null, null, null, null];
           homeBoxBg = data.homeBoxBg || null;
           weatherNow = data.weatherNow || null;
           momentsData = (data.momentsData && typeof data.momentsData === 'object') ? data.momentsData : {};

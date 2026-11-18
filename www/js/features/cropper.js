@@ -13,7 +13,10 @@ var CROP_PRESETS = {
   bg:     { ratio: 16 / 9, w: 1200, h: 675,  label: '背景',     ratioText: '16:9' },
   // 桌面背景单独一个预设：它是铺满整屏的手机背景，用横向比例会裁掉大半个画面，
   // 所以改成竖屏 9:16。朋友圈背景库仍然走 bg（横幅本来就该是横的）。
-  homebg: { ratio: 9 / 16, w: 1080, h: 1920, label: '桌面背景', ratioText: '9:16' }
+  homebg: { ratio: 9 / 16, w: 1080, h: 1920, label: '桌面背景', ratioText: '9:16' },
+  // 第二页资料卡的封面只是一条窄带，套 16:9 会被强行放大两倍多、取景全丢，
+  // 所以单独给一条 4:1 的横幅比例，裁出来和显示区几乎一致。
+  p2cover: { ratio: 4, w: 1200, h: 300, label: '封面', ratioText: '4:1' }
 };
 
 // 打开裁剪器。file 选好的原图，kind 取 CROP_PRESETS 的键，

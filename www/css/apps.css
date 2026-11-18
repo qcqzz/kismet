@@ -1,69 +1,155 @@
 /* ============ 字卡传讯 · 第二页入口 / 经期 / 日程 / 电影院 / 音乐厅 / 游戏室 ============ */
 
-/* ── 主页第二页：五个入口置顶 ── */
+/* ── 主页第二页：桌面背景上的资料与入口 ── */
 .home-fit-apps {
-  justify-content: flex-start;
+  justify-content: stretch;
   align-items: stretch;
-  padding-top: 6px;
+  padding: 10px 16px 4px;
 }
-.home-apps { width: 100%; max-width: 460px; margin: 0 auto; }
-.home-app-grid {
-  display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px;
-  padding: 18px 8px;
-  background: var(--home-card-bg, var(--card-bg));
-  border: 1px solid var(--line); border-radius: 24px;
-  box-shadow: var(--shadow);
+.home-p2 {
+  flex: 1; min-height: 0;
+  width: 100%; max-width: 430px; margin: 0 auto;
+  display: flex; flex-direction: column;
+  padding: 6px 0 0;
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none;
 }
-.home-app-cell {
-  display: flex; flex-direction: column; align-items: center; gap: 9px;
-  padding: 2px 0; border: 0; background: none; cursor: pointer;
-  color: var(--ink-3);
+
+/* 资料卡：上半封面图，下半白底，底部渐隐进桌面背景 */
+.p2-hero {
+  position: relative; flex: 0 0 auto;
+  width: 100%; max-width: 372px; margin: 0 auto;
+}
+.p2-card { position: relative; }
+.p2-cover {
+  position: relative; display: block;
+  width: 100%; height: 96px; padding: 0; border: 0;
+  border-radius: 24px 24px 0 0; overflow: hidden; cursor: pointer;
+  background-color: #f2e7ee;
+  background-image: linear-gradient(135deg, #f8eaf0 0%, #eae9f7 56%, #f7eee2 100%);
+  background-size: cover; background-position: center;
   -webkit-tap-highlight-color: transparent;
-  transition: color .15s, transform .12s;
 }
-.home-app-cell:active { transform: scale(.92); color: var(--ink); }
-.home-app-ico {
-  width: 30px; height: 30px;
+html[data-theme="dark"] .p2-cover {
+  background-color: #262330;
+  background-image: linear-gradient(135deg, #2c2836 0%, #232230 56%, #2b2731 100%);
+}
+.p2-cover-btn {
+  position: absolute; top: 9px; right: 9px;
+  width: 26px; height: 26px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  color: var(--ink-2);
+  background: rgba(255, 255, 255, .55); color: #3d3038; font-size: 11px;
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
 }
-/* 和底部导航同一套线条图标语言 */
-.home-app-ico svg {
-  width: 26px; height: 26px; fill: none; stroke: currentColor;
-  stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
+html[data-theme="dark"] .p2-cover-btn { background: rgba(0, 0, 0, .35); color: #f0ecf3; }
+
+.p2-body {
+  position: relative; text-align: center; cursor: pointer;
+  padding: 44px 20px 52px;
+  background: linear-gradient(180deg,
+    var(--card-bg) 0%, var(--card-bg) 76%, transparent 100%);
 }
-.home-app-name {
-  font-size: 11.5px; font-weight: 600; color: var(--ink);
-  letter-spacing: .3px; white-space: nowrap;
+.p2-body:active { filter: brightness(.985); }
+.p2-ava {
+  position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
+  width: 72px; height: 72px; border-radius: 50%; overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, .95);
+  background: var(--bg); cursor: pointer;
+  box-shadow: 0 6px 20px rgba(40, 30, 40, .22);
 }
-.home-page2 { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.home-illus {
-  flex: 1; min-height: 0; margin-top: 10px;
-  display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(3, 1fr);
-  gap: 10px;
+html[data-theme="dark"] .p2-ava { border-color: rgba(45, 42, 52, .95); }
+.p2-ava img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.p2-name {
+  font-size: 22px; font-weight: 800; letter-spacing: .3px;
+  color: var(--ink);
 }
-.illus-cell {
-  position: relative; padding: 0; overflow: hidden; cursor: pointer;
-  border: 1px solid var(--line); border-radius: 16px;
-  background: var(--home-card-bg, var(--card-bg));
-  box-shadow: var(--shadow);
-  -webkit-tap-highlight-color: transparent;
+.p2-handle {
+  margin-top: 3px; font-size: 12.5px; color: var(--ink-3);
+}
+.p2-sign {
+  margin-top: 10px; font-size: 13px; line-height: 1.55;
+  color: var(--ink); opacity: .85;
+}
+.p2-loc {
+  margin-top: 8px; font-size: 12px; color: var(--ink-3);
+}
+.p2-loc i { margin-right: 2px; }
+
+/* 下面：左两个胶囊，右侧 2×2 入口 + 游戏室一格 */
+.p2-lower {
+  width: 100%; max-width: 372px; margin: auto auto 0;
+  padding-top: 16px;
+  display: flex; align-items: flex-start; gap: 12px;
+}
+.p2-caps {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 10px;
+}
+.p2-cap {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 34px; max-width: 100%;
+  padding: 0 12px 0 6px; border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--home-card-bg, var(--card-bg)); color: var(--ink);
+  font-size: 11.5px; font-family: inherit; cursor: pointer;
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 4px 14px rgba(60, 40, 50, .08);
+  white-space: nowrap; overflow: hidden;
   transition: transform .12s ease;
 }
-.illus-cell:active { transform: scale(.985); }
-.illus-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.illus-cell.empty {
-  border-style: dashed; box-shadow: none; background: transparent;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-  color: var(--ink-3);
+.p2-cap.rev { padding: 0 6px 0 12px; justify-content: flex-end; align-self: flex-end; }
+.p2-cap:active { transform: scale(.985); }
+.p2-cap-ava {
+  width: 24px; height: 24px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+  background: var(--bg); border: 1px solid var(--line);
 }
-.illus-plus {
-  width: 30px; height: 30px; border-radius: 50%;
-  border: 1px solid var(--line);
+.p2-cap-ava img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.p2-cap-t { overflow: hidden; text-overflow: ellipsis; }
+
+.p2-grid {
+  flex-shrink: 0;
+  display: grid; grid-template-columns: repeat(2, 62px); gap: 8px;
+}
+.p2-app {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 0; border: 0; background: none; cursor: pointer;
+  color: var(--ink); font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+.p2-app-ico {
+  width: 62px; height: 52px; border-radius: 16px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 12px;
+  background: var(--home-card-bg, var(--card-bg));
+  border: 1px solid var(--line);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 4px 14px rgba(60, 40, 50, .08);
+  transition: transform .12s ease;
 }
-.illus-t { font-size: 10.5px; letter-spacing: .3px; }
+.p2-app-ico svg {
+  width: 24px; height: 24px; fill: none; stroke: currentColor;
+  stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
+}
+.p2-app:active .p2-app-ico { transform: scale(.94); }
+.p2-app-name {
+  font-size: 11px; font-weight: 600; letter-spacing: .2px; opacity: .9;
+}
+/* 游戏室一格：宽度和上面两列对齐，图标与文字横排 */
+.p2-app-wide {
+  grid-column: 1 / -1;
+  flex-direction: row; justify-content: center; gap: 8px;
+  height: 52px; border-radius: 16px;
+  background: var(--home-card-bg, var(--card-bg)); border: 1px solid var(--line);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 4px 14px rgba(60, 40, 50, .08);
+  transition: transform .12s ease;
+}
+.p2-app-wide .p2-app-ico {
+  width: auto; height: auto; border: 0; background: none; box-shadow: none;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+.p2-app-wide .p2-app-name { font-size: 12px; }
+.p2-app-wide:active { transform: scale(.97); }
+.p2-app-wide:active .p2-app-ico { transform: none; }
 
 /* ── 全屏次级页通用 ── */
 .app-page {
