@@ -17,13 +17,14 @@
 
 /* 资料卡：上半封面图，下半白底，底部渐隐进桌面背景 */
 .p2-hero {
+  --p2-cover-h: 140px;
   position: relative; flex: 0 0 auto;
   width: 100%; max-width: 372px; margin: 0 auto;
 }
 .p2-card { position: relative; }
 .p2-cover {
   position: relative; display: block;
-  width: 100%; height: 96px; padding: 0; border: 0;
+  width: 100%; height: var(--p2-cover-h); padding: 0; border: 0;
   border-radius: 24px 24px 0 0; overflow: hidden; cursor: pointer;
   background-color: #f2e7ee;
   background-image: linear-gradient(135deg, #f8eaf0 0%, #eae9f7 56%, #f7eee2 100%);
@@ -34,24 +35,22 @@ html[data-theme="dark"] .p2-cover {
   background-color: #262330;
   background-image: linear-gradient(135deg, #2c2836 0%, #232230 56%, #2b2731 100%);
 }
-.p2-cover-btn {
-  position: absolute; top: 9px; right: 9px;
-  width: 26px; height: 26px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(255, 255, 255, .55); color: #3d3038; font-size: 11px;
-  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-}
-html[data-theme="dark"] .p2-cover-btn { background: rgba(0, 0, 0, .35); color: #f0ecf3; }
 
 .p2-body {
   position: relative; text-align: center; cursor: pointer;
-  padding: 44px 20px 52px;
-  background: linear-gradient(180deg,
-    var(--card-bg) 0%, var(--card-bg) 76%, transparent 100%);
+  padding: 44px 20px 22px;
+  background: var(--card-bg);
+}
+/* 白底的渐隐单独画在卡片下沿，不占排版高度，好让封面留得更大 */
+.p2-body::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 100%;
+  height: 58px; pointer-events: none;
+  background: linear-gradient(180deg, var(--card-bg) 0%, rgba(0, 0, 0, 0) 100%);
 }
 .p2-body:active { filter: brightness(.985); }
 .p2-ava {
-  position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
+  position: absolute; top: calc(var(--p2-cover-h) - 36px); left: 50%;
+  transform: translateX(-50%);
   width: 72px; height: 72px; border-radius: 50%; overflow: hidden;
   border: 2px solid rgba(255, 255, 255, .95);
   background: var(--bg); cursor: pointer;
@@ -77,8 +76,9 @@ html[data-theme="dark"] .p2-ava { border-color: rgba(45, 42, 52, .95); }
 
 /* 下面：左两个胶囊，右侧 2×2 入口 + 游戏室一格 */
 .p2-lower {
+  position: relative; z-index: 1;
   width: 100%; max-width: 372px; margin: auto auto 0;
-  padding-top: 16px;
+  padding-top: 14px;
   display: flex; align-items: flex-start; gap: 12px;
 }
 .p2-caps {
@@ -117,7 +117,7 @@ html[data-theme="dark"] .p2-ava { border-color: rgba(45, 42, 52, .95); }
   -webkit-tap-highlight-color: transparent;
 }
 .p2-app-ico {
-  width: 62px; height: 52px; border-radius: 16px;
+  width: 62px; height: 48px; border-radius: 16px;
   display: flex; align-items: center; justify-content: center;
   background: var(--home-card-bg, var(--card-bg));
   border: 1px solid var(--line);
@@ -137,7 +137,7 @@ html[data-theme="dark"] .p2-ava { border-color: rgba(45, 42, 52, .95); }
 .p2-app-wide {
   grid-column: 1 / -1;
   flex-direction: row; justify-content: center; gap: 8px;
-  height: 52px; border-radius: 16px;
+  height: 48px; border-radius: 16px;
   background: var(--home-card-bg, var(--card-bg)); border: 1px solid var(--line);
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   box-shadow: 0 4px 14px rgba(60, 40, 50, .08);

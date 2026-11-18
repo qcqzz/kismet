@@ -188,9 +188,8 @@ function renderHomePage2() {
     '<div class="home-p2">' +
       '<div class="p2-hero">' +
         '<div class="p2-card">' +
-          '<button class="p2-cover" type="button" data-act="p2cover"' +
+          '<button class="p2-cover" type="button" data-act="p2cover" aria-label="更换封面图"' +
             (cover ? ' style="background-image:url(' + escapeHtml(cover) + ')"' : '') + '>' +
-            '<span class="p2-cover-btn"><i class="fas fa-image"></i></span>' +
           '</button>' +
           '<div class="p2-body" data-act="profile">' +
             '<div class="p2-name">' + escapeHtml(p.name || '我') + '</div>' +
