@@ -179,6 +179,9 @@ function renderHomePage2() {
   if (!fit) return;
   var p = homeProfile || {};
   var face = myAvatar();
+  // 第一个胶囊配首页展示的梦角，第二个配用户自己
+  var dream = getHomeContact();
+  var dreamFace = contactAvatar(dream);
   var handle = p.handle || p.name || '我';
   var capA = settings.homeP2CapA || '点这里写一句';
   var capB = settings.homeP2CapB || '点这里写一句';
@@ -204,7 +207,7 @@ function renderHomePage2() {
       '<div class="p2-lower">' +
         '<div class="p2-caps">' +
           '<button class="p2-cap" type="button" data-act="cap" data-cap="0">' +
-            '<span class="p2-cap-ava">' + avatarHtml(face) + '</span>' +
+            '<span class="p2-cap-ava">' + avatarHtml(dreamFace) + '</span>' +
             '<span class="p2-cap-t">' + escapeHtml(capA) + '</span>' +
           '</button>' +
           '<button class="p2-cap rev" type="button" data-act="cap" data-cap="1">' +
