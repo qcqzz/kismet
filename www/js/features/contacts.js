@@ -89,7 +89,7 @@ function openChat(contactId) {
   // 更新聊天头部
   DOMElements.chatHeadName.textContent = contact.name;
   if (isGroupContact(contact)) {
-    DOMElements.chatHeadStatus.textContent = getGroupMemberIds(contact).length + '位梦角';
+    DOMElements.chatHeadStatus.textContent = groupMemberNamesText(contact);
   } else {
     DOMElements.chatHeadStatus.textContent = (typeof statusTextFor === 'function')
       ? statusTextFor(contactId) : '';

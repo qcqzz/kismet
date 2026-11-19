@@ -262,6 +262,14 @@ function getGroupMemberIds(group) {
   return (group.members || []).filter(function (id) { return !!memberById(id); });
 }
 
+// 群聊标题栏副标题：仿微信直接列出成员昵称（“小语、阿墨”），不显示人数
+function groupMemberNamesText(group) {
+  return getGroupMemberIds(group).map(function (id) {
+    var m = memberById(id);
+    return m ? String(m.name || '').trim() : '';
+  }).filter(Boolean).join('、');
+}
+
 // 双层字卡池：基础库（全员）+ 该梦角专属库，过滤掉被屏蔽的条目
 function poolFor(contactId) {
   var pool = replyPool.concat(contactReplyPools[contactId] || []);
