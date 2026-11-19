@@ -54,6 +54,8 @@
 
     // 主动发送定时器（设置里开启时生效）
     if (typeof startAutoSend === 'function') startAutoSend();
+    // 梦角状态：每 30~60 分钟从状态字卡里随机换一条
+    if (typeof startStatusTimer === 'function') startStatusTimer();
 
     // 通知与后台保活
     initNotifyKeepAlive();

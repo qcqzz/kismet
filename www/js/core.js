@@ -1073,16 +1073,85 @@ function triggerPartnerRecall() {
   }
 }
 
-function changePartnerStatus() {
-  var next = partnerStatus;
-  while (next === partnerStatus) {
-    next = PARTNER_STATUSES[Math.floor(Math.random() * PARTNER_STATUSES.length)];
-  }
-  partnerStatus = next;
-  if (DOMElements.chatHeadStatus && activeContactId) {
-    DOMElements.chatHeadStatus.textContent = next;
-  }
+// ---------- 梦角状态（状态字卡：基础 + 专属，每 30~60 分钟随机切换） ----------
+var _statusTimer = null;
+
+function statusPoolFor(contactId) {
+  var out = [];
+  var base = Array.isArray(statusLibrary) ? statusLibrary : [];
+  var own = (contactId && Array.isArray(contactStatusPools[contactId])) ? contactStatusPools[contactId] : [];
+  base.concat(own).forEach(function (s) {
+    s = String(s == null ? '' : s).trim();
+    if (s && out.indexOf(s) < 0) out.push(s);
+  });
+  return out;
 }
+
+function _statusRoll(contactId) {
+  if (!contactId) return '';
+  var pool = statusPoolFor(contactId);
+  var rec = contactStatus[contactId] || (contactStatus[contactId] = {});
+  var prev = rec.text || '';
+  var next = pool.length ? randomOf(pool) : '';
+  // 有不止一条时避免连续两次抽到同一条，否则看起来像没换
+  var guard = 0;
+  while (pool.length > 1 && next === prev && guard++ < 10) next = randomOf(pool);
+  rec.text = next;
+  rec.nextAt = Date.now() + randomBetween(30, 60) * 60000;
+  return rec.text;
+}
+
+// 打开聊天时调用：到期 / 卡片被删 / 新加了卡但状态还空着 → 重抽，否则沿用
+function _statusNeedsRoll(contactId) {
+  var pool = statusPoolFor(contactId);
+  var rec = contactStatus[contactId];
+  if (!rec || !rec.nextAt || Date.now() >= rec.nextAt) return true;
+  if (!rec.text && pool.length) return true;
+  if (rec.text && pool.indexOf(rec.text) < 0) return true;
+  return false;
+}
+
+function statusTextFor(contactId) {
+  if (!contactId) return '';
+  if (_statusNeedsRoll(contactId)) {
+    _statusRoll(contactId);
+    saveData();
+  }
+  return (contactStatus[contactId] && contactStatus[contactId].text) || '';
+}
+
+// 正在输入期间不要直接盖掉标题栏，先把待恢复的原文换掉
+function _setStatusDom(text) {
+  var el = DOMElements.chatHeadStatus;
+  if (!el) return;
+  if (_typingSavedStatus !== null) _typingSavedStatus = text;
+  else el.textContent = text;
+}
+
+function changePartnerStatus() {
+  var c = getActiveContact();
+  if (!c || isGroupContact(c)) return '';
+  var text = _statusRoll(c.id);
+  saveData();
+  _setStatusDom(text);
+  return text;
+}
+
+// 每分钟检查一次：只更新当前打开的单聊，其他梦角等下次打开时补结算
+function startStatusTimer() {
+  if (_statusTimer) return;
+  _statusTimer = setInterval(function () {
+    if (!activeContactId) return;
+    var c = getActiveContact();
+    if (!c || isGroupContact(c)) return;
+    if (_statusNeedsRoll(activeContactId)) {
+      _setStatusDom(_statusRoll(activeContactId));
+      saveData();
+    }
+  }, 60000);
+}
+window.startStatusTimer = startStatusTimer;
+window.statusTextFor = statusTextFor;
 
 // ---------- 正在输入（微信式：聊天页标题栏副标题显示，不插气泡） ----------
 var _typingSavedStatus = null;   // 显示期间的副标题原文（null=未显示中）

@@ -201,12 +201,13 @@ function renderCardPoolList() {
       var voi = (voiceLibrary[c.id] || []).length;
       var pk = contactPokes[c.id] || {};
       var pkN = (pk.partner || []).length + (pk.mine || []).length;
+      var stN = (contactStatusPools[c.id] || []).length;
       return '<div class="contact-row" data-pid="' + c.id + '">' +
         '<div class="contact-avatar">' + avatarHtml(contactAvatar(c)) + '</div>' +
         '<div class="contact-mid">' +
           '<div class="contact-name">' + escapeHtml(c.name) + '</div>' +
           '<div class="contact-last">' + pool.length + ' 条字卡 · 表情包 ' + stk +
-            ' · 语音条 ' + voi + ' · 拍一拍 ' + pkN +
+            ' · 语音条 ' + voi + ' · 拍一拍 ' + pkN + ' · 状态 ' + stN +
             (groups.length ? ' · ' + groups.length + ' 个分组' : '') +
             (disabled.length ? ' · ' + disabled.length + ' 条已屏蔽' : '') + '</div>' +
         '</div>' +
@@ -279,17 +280,20 @@ function renderCardFav() {
 function _cardLibSummary(kind) {
   if (kind === 'pool') {
     var singles = contacts.filter(function (c) { return !isGroupContact(c); });
-    var stk = 0, voi = 0, pk = 0;
+    var stk = 0, voi = 0, pk = 0, st = 0;
     singles.forEach(function (c) {
       stk += (contactStickers[c.id] || []).length;
       voi += (voiceLibrary[c.id] || []).length;
+      st += (contactStatusPools[c.id] || []).length;
       var rec = contactPokes[c.id] || {};
       pk += (rec.partner || []).length + (rec.mine || []).length;
     });
-    return singles.length + ' 位梦角 · 表情包 ' + stk + ' · 语音条 ' + voi + ' · 拍一拍 ' + pk;
+    return singles.length + ' 位梦角 · 表情包 ' + stk + ' · 语音条 ' + voi +
+      ' · 拍一拍 ' + pk + ' · 状态 ' + st;
   }
   return replyPool.length + ' 条字卡 · 表情包 ' + stickerLibrary.length +
-    ' · 拍一拍 ' + partnerPokes.length + '/' + myPokes.length;
+    ' · 拍一拍 ' + partnerPokes.length + '/' + myPokes.length +
+    ' · 状态 ' + statusLibrary.length;
 }
 
 function homeContactDisplay() {
@@ -1568,6 +1572,9 @@ function exportData() {
     partnerPokes: partnerPokes,
     myPokes: myPokes,
     contactPokes: contactPokes,
+    statusLibrary: statusLibrary,
+    contactStatusPools: contactStatusPools,
+    contactStatus: contactStatus,
     envelopeData: envelopeData,
     customReplies: replyPool.filter(function (r) { return BUILTIN_REPLIES.indexOf(r) === -1; }),
     contactReplyPools: contactReplyPools,
@@ -1618,6 +1625,11 @@ function importData() {
           myPokes = Array.isArray(data.myPokes) ? data.myPokes : [];
           contactPokes = (data.contactPokes && typeof data.contactPokes === 'object')
             ? data.contactPokes : {};
+          statusLibrary = Array.isArray(data.statusLibrary) ? data.statusLibrary : [];
+          contactStatusPools = (data.contactStatusPools && typeof data.contactStatusPools === 'object')
+            ? data.contactStatusPools : {};
+          contactStatus = (data.contactStatus && typeof data.contactStatus === 'object')
+            ? data.contactStatus : {};
           envelopeData = (data.envelopeData && typeof data.envelopeData === 'object')
             ? data.envelopeData : {};
           replyPool = BUILTIN_REPLIES.concat(data.customReplies || []);

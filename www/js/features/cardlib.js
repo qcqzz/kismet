@@ -1,18 +1,18 @@
-/* ============ 字卡库 · 表情包 / 拍一拍 / 语音条 三个分页 ============ */
-/* 基础字卡库：主字卡 / 表情包 / 拍一拍
-   专属字卡库：主字卡 / 表情包 / 拍一拍 / 语音条
+/* ============ 字卡库 · 表情包 / 拍一拍 / 语音条 / 状态 四个分页 ============ */
+/* 基础字卡库：主字卡 / 表情包 / 拍一拍 / 状态
+   专属字卡库：主字卡 / 表情包 / 拍一拍 / 语音条 / 状态
 
    contactId 为 null 表示基础库（全员可用），否则为某位梦角的专属库。
-   表情包与拍一拍都是"基础 + 专属"两级合并，专属那份只对对应梦角生效。
-   语音条只做专属。                                                  */
+   表情包、拍一拍、状态都是"基础 + 专属"两级合并，专属那份只对对应梦角生效。
+   语音条只做专属。状态卡只用于聊天标题栏，不进入聊天字卡池。                  */
 
-var _cardTab = '';   // 当前分页：main / sticker / poke / voice
+var _cardTab = '';   // 当前分页：main / sticker / poke / voice / status
 
-// 四个分页的标签条
+// 各分页的标签条
 function cardTabBar(kind, active) {
   var tabs = kind === 'pool'
-    ? [['main', '主字卡'], ['sticker', '表情包'], ['poke', '拍一拍'], ['voice', '语音条']]
-    : [['main', '主字卡'], ['sticker', '表情包'], ['poke', '拍一拍']];
+    ? [['main', '主字卡'], ['sticker', '表情包'], ['poke', '拍一拍'], ['voice', '语音条'], ['status', '状态']]
+    : [['main', '主字卡'], ['sticker', '表情包'], ['poke', '拍一拍'], ['status', '状态']];
   return '<div class="card-tabs">' + tabs.map(function (t) {
     return '<button class="card-tab' + (t[0] === active ? ' active' : '') + '" data-tab="' + t[0] + '">' +
       t[1] + '</button>';
@@ -24,6 +24,7 @@ function cardTabContent(kind, tab, contactId) {
   if (tab === 'sticker') return stickerTabHtml(contactId);
   if (tab === 'poke') return pokeTabHtml(contactId);
   if (tab === 'voice') return voiceTabHtml(contactId);
+  if (tab === 'status') return statusTabHtml(contactId);
   return null;   // main 交给 rules.js 原来的渲染
 }
 
@@ -179,6 +180,63 @@ function bindPokeTab(body, contactId, rerender) {
   });
 }
 
+/* ---------- 状态字卡（只用于聊天标题栏，不进入聊天） ---------- */
+function statusPoolOf(contactId) {
+  if (!contactId) return statusLibrary;
+  if (!Array.isArray(contactStatusPools[contactId])) contactStatusPools[contactId] = [];
+  return contactStatusPools[contactId];
+}
+
+function statusTabHtml(contactId) {
+  var list = statusPoolOf(contactId);
+  var head = contactId ? '专属状态字卡' : '基础状态字卡';
+  var items = list.length
+    ? list.map(function (s, i) {
+        return '<div class="kar-item"><span class="kar-text">' + escapeHtml(s) + '</span>' +
+          '<button class="kar-del" data-stdel="' + i + '"><i class="fas fa-times"></i></button></div>';
+      }).join('')
+    : '<div class="empty-hint">还没有状态字卡</div>';
+  return sGroup(head + '（' + list.length + ' 条）',
+    '<div class="kar-list" data-stlist="1">' + items +
+      '<div class="kar-add-row">' +
+        '<input type="text" class="pk-input" id="status-input" placeholder="添加一条状态文字…">' +
+        '<button class="pk-add" id="status-add">添加</button>' +
+      '</div>' +
+    '</div>') +
+    '<div class="stk-note">' +
+      (contactId ? '这里的状态文字只对这位梦角生效。' : '这里的状态文字所有梦角都能用。') +
+      '聊天标题栏每 30~60 分钟从「基础 + 专属」状态卡里随机换一条，不会进入聊天。' +
+    '</div>';
+}
+
+function bindStatusTab(body, contactId, rerender) {
+  var add = body.querySelector('#status-add');
+  var input = body.querySelector('#status-input');
+  if (add && input) {
+    var doAdd = function () {
+      var v = (input.value || '').trim();
+      if (!v) { input.focus(); return; }
+      var list = statusPoolOf(contactId);
+      if (list.indexOf(v) >= 0) { toast('已经有了'); return; }
+      list.push(v);
+      saveData();
+      rerender();
+    };
+    add.addEventListener('click', doAdd);
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') doAdd();
+    });
+  }
+  body.querySelectorAll('[data-stdel]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var i = Number(b.getAttribute('data-stdel'));
+      statusPoolOf(contactId).splice(i, 1);
+      saveData();
+      rerender();
+    });
+  });
+}
+
 /* ---------- 语音条（只做专属） ---------- */
 function voiceTabHtml(contactId) {
   if (!contactId) return '<div class="empty-hint">语音条只放在专属字卡库里</div>';
@@ -282,4 +340,5 @@ function bindCardTabs(body, kind, contactId, rerender) {
   if (tab === 'sticker') bindStickerTab(body, contactId, rerender);
   else if (tab === 'poke') bindPokeTab(body, contactId, rerender);
   else if (tab === 'voice') bindVoiceTab(body, contactId, rerender);
+  else if (tab === 'status') bindStatusTab(body, contactId, rerender);
 }

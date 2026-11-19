@@ -118,6 +118,14 @@ function loadAllData() {
   var savedCP = Storage.get('contactPokes');
   contactPokes = (savedCP && typeof savedCP === 'object') ? savedCP : {};
 
+  // 状态字卡：基础 + 专属；当前状态按梦角独立保存
+  var savedStatusLib = Storage.get('statusLibrary');
+  statusLibrary = Array.isArray(savedStatusLib) ? savedStatusLib : [];
+  var savedStatusPools = Storage.get('contactStatusPools');
+  contactStatusPools = (savedStatusPools && typeof savedStatusPools === 'object') ? savedStatusPools : {};
+  var savedStatus = Storage.get('contactStatus');
+  contactStatus = (savedStatus && typeof savedStatus === 'object') ? savedStatus : {};
+
   // 信箱：每位梦角一份（见 letters.js）
   var savedEnv = Storage.get('envelopeData');
   envelopeData = (savedEnv && typeof savedEnv === 'object') ? savedEnv : {};
@@ -154,8 +162,6 @@ function loadAllData() {
     // 这里只改内存，不存盘，等下次正常 saveData() 一起落盘。
     if (typeof syncAvatarToLibrary === 'function') syncAvatarToLibrary(c, false);
   });
-
-  partnerStatus = PARTNER_STATUSES[Math.floor(Math.random() * PARTNER_STATUSES.length)];
 }
 
 var _saveTimer = null;
@@ -185,6 +191,9 @@ function saveData() {
     Storage.set('partnerPokes', partnerPokes);
     Storage.set('myPokes', myPokes);
     Storage.set('contactPokes', contactPokes);
+    Storage.set('statusLibrary', statusLibrary);
+    Storage.set('contactStatusPools', contactStatusPools);
+    Storage.set('contactStatus', contactStatus);
     // 主页数据
     Storage.set('homeProfile', homeProfile);
     Storage.set('anniversaries', anniversaries);

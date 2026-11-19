@@ -87,7 +87,8 @@ function openChat(contactId) {
   if (isGroupContact(contact)) {
     DOMElements.chatHeadStatus.textContent = getGroupMemberIds(contact).length + '位梦角';
   } else {
-    DOMElements.chatHeadStatus.textContent = partnerStatus;
+    DOMElements.chatHeadStatus.textContent = (typeof statusTextFor === 'function')
+      ? statusTextFor(contactId) : '';
   }
 
   showView('chat');

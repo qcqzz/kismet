@@ -25,7 +25,11 @@ var voiceLibrary = {};      // 专属语音条 { contactId: [{id, text, duration
 var partnerPokes = [];      // 基础「TA的拍一拍」[str...]
 var myPokes = [];           // 基础「我的拍一拍」[str...]
 var contactPokes = {};      // 专属拍一拍 { contactId: { partner: [str], mine: [str] } }
-var partnerStatus = '在线';
+
+// ---- 状态字卡（基础 + 专属两级合并；只用于聊天标题栏状态，不进入聊天字卡池）----
+var statusLibrary = [];     // 基础状态字卡 [str...]
+var contactStatusPools = {};// 专属状态字卡 { contactId: [str...] }
+var contactStatus = {};     // 当前状态 { contactId: { text, nextAt } }，每位梦角独立
 var callLogs = {};             // 通话记录 { contactId: [{id, kind, ts, duration, missed}] }（历史通话）
 
 var isReplying = false;
