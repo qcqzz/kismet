@@ -1184,9 +1184,9 @@ function runAutoSend() {
 
   var sendOne = function () {
     var text = randomOf(pool);
-    // 表情混入：开启后 25% 概率补发一条字卡库表情包
+    // 表情混入：和正常回复一样，开启后 20% 概率补发一条字卡库表情包（对齐 chat）
     var sPool = stickersFor(c.id);
-    var sticker = (settings.emojiMixEnabled && sPool.length && Math.random() < 0.25)
+    var sticker = (settings.emojiMixEnabled && sPool.length && Math.random() < 0.2)
       ? randomOf(sPool) : null;
     var msg = {
       id: newId(),
