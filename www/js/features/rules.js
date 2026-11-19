@@ -844,7 +844,7 @@ function renderReplySettings() {
     ].join('')) +
 
     sGroup('消息节奏', [
-      sRow({ ico: '<i class="fas fa-smile"></i>', label: '表情混入消息', sub: '开启后表情与文字同条发送', toggle: settings.emojiMixEnabled, key: 'emojiMixEnabled' }),
+      sRow({ ico: '<i class="fas fa-smile"></i>', label: '表情混入消息', sub: '开启后梦角发消息会补发一条字卡库表情包', toggle: settings.emojiMixEnabled, key: 'emojiMixEnabled' }),
       sRow({ ico: '<i class="fas fa-clone"></i>', label: '回复拼接字卡', sub: '开启后单条消息有概率拼接多张字卡', toggle: settings.combineCardsEnabled, key: 'combineCardsEnabled' }),
       '<div class="set-row slider-row" id="combine-row"' + (settings.combineCardsEnabled ? '' : ' style="display:none"') + '>' +
         '<span class="row-ico"><i class="fas fa-hashtag"></i></span>' +

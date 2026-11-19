@@ -197,6 +197,14 @@ function triggerContinue() {
     var text = pickReply(senderId || activeContactId);
     if (!text) { toast('字卡库为空，请到设置中添加'); return; }
     deliverPartnerMsg(text, senderId);
+    // 表情混入：和正常回复一致，20% 概率补发一条字卡库表情包
+    var sPool = stickersFor(senderId || activeContactId);
+    if (settings.emojiMixEnabled && sPool.length && Math.random() < 0.2) {
+      var sticker = randomOf(sPool);
+      setTimeout(function () {
+        deliverPartnerSticker(sticker, senderId);
+      }, Math.round(randomBetween(400, 1000)));
+    }
   }, randomBetween(1200, 3000));
 }
 

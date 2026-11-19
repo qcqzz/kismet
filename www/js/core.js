@@ -661,11 +661,6 @@ function sendMessage(textOverride, type) {
   DOMElements.messageInput.value = '';
   DOMElements.messageInput.style.height = 'auto';
 
-  // 表情混入消息：概率追加一个表情（与文字同条发送，chat 节奏同款）
-  if (type === 'normal' && text && settings.emojiMixEnabled && Math.random() < 0.2) {
-    text += ' ' + EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
-  }
-
   var msg = {
     id: newId(),
     contactId: activeContactId,
@@ -785,9 +780,10 @@ window.simulateReply = function () {
       var slotIsVoice = vPool.length > 0 && (!textAvail || Math.random() < 0.35);
       var slotVoice = slotIsVoice ? randomOf(vPool) : null;
 
-      // 表情包：20% 概率，作为独立一条消息跟在正文后面（照搬 chat）
+      // 表情包：开启「表情混入消息」时 20% 概率，作为独立一条消息跟在正文后面
       var sPool = stickersFor(target);
-      var slotSticker = (sPool.length > 0 && Math.random() < 0.2) ? randomOf(sPool) : null;
+      var slotSticker = (settings.emojiMixEnabled && sPool.length > 0 && Math.random() < 0.2)
+        ? randomOf(sPool) : null;
 
       setTimeout(function () {
         // 微信式正在输入：每次回复前显示（群聊显示该成员头像）
@@ -866,11 +862,11 @@ function deliverPartnerVoice(vItem, senderId) {
 }
 
 // 投递表情包消息（就是一条普通图片消息）
-function deliverPartnerSticker(sticker, senderId) {
+function deliverPartnerSticker(sticker, senderId, contactId) {
   if (!sticker) return;
   var msg = {
     id: newId(),
-    contactId: activeContactId,
+    contactId: contactId || activeContactId,
     sender: 'partner',
     senderId: senderId || null,
     text: '',
@@ -974,10 +970,6 @@ function pickReply(poolContactId) {
     text = parts.join(' ');
   }
 
-  // 表情混入消息：概率与文字同条发送
-  if (settings.emojiMixEnabled && text && Math.random() < 0.2) {
-    text += ' ' + EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
-  }
   return text;
 }
 
@@ -1192,9 +1184,10 @@ function runAutoSend() {
 
   var sendOne = function () {
     var text = randomOf(pool);
-    if (settings.emojiMixEnabled && Math.random() < 0.25) {
-      text += ' ' + EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
-    }
+    // 表情混入：开启后 25% 概率补发一条字卡库表情包
+    var sPool = stickersFor(c.id);
+    var sticker = (settings.emojiMixEnabled && sPool.length && Math.random() < 0.25)
+      ? randomOf(sPool) : null;
     var msg = {
       id: newId(),
       contactId: c.id,
@@ -1213,6 +1206,11 @@ function runAutoSend() {
     // addMessage 自动处理：正在看该会话 → 渲染；否则 → 未读角标
     addMessage(msg);
     playSound('partner_message');
+    if (sticker) {
+      setTimeout(function () {
+        deliverPartnerSticker(sticker, c.id, c.id);
+      }, Math.round(randomBetween(400, 1000)));
+    }
   };
   sendOne();
   // 15% 概率连发第二条（chat 主动发送的"发送条数"）
