@@ -15,12 +15,14 @@
   -webkit-touch-callout: none;
 }
 
-/* 资料卡：上半封面图，下半白底，底部渐隐进桌面背景 */
+/* 资料卡：上半封面图，下半白底，从个性签名那一行起向下渐隐 */
 .p2-hero {
   --p2-cover-h: 140px;
+  --p2-fade-rgb: 255, 255, 255;
   position: relative; flex: 0 0 auto;
   width: 100%; max-width: 372px; margin: 0 auto;
 }
+html[data-theme="dark"] .p2-hero { --p2-fade-rgb: 30, 30, 30; }
 .p2-card { position: relative; }
 .p2-cover {
   position: relative; display: block;
@@ -38,15 +40,18 @@ html[data-theme="dark"] .p2-cover {
 
 .p2-body {
   position: relative; text-align: center; cursor: pointer;
-  padding: 44px 20px 22px;
+  padding: 0;
+}
+/* 昵称以下是白底，从「写一句喜欢的话」开始往下渐变，到图标位置已经完全透明 */
+.p2-top {
+  padding: 44px 20px 0;
   background: var(--card-bg);
 }
-/* 白底的渐隐单独画在卡片下沿，不占排版高度，好让封面留得更大 */
-.p2-body::after {
-  content: ""; position: absolute; left: 0; right: 0; top: 100%;
-  height: 58px; pointer-events: none;
+.p2-fade {
+  padding: 10px 20px 24px;
   background: linear-gradient(180deg, var(--card-bg) 0%, rgba(0, 0, 0, 0) 100%);
 }
+.p2-fade .p2-sign { margin-top: 0; }
 .p2-body:active { filter: brightness(.985); }
 .p2-ava {
   position: absolute; top: calc(var(--p2-cover-h) - 36px); left: 50%;

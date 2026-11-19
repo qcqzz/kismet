@@ -195,11 +195,15 @@ function renderHomePage2() {
             (cover ? ' style="background-image:url(' + escapeHtml(cover) + ')"' : '') + '>' +
           '</button>' +
           '<div class="p2-body" data-act="profile">' +
-            '<div class="p2-name">' + escapeHtml(p.name || '我') + '</div>' +
-            '<div class="p2-handle">@' + escapeHtml(handle) + '</div>' +
-            '<div class="p2-sign">' + escapeHtml(p.signature || '写一句喜欢的话') + '</div>' +
-            '<div class="p2-loc"><i class="fas fa-location-dot"></i> ' +
-              escapeHtml(p.location || '点这里设置位置') + '</div>' +
+            '<div class="p2-top">' +
+              '<div class="p2-name">' + escapeHtml(p.name || '我') + '</div>' +
+              '<div class="p2-handle">@' + escapeHtml(handle) + '</div>' +
+            '</div>' +
+            '<div class="p2-fade">' +
+              '<div class="p2-sign">' + escapeHtml(p.signature || '写一句喜欢的话') + '</div>' +
+              '<div class="p2-loc"><i class="fas fa-location-dot"></i> ' +
+                escapeHtml(p.location || '点这里设置位置') + '</div>' +
+            '</div>' +
           '</div>' +
         '</div>' +
         '<div class="p2-ava" data-act="profile">' + avatarHtml(face) + '</div>' +
