@@ -82,7 +82,7 @@ var DEFAULT_SETTINGS = {
   avatarAlign: 'left',         // 头像对齐 left / right
   globalCss: '',               // 全局主题 CSS（<style id="kc-global-css">）
   // —— 正在输入（微信式） ——
-  typingText: '正在输入…',     // 正在输入提示文案
+  typingText: '对方正在输入…', // 正在输入提示文案（单聊显示在标题栏）
   typingShowAvatar: true,      // 正在输入时显示对方头像
   // —— 梦角自主更换（头像 / 朋友圈背景） ——
   partnerAutoSwapEnabled: true,// 梦角隔一段时间自己换一张图

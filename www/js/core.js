@@ -1179,22 +1179,43 @@ function startStatusTimer() {
 window.startStatusTimer = startStatusTimer;
 window.statusTextFor = statusTextFor;
 
-// ---------- 正在输入（微信式：聊天页标题栏副标题显示，不插气泡） ----------
+// ---------- 正在输入（微信式：不插气泡，改标题栏） ----------
+// 单聊：名字整行换成「对方正在输入…」（和微信一致）。
+// 群聊：群名保留，副标题临时显示「小语正在输入…」，结束后恢复成员名单。
 var _typingSavedStatus = null;   // 显示期间的副标题原文（null=未显示中）
+var _typingSavedName = null;     // 显示期间的标题原文
 function showTyping(memberContact) {
   if (!settings.typingIndicatorEnabled) return;
   if (_typingSavedStatus !== null) return;   // 已在显示中
+  var nameEl = DOMElements.chatHeadName;
   var el = DOMElements.chatHeadStatus;
-  if (!el) return;
+  if (!nameEl || !el) return;
+
+  var c = getActiveContact();
+  var group = isGroupContact(c);
+  var text = settings.typingText || '对方正在输入…';
+
+  _typingSavedName = nameEl.textContent || '';
   _typingSavedStatus = el.textContent || '';
-  el.textContent = settings.typingText || '对方正在输入…';
+
+  if (group) {
+    var who = memberContact && memberContact.name ? memberContact.name : '';
+    el.textContent = who ? who + '正在输入…' : text;
+  } else {
+    nameEl.textContent = text;
+  }
 }
 
 function hideTyping() {
   if (_typingSavedStatus === null) return;   // 没有保存值 → 保持不动
-  var el = DOMElements.chatHeadStatus;
-  if (el) el.textContent = _typingSavedStatus;
+  if (DOMElements.chatHeadName && _typingSavedName !== null) {
+    DOMElements.chatHeadName.textContent = _typingSavedName;
+  }
+  if (DOMElements.chatHeadStatus) {
+    DOMElements.chatHeadStatus.textContent = _typingSavedStatus;
+  }
   _typingSavedStatus = null;
+  _typingSavedName = null;
 }
 
 // ---------- 主动发送（chat 节奏：开启后梦角按间隔主动找你） ----------

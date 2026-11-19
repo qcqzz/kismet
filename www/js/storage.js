@@ -24,6 +24,8 @@ function loadAllData() {
 
   settings = Object.assign({}, DEFAULT_SETTINGS, savedSettings || {});
 
+  // 迁移：老版本「正在输入…」不带主语，单聊现在仿微信显示在标题栏，补上「对方」
+  if (settings.typingText === '正在输入…') settings.typingText = '对方正在输入…';
   // 迁移：气泡 CSS 改成「预设 / 自定义二选一」之前的老存档里没有 bubbleMode，
   // 但很可能已经存了手写 CSS。那份 CSS 就是当时的意图，不能因为新字段默认值是
   // 'preset' 就被悄悄忽略——而且自定义模式下才渲染输入框，忽略之后用户在界面
