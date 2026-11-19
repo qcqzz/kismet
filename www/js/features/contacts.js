@@ -82,6 +82,10 @@ function openChat(contactId) {
   saveData();
   updateNavBadge();
 
+  // 切会话时先收掉上一位的「正在输入…」，否则上一条回复结束时
+  // hideTyping 会把上一位的状态写进新会话的标题栏
+  if (typeof hideTyping === 'function') hideTyping();
+
   // 更新聊天头部
   DOMElements.chatHeadName.textContent = contact.name;
   if (isGroupContact(contact)) {
@@ -276,6 +280,8 @@ function chatInfoAction(act) {
         }
         delete voiceLibrary[contact.id];
         delete contactPokes[contact.id];
+        delete contactStatusPools[contact.id];
+        delete contactStatus[contact.id];
         delete envelopeData[contact.id];   // 信箱也是按梦角存的
         delete autoSwapNext[contact.id];
         delete partnerActivities[contact.id];

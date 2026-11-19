@@ -124,7 +124,7 @@ function askQuestionSend() {
   playSound('my_send');
   var partner = _rpPartnerName_ask();
   toast('已发给' + partner + '，TA 正在思考…');
-  _scheduleQuestionAnswer({ question: t, options: opts, choiceMode: _askChoiceMode });
+  _scheduleQuestionAnswer({ question: t, options: opts, choiceMode: _askChoiceMode, contactId: activeContactId });
 }
 window.askQuestionSend = askQuestionSend;
 
@@ -136,6 +136,7 @@ function _rpPartnerName_ask() {
 function _scheduleQuestionAnswer(data) {
   var opts = Array.isArray(data.options) ? data.options.slice() : [];
   if (!opts.length) return;
+  var chatId = data.contactId || activeContactId;   // 问题发给谁，答案就回给谁
   var mode = data.choiceMode === 'multiple' ? 'multiple' : 'single';
   var amin = Number(settings.askDelayMin) || 10000;
   var amax = Number(settings.askDelayMax) || 60000;
@@ -160,9 +161,10 @@ function _scheduleQuestionAnswer(data) {
     }
     var answer = plan.slice();
 
+    if (!contactAlive(chatId)) return;   // 梦角已删
     addMessage({
       id: newId(),
-      contactId: activeContactId,
+      contactId: chatId,
       sender: 'partner',
       text: data.question,
       question: data.question,
@@ -178,12 +180,14 @@ function _scheduleQuestionAnswer(data) {
     });
     playSound('partner_message');
 
-    // 梦角作答后，把未读消息标记为已读
-    var changed = false;
-    activeMessages().forEach(function (m) {
-      if (m && m.sender === 'user' && m.status !== 'read') { m.status = 'read'; changed = true; }
-    });
-    if (changed) updateReadMarksDOM();
+    // 梦角作答后，把未读消息标记为已读（只处理当前正在看的那一段会话）
+    if (chatId === activeContactId) {
+      var changed = false;
+      activeMessages().forEach(function (m) {
+        if (m && m.sender === 'user' && m.status !== 'read') { m.status = 'read'; changed = true; }
+      });
+      if (changed) updateReadMarksDOM();
+    }
   }, delay);
 }
 window._scheduleQuestionAnswer = _scheduleQuestionAnswer;

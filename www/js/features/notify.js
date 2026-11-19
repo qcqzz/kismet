@@ -437,6 +437,7 @@ function notifyDrainNativeAlarms() {
         if (seen[sig]) return;
         seen[sig] = 1;
 
+        if (typeof contactAlive === 'function' && !contactAlive(it.cid)) return;   // 梦角已删
         addMessage({
           id: Date.now() * 100 + Math.floor(Math.random() * 100),
           contactId: it.cid,

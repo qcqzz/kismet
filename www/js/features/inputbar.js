@@ -176,33 +176,43 @@ function doMyPoke(action, targetId) {
   //   20% 拍回来；其余 80% 正常接一句。
   // 接话走的是和发普通消息同一条回复链（正在输入 → 延迟 → 字卡/表情包/语音条、
   // 可能连发多条），但不套"已读不回"那道门——否则挑了半天拍一拍却什么都没收到。
+  // 反应是延迟触发的，中途切到别的会话就不补了，免得拍错人。
+  var pokeChatId = activeContactId;
   if (Math.random() < 0.2) {
-    setTimeout(function () { triggerPartnerPoke(targetId || null); }, randomBetween(800, 2000));
+    setTimeout(function () {
+      if (activeContactId !== pokeChatId) return;
+      triggerPartnerPoke(targetId || null);
+    }, randomBetween(800, 2000));
   } else {
-    setTimeout(function () { queueReply(function () { simulateReply(); }); }, randomBetween(600, 1600));
+    setTimeout(function () {
+      if (activeContactId !== pokeChatId) return;
+      queueReply(function () { simulateReply(); });
+    }, randomBetween(600, 1600));
   }
 }
 
 // 让对方继续说：跳过已读不回，直接排队一条回复（群聊由随机成员接着说）
 function triggerContinue() {
   if (!activeContactId) return;
+  var chatId = activeContactId;   // 锁定发起时的会话，切走也不会发错地方
   var contact = getActiveContact();
   var group = isGroupContact(contact) ? contact : null;
   var memberIds = group ? getGroupMemberIds(group) : [];
   if (group && !memberIds.length) { toast('群里没有可说话的梦角'); return; }
   var senderId = group ? randomOf(memberIds) : null;
   showTyping(senderId ? memberById(senderId) : null);
+  var shownTyping = true;
   setTimeout(function () {
-    hideTyping();
-    var text = pickReply(senderId || activeContactId);
-    if (!text) { toast('字卡库为空，请到设置中添加'); return; }
-    deliverPartnerMsg(text, senderId);
+    if (shownTyping && chatId === activeContactId) hideTyping();
+    var text = pickReply(senderId || chatId);
+    if (!text) { if (chatId === activeContactId) toast('字卡库为空，请到设置中添加'); return; }
+    deliverPartnerMsg(text, senderId, { contactId: chatId });
     // 表情混入：和正常回复一致，20% 概率补发一条字卡库表情包
-    var sPool = stickersFor(senderId || activeContactId);
+    var sPool = stickersFor(senderId || chatId);
     if (settings.emojiMixEnabled && sPool.length && Math.random() < 0.2) {
       var sticker = randomOf(sPool);
       setTimeout(function () {
-        deliverPartnerSticker(sticker, senderId);
+        deliverPartnerSticker(sticker, senderId, chatId);
       }, Math.round(randomBetween(400, 1000)));
     }
   }, randomBetween(1200, 3000));

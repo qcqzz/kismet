@@ -152,13 +152,6 @@ function sendImageRecommend(contact, kind, dataUrl) {
   if (typeof renderMoments === 'function' && momentsFilterId === contact.id) renderMoments();
 }
 
-// 梦角自主更换头像 / 朋友圈背景：登记为两条独立活动，各自排期
-// 间隔在 3~30 天之间随机（由用户设置），到点后按 0~100% 概率真正换
-function _swapIntervalMs() {
-  var min = Math.max(3, Math.min(30, Number(settings.partnerAutoSwapMinDays) || 3));
-  var max = Math.max(min, Math.min(30, Number(settings.partnerAutoSwapMaxDays) || 30));
-  return Math.round(randomBetween(min, max) * 86400000);
-}
 // ---------- 每位梦角各自独立的概率活动（登记表） ----------
 // 原则：任何"梦角自发"的行为都走这里。每位梦角的排期、冷却、计数完全独立，
 // 新增活动只需 registerPartnerActivity 注册一条，自动按梦角隔离，无需改别处。
@@ -308,6 +301,11 @@ function getHomeContact() {
 
 // ---------- 消息 ----------
 function newId() { return Date.now() * 100 + Math.floor(Math.random() * 100); }
+
+// 延迟投递的回复可能在排队期间被删掉梦角 / 解散群，投递前确认会话还在
+function contactAlive(contactId) {
+  return !!contacts.some(function (c) { return c.id === contactId; });
+}
 
 function addMessage(msg, opts) {
   opts = opts || {};
@@ -764,6 +762,8 @@ window.simulateReply = function () {
   // 状态变化：chat 的回复链里没有这一项（kismet 独有），保持默认关闭
   // 梦角主动发红包：chat 是"定时 20~50 分钟检查、8% 概率、每自然日上限 10 次"，
   // 不是"每次回复 2%"。这里改为定时调度，金额分布同样照抄 chat 的四档。
+  // 排队时就锁定会话：延迟投递期间用户可能切走，消息仍应回到原会话
+  var chatId = activeContactId;
   var replyCount = Math.random() < 0.75 ? 1 : (Math.random() < 0.95 ? 2 : 3);
 
   var totalDelay = 0;
@@ -771,7 +771,7 @@ window.simulateReply = function () {
     totalDelay += Math.round(randomBetween(settings.replyDelayMin, settings.replyDelayMax));
     var senderId = group ? randomOf(memberIds) : null;
     (function (index, delay, sId) {
-      var target = sId || activeContactId;
+      var target = sId || chatId;
 
       // 本条是否改发语音条（照搬 chat）：
       // 语音池非空，且（这条没有文字字卡可用 → 必发语音，或 35% 概率改发语音）
@@ -785,21 +785,26 @@ window.simulateReply = function () {
       var slotSticker = (settings.emojiMixEnabled && sPool.length > 0 && Math.random() < 0.2)
         ? randomOf(sPool) : null;
 
+      var shownTyping = false;
       setTimeout(function () {
         // 微信式正在输入：每次回复前显示（群聊显示该成员头像）
-        if (index === 0) showTyping(sId ? memberById(sId) : null);
+        // 已经切到别的会话就不要在新会话里显示"正在输入"
+        if (index === 0 && chatId === activeContactId) {
+          showTyping(sId ? memberById(sId) : null);
+          shownTyping = true;
+        }
         setTimeout(function () {
-          hideTyping();
+          if (shownTyping && chatId === activeContactId) hideTyping();
           if (slotVoice) {
-            deliverPartnerVoice(slotVoice, sId);
+            deliverPartnerVoice(slotVoice, sId, chatId);
           } else {
             var text = pickReply(target);
-            if (text) deliverPartnerMsg(text, sId);
+            if (text) deliverPartnerMsg(text, sId, { contactId: chatId });
           }
           if (slotSticker) {
             // 400~1000ms 后补一条纯图片消息
             setTimeout(function () {
-              deliverPartnerSticker(slotSticker, sId);
+              deliverPartnerSticker(slotSticker, sId, chatId);
             }, Math.round(randomBetween(400, 1000)));
           }
           if (index === replyCount - 1) drainReplyQueue();
@@ -812,12 +817,16 @@ window.simulateReply = function () {
 function randomOf(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
 // 投递梦角消息（含音效 + 后台通知）
+// opts.contactId 锁定这条消息属于哪个会话：回复是延迟投递的，
+// 用户可能中途切到别的聊天，不锁的话会落到别人的对话里
 function deliverPartnerMsg(text, senderId, opts) {
   if (!text) return;
   opts = opts || {};
+  var cid = opts.contactId || activeContactId;
+  if (!cid || !contactAlive(cid)) return;
   var msg = {
     id: newId(),
-    contactId: activeContactId,
+    contactId: cid,
     sender: 'partner',
     senderId: senderId || null,
     text: text,
@@ -836,11 +845,13 @@ function deliverPartnerMsg(text, senderId, opts) {
 
 // 投递语音条消息。消息里只存 audioId（指向 IndexedDB 里的音频），
 // 不存音频本体，否则 localStorage 5MB 会被音频迅速撑爆。
-function deliverPartnerVoice(vItem, senderId) {
+function deliverPartnerVoice(vItem, senderId, contactId) {
   if (!vItem) return;
+  var cid = contactId || activeContactId;
+  if (!cid || !contactAlive(cid)) return;
   var msg = {
     id: newId(),
-    contactId: activeContactId,
+    contactId: cid,
     sender: 'partner',
     senderId: senderId || null,
     text: '',
@@ -864,9 +875,11 @@ function deliverPartnerVoice(vItem, senderId) {
 // 投递表情包消息（就是一条普通图片消息）
 function deliverPartnerSticker(sticker, senderId, contactId) {
   if (!sticker) return;
+  var cid = contactId || activeContactId;
+  if (!cid || !contactAlive(cid)) return;
   var msg = {
     id: newId(),
-    contactId: contactId || activeContactId,
+    contactId: cid,
     sender: 'partner',
     senderId: senderId || null,
     text: '',
@@ -1012,6 +1025,7 @@ registerPartnerActivity({
     _rpBumpToday(c.id);
     var amt = _rpRandomAmount();
     setTimeout(function () {
+      if (!contactAlive(c.id)) return;                      // 排队期间梦角被删
       addMessage({
         id: newId(), contactId: c.id, sender: 'partner', senderId: null,
         text: '恭喜发财，大吉大利', image: null, voice: null,
@@ -1127,6 +1141,18 @@ function changePartnerStatus() {
   saveData();
   _setStatusDom(text);
   return text;
+}
+
+// 在字卡库里增删状态卡后调用：当前聊天如果正显示这张卡（或被删光），
+// 立刻重抽 / 清空标题栏，不用等下一次 60 秒检查或重新打开聊天
+function refreshActiveStatus() {
+  if (!activeContactId) return;
+  var c = getActiveContact();
+  if (!c || isGroupContact(c)) return;
+  if (_statusNeedsRoll(activeContactId)) {
+    _setStatusDom(_statusRoll(activeContactId));
+    saveData();
+  }
 }
 
 // 每分钟检查一次：只更新当前打开的单聊，其他梦角等下次打开时补结算

@@ -156,7 +156,7 @@ function renderCardReply() {
   if (!body) return;
   setSettingsHeader('基础字卡库');
   var ctx = _rlCtx();
-  _cardTab = _cardTab || 'main';
+  _cardTab = normalizeCardTab('base', _cardTab);
   var tab = _cardTab;
 
   var mainHtml =
@@ -237,7 +237,7 @@ function renderCardPool() {
   _settingsSub = 'card-pool';
   var sel = memberById(_poolSelContact);
   setSettingsHeader(sel ? sel.name : '专属字卡库');
-  _cardTab = _cardTab || 'main';
+  _cardTab = normalizeCardTab('pool', _cardTab);
   var tab = _cardTab;
 
   var ctx = _rlCtx();
@@ -1589,7 +1589,14 @@ function exportData() {
     homeBoxBg: homeBoxBg,
     weatherNow: weatherNow,
     momentsData: momentsData,
-    momentsCover: momentsCover
+    momentsCover: momentsCover,
+    momentsCovers: momentsCovers,
+    contactAvatars: contactAvatars,
+    contactCovers: contactCovers,
+    contactBubbles: contactBubbles,
+    autoSwapNext: autoSwapNext,
+    partnerActivities: partnerActivities,
+    callLogs: callLogs
   };
   var blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
   var a = document.createElement('a');
@@ -1613,6 +1620,9 @@ function importData() {
         var data = JSON.parse(reader.result);
         if (data.app !== 'zikka-chuanxun') { toast('不是有效的字卡备份'); return; }
         confirmModal('导入数据', '将覆盖当前全部数据，确定吗？', function () {
+          // 导入会整个换掉会话：先收掉上一位的「正在输入…」和当前聊天对象，
+          // 否则旧的定时器会把内容写进新数据里的梦角
+          if (typeof hideTyping === 'function') hideTyping();
           contacts = data.contacts || contacts.slice();
           messagesByContact = data.messagesByContact || {};
           settings = Object.assign({}, DEFAULT_SETTINGS, data.settings || {});
@@ -1657,12 +1667,36 @@ function importData() {
             if (!Array.isArray(p.images)) p.images = [];
           });
           momentsCover = data.momentsCover || null;
+          momentsCovers = (data.momentsCovers && typeof data.momentsCovers === 'object')
+            ? data.momentsCovers : {};
+          contactAvatars = (data.contactAvatars && typeof data.contactAvatars === 'object')
+            ? data.contactAvatars : {};
+          contactCovers = (data.contactCovers && typeof data.contactCovers === 'object')
+            ? data.contactCovers : {};
+          contactBubbles = (data.contactBubbles && typeof data.contactBubbles === 'object')
+            ? data.contactBubbles : {};
+          autoSwapNext = (data.autoSwapNext && typeof data.autoSwapNext === 'object')
+            ? data.autoSwapNext : {};
+          partnerActivities = (data.partnerActivities && typeof data.partnerActivities === 'object')
+            ? data.partnerActivities : {};
+          callLogs = (data.callLogs && typeof data.callLogs === 'object')
+            ? data.callLogs : {};
           contacts.forEach(function (c) {
             if (!Array.isArray(messagesByContact[c.id])) messagesByContact[c.id] = [];
             if (!Array.isArray(contactReplyPools[c.id])) contactReplyPools[c.id] = [];
+            if (!Array.isArray(contactAvatars[c.id])) contactAvatars[c.id] = [];
+            if (!Array.isArray(contactCovers[c.id])) contactCovers[c.id] = [];
+            if (!Array.isArray(callLogs[c.id])) callLogs[c.id] = [];
+            if (typeof syncAvatarToLibrary === 'function') syncAvatarToLibrary(c, false);
           });
+          // 备份里的梦角可能和当前正在聊的不是同一批
+          if (!contacts.some(function (c) { return c.id === activeContactId; })) {
+            activeContactId = contacts[0] ? contacts[0].id : null;
+          }
           saveData();
           applyBubbleTheme();
+          if (typeof applyBubbleCss === 'function' && activeContactId) applyBubbleCss(activeContactId);
+          if (typeof refreshActiveStatus === 'function') refreshActiveStatus();
           if (typeof startAutoSend === 'function') startAutoSend();
           _resetDreamSign();
           if (activeContactId) renderAllMessages();
@@ -1670,6 +1704,12 @@ function importData() {
           renderSettings();
           renderHome();
           if (typeof renderMoments === 'function') renderMoments();
+          // 导入时正停在聊天页：整页重开一次，否则标题 / 头像还是旧数据
+          var activeViewEl = document.querySelector('.view.active');
+          var activeView = activeViewEl ? activeViewEl.id.replace('view-', '') : '';
+          if (activeView === 'chat' && activeContactId && typeof openChat === 'function') {
+            openChat(activeContactId);
+          }
           toast('导入成功');
         }, { danger: true });
       } catch (e) {

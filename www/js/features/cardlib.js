@@ -8,12 +8,23 @@
 
 var _cardTab = '';   // 当前分页：main / sticker / poke / voice / status
 
-// 各分页的标签条
-function cardTabBar(kind, active) {
-  var tabs = kind === 'pool'
+// 各库的分页清单（专属库多一个语音条）
+function cardTabList(kind) {
+  return kind === 'pool'
     ? [['main', '主字卡'], ['sticker', '表情包'], ['poke', '拍一拍'], ['voice', '语音条'], ['status', '状态']]
     : [['main', '主字卡'], ['sticker', '表情包'], ['poke', '拍一拍'], ['status', '状态']];
-  return '<div class="card-tabs">' + tabs.map(function (t) {
+}
+
+// 当前分页在切换库时要重新校验：专属库停在「语音条」再回基础库，
+// 那里没有这个分页，必须落回主字卡，否则会显示一段空内容且分页条全不亮
+function normalizeCardTab(kind, tab) {
+  var ok = cardTabList(kind).some(function (t) { return t[0] === tab; });
+  return ok ? tab : 'main';
+}
+
+// 各分页的标签条
+function cardTabBar(kind, active) {
+  return '<div class="card-tabs">' + cardTabList(kind).map(function (t) {
     return '<button class="card-tab' + (t[0] === active ? ' active' : '') + '" data-tab="' + t[0] + '">' +
       t[1] + '</button>';
   }).join('') + '</div>';
@@ -73,20 +84,28 @@ function bindStickerTab(body, contactId, rerender) {
     file.addEventListener('change', function () {
       var files = Array.prototype.slice.call(file.files || []);
       if (!files.length) return;
-      var list = stickerPoolOf(contactId).slice();
-      var added = 0;
+      // 每张压缩完就并入当前池子，不缓存旧列表：
+      // 这样上传过程中删掉的表情不会被这批次悄悄加回来；
+      // 单张失败也不会把同批次成功的几张一起丢掉。
+      var pending = files.length;
+      var failed = 0;
       files.forEach(function (f) {
-        // 表情包走 compressSticker（保透明），不能用图库那套 JPEG 压缩
         compressSticker(f).then(function (url) {
+          var list = stickerPoolOf(contactId).slice();
           list.push({ id: newId(), url: url });
-          added++;
-          if (added === files.length) {
-            setStickerPool(contactId, list);
-            saveData();
-            rerender();
-            toast('已添加 ' + files.length + ' 张表情包');
-          }
-        }).catch(function () { toast('有图片没能加上'); });
+          setStickerPool(contactId, list);
+        }, function () {
+          failed++;
+        }).then(function () {
+          pending--;
+          if (pending > 0) return;
+          saveData();
+          rerender();
+          var ok = files.length - failed;
+          if (!ok) toast('有图片没能加上');
+          else if (failed) toast('已添加 ' + ok + ' 张，' + failed + ' 张失败');
+          else toast('已添加 ' + ok + ' 张表情包');
+        });
       });
       file.value = '';
     });
@@ -220,6 +239,7 @@ function bindStatusTab(body, contactId, rerender) {
       if (list.indexOf(v) >= 0) { toast('已经有了'); return; }
       list.push(v);
       saveData();
+      if (typeof refreshActiveStatus === 'function') refreshActiveStatus();
       rerender();
     };
     add.addEventListener('click', doAdd);
@@ -232,6 +252,7 @@ function bindStatusTab(body, contactId, rerender) {
       var i = Number(b.getAttribute('data-stdel'));
       statusPoolOf(contactId).splice(i, 1);
       saveData();
+      if (typeof refreshActiveStatus === 'function') refreshActiveStatus();
       rerender();
     });
   });
