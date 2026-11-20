@@ -114,8 +114,8 @@ function renderSettings(focusSection) {
           '<span class="row-sub">' + (weatherNow ? escapeHtml(weatherNow.city + ' ' + weatherNow.temp + '° ' + weatherNow.desc) : '从未获取') + '</span></span>' +
           '<button class="row-btn" id="weather-refresh-btn">立即刷新</button>' +
         '</div>',
-        sRow({ ico: '<i class="fas fa-upload"></i>', label: '导出数据', sub: '字卡库、梦角、群聊与设置备份为 JSON', arrow: true, act: 'exportData' }),
-        sRow({ ico: '<i class="fas fa-download"></i>', label: '导入数据', sub: '从 JSON 备份恢复', arrow: true, act: 'importData' }),
+        sRow({ ico: '<i class="fas fa-upload"></i>', label: '导出数据', sub: '字卡库、梦角、群聊与设置备份为 ZIP', arrow: true, act: 'exportData' }),
+        sRow({ ico: '<i class="fas fa-download"></i>', label: '导入数据', sub: '从 JSON 或 ZIP 备份恢复', arrow: true, act: 'importData' }),
         sRow({ ico: '<i class="fas fa-exclamation-triangle"></i>', label: '重置一切', sub: '恢复到出厂状态，不可恢复', arrow: true, act: 'resetAll' })
       ].join('')) +
     '</div>' +
@@ -1558,6 +1558,15 @@ function applyBubbleTheme() {
 }
 
 // ---- 导出 / 导入 ----
+// 导出 / 导入共用的下载动作
+function _downloadBlob(blob, filename) {
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+}
+
 function exportData() {
   var data = {
     app: 'zikka-chuanxun',
@@ -1598,125 +1607,170 @@ function exportData() {
     partnerActivities: partnerActivities,
     callLogs: callLogs
   };
-  var blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'zikka-backup-' + new Date().toISOString().slice(0, 10) + '.json';
-  a.click();
-  URL.revokeObjectURL(a.href);
+  var base = 'zikka-backup-' + new Date().toISOString().slice(0, 10);
+
+  // 首选 zip：里面放一份 backup.json，方便和其他资料一起归档
+  if (typeof JSZip !== 'undefined') {
+    try {
+      toast('正在打包…');
+      var zip = new JSZip();
+      zip.file('backup.json', JSON.stringify(data));
+      zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } })
+        .then(function (blob) {
+          _downloadBlob(blob, base + '.zip');
+          toast('已导出');
+        })
+        .catch(function (e) {
+          console.warn('[export zip]', e);
+          _downloadBlob(new Blob([JSON.stringify(data)], { type: 'application/json' }), base + '.json');
+          toast('打包失败，已导出 JSON');
+        });
+      return;
+    } catch (e) {
+      console.warn('[export zip]', e);
+    }
+  }
+  // 环境里没有 JSZip 就退回单文件 JSON
+  _downloadBlob(new Blob([JSON.stringify(data)], { type: 'application/json' }), base + '.json');
   toast('已导出');
+}
+
+// 读取备份文件：.json 直接解析；.zip 取里面的 backup.json（找不到就取第一个 .json）
+function _readBackupFile(file) {
+  var toBuffer = function () {
+    if (file.arrayBuffer) return file.arrayBuffer();
+    return new Promise(function (resolve, reject) {
+      var r = new FileReader();
+      r.onload = function () { resolve(r.result); };
+      r.onerror = function () { reject(r.error || new Error('读取失败')); };
+      r.readAsArrayBuffer(file);
+    });
+  };
+  return toBuffer().then(function (buf) {
+    var bytes = new Uint8Array(buf);
+    var isZip = bytes.length > 3 && bytes[0] === 0x50 && bytes[1] === 0x4b;   // "PK"
+    if (!isZip) {
+      return JSON.parse(new TextDecoder('utf-8').decode(buf));
+    }
+    if (typeof JSZip === 'undefined') throw new Error('当前环境不支持 zip');
+    return JSZip.loadAsync(buf).then(function (zip) {
+      var entry = zip.file(/(^|\/)backup\.json$/i)[0];
+      if (!entry) {
+        entry = zip.file(/\.json$/i).filter(function (f) { return !f.dir; })[0];
+      }
+      if (!entry) throw new Error('zip 里没有备份文件');
+      return entry.async('string').then(function (text) { return JSON.parse(text); });
+    });
+  });
 }
 
 function importData() {
   var input = document.createElement('input');
   input.type = 'file';
-  input.accept = '.json,application/json';
+  input.accept = '.json,.zip,application/json,application/zip,application/x-zip-compressed';
   input.onchange = function () {
     var file = input.files[0];
     if (!file) return;
-    var reader = new FileReader();
-    reader.onload = function () {
-      try {
-        var data = JSON.parse(reader.result);
-        if (data.app !== 'zikka-chuanxun') { toast('不是有效的字卡备份'); return; }
-        confirmModal('导入数据', '将覆盖当前全部数据，确定吗？', function () {
-          // 导入会整个换掉会话：先收掉上一位的「正在输入…」和当前聊天对象，
-          // 否则旧的定时器会把内容写进新数据里的梦角
-          if (typeof hideTyping === 'function') hideTyping();
-          contacts = data.contacts || contacts.slice();
-          messagesByContact = data.messagesByContact || {};
-          settings = Object.assign({}, DEFAULT_SETTINGS, data.settings || {});
-          stickerLibrary = Array.isArray(data.stickerLibrary) ? data.stickerLibrary : [];
-          contactStickers = (data.contactStickers && typeof data.contactStickers === 'object')
-            ? data.contactStickers : {};
-          voiceLibrary = (data.voiceLibrary && typeof data.voiceLibrary === 'object')
-            ? data.voiceLibrary : {};
-          partnerPokes = Array.isArray(data.partnerPokes) ? data.partnerPokes : [];
-          myPokes = Array.isArray(data.myPokes) ? data.myPokes : [];
-          contactPokes = (data.contactPokes && typeof data.contactPokes === 'object')
-            ? data.contactPokes : {};
-          statusLibrary = Array.isArray(data.statusLibrary) ? data.statusLibrary : [];
-          contactStatusPools = (data.contactStatusPools && typeof data.contactStatusPools === 'object')
-            ? data.contactStatusPools : {};
-          contactStatus = (data.contactStatus && typeof data.contactStatus === 'object')
-            ? data.contactStatus : {};
-          envelopeData = (data.envelopeData && typeof data.envelopeData === 'object')
-            ? data.envelopeData : {};
-          replyPool = BUILTIN_REPLIES.concat(data.customReplies || []);
-          contactReplyPools = (data.contactReplyPools && typeof data.contactReplyPools === 'object')
-            ? data.contactReplyPools : {};
-          replyGroups = Array.isArray(data.replyGroups) ? data.replyGroups : [];
-          poolGroups = (data.poolGroups && typeof data.poolGroups === 'object') ? data.poolGroups : {};
-          disabledReplies = Array.isArray(data.disabledReplies) ? data.disabledReplies : [];
-          disabledPoolReplies = (data.disabledPoolReplies && typeof data.disabledPoolReplies === 'object')
-            ? data.disabledPoolReplies : {};
-          homeProfile = Object.assign({}, DEFAULT_HOME, data.homeProfile || {});
-          anniversaries = Array.isArray(data.anniversaries) ? data.anniversaries : [];
-          musicTracks = Array.isArray(data.musicTracks) && data.musicTracks.length
-            ? data.musicTracks : DEFAULT_TRACKS.map(function (t) { return Object.assign({}, t); });
-          photoWall = Array.isArray(data.photoWall) && data.photoWall.length === 6
-            ? data.photoWall : [null, null, null, null, null, null];
-          homeBoxBg = data.homeBoxBg || null;
-          weatherNow = data.weatherNow || null;
-          momentsData = (data.momentsData && typeof data.momentsData === 'object') ? data.momentsData : {};
-          if (!Array.isArray(momentsData.posts)) momentsData.posts = [];
-          if (typeof momentsData.partnerNext === 'undefined') momentsData.partnerNext = null;
-          momentsData.posts.forEach(function (p) {
-            if (!p || typeof p !== 'object') return;
-            if (!Array.isArray(p.comments)) p.comments = [];
-            if (!Array.isArray(p.images)) p.images = [];
-          });
-          momentsCover = data.momentsCover || null;
-          momentsCovers = (data.momentsCovers && typeof data.momentsCovers === 'object')
-            ? data.momentsCovers : {};
-          contactAvatars = (data.contactAvatars && typeof data.contactAvatars === 'object')
-            ? data.contactAvatars : {};
-          contactCovers = (data.contactCovers && typeof data.contactCovers === 'object')
-            ? data.contactCovers : {};
-          contactBubbles = (data.contactBubbles && typeof data.contactBubbles === 'object')
-            ? data.contactBubbles : {};
-          autoSwapNext = (data.autoSwapNext && typeof data.autoSwapNext === 'object')
-            ? data.autoSwapNext : {};
-          partnerActivities = (data.partnerActivities && typeof data.partnerActivities === 'object')
-            ? data.partnerActivities : {};
-          callLogs = (data.callLogs && typeof data.callLogs === 'object')
-            ? data.callLogs : {};
-          contacts.forEach(function (c) {
-            if (!Array.isArray(messagesByContact[c.id])) messagesByContact[c.id] = [];
-            if (!Array.isArray(contactReplyPools[c.id])) contactReplyPools[c.id] = [];
-            if (!Array.isArray(contactAvatars[c.id])) contactAvatars[c.id] = [];
-            if (!Array.isArray(contactCovers[c.id])) contactCovers[c.id] = [];
-            if (!Array.isArray(callLogs[c.id])) callLogs[c.id] = [];
-            if (typeof syncAvatarToLibrary === 'function') syncAvatarToLibrary(c, false);
-          });
-          // 备份里的梦角可能和当前正在聊的不是同一批
-          if (!contacts.some(function (c) { return c.id === activeContactId; })) {
-            activeContactId = contacts[0] ? contacts[0].id : null;
-          }
-          saveData();
-          applyBubbleTheme();
-          if (typeof applyBubbleCss === 'function' && activeContactId) applyBubbleCss(activeContactId);
-          if (typeof refreshActiveStatus === 'function') refreshActiveStatus();
-          if (typeof startAutoSend === 'function') startAutoSend();
-          _resetDreamSign();
-          if (activeContactId) renderAllMessages();
-          renderContactList();
-          renderSettings();
-          renderHome();
-          if (typeof renderMoments === 'function') renderMoments();
-          // 导入时正停在聊天页：整页重开一次，否则标题 / 头像还是旧数据
-          var activeViewEl = document.querySelector('.view.active');
-          var activeView = activeViewEl ? activeViewEl.id.replace('view-', '') : '';
-          if (activeView === 'chat' && activeContactId && typeof openChat === 'function') {
-            openChat(activeContactId);
-          }
-          toast('导入成功');
-        }, { danger: true });
-      } catch (e) {
-        toast('解析失败：' + e.message);
-      }
-    };
-    reader.readAsText(file);
+    _readBackupFile(file).then(function (data) {
+      if (!data || data.app !== 'zikka-chuanxun') { toast('不是有效的字卡备份'); return; }
+      confirmModal('导入数据', '将覆盖当前全部数据，确定吗？', function () {
+        // 导入会整个换掉会话：先收掉上一位的「正在输入…」和当前聊天对象，
+        // 否则旧的定时器会把内容写进新数据里的梦角
+        if (typeof hideTyping === 'function') hideTyping();
+        contacts = data.contacts || contacts.slice();
+        messagesByContact = data.messagesByContact || {};
+        settings = Object.assign({}, DEFAULT_SETTINGS, data.settings || {});
+        if (settings.typingText === '正在输入…') settings.typingText = '对方正在输入…';
+        stickerLibrary = Array.isArray(data.stickerLibrary) ? data.stickerLibrary : [];
+        contactStickers = (data.contactStickers && typeof data.contactStickers === 'object')
+          ? data.contactStickers : {};
+        voiceLibrary = (data.voiceLibrary && typeof data.voiceLibrary === 'object')
+          ? data.voiceLibrary : {};
+        partnerPokes = Array.isArray(data.partnerPokes) ? data.partnerPokes : [];
+        myPokes = Array.isArray(data.myPokes) ? data.myPokes : [];
+        contactPokes = (data.contactPokes && typeof data.contactPokes === 'object')
+          ? data.contactPokes : {};
+        statusLibrary = Array.isArray(data.statusLibrary) ? data.statusLibrary : [];
+        contactStatusPools = (data.contactStatusPools && typeof data.contactStatusPools === 'object')
+          ? data.contactStatusPools : {};
+        contactStatus = (data.contactStatus && typeof data.contactStatus === 'object')
+          ? data.contactStatus : {};
+        envelopeData = (data.envelopeData && typeof data.envelopeData === 'object')
+          ? data.envelopeData : {};
+        replyPool = BUILTIN_REPLIES.concat(data.customReplies || []);
+        contactReplyPools = (data.contactReplyPools && typeof data.contactReplyPools === 'object')
+          ? data.contactReplyPools : {};
+        replyGroups = Array.isArray(data.replyGroups) ? data.replyGroups : [];
+        poolGroups = (data.poolGroups && typeof data.poolGroups === 'object') ? data.poolGroups : {};
+        disabledReplies = Array.isArray(data.disabledReplies) ? data.disabledReplies : [];
+        disabledPoolReplies = (data.disabledPoolReplies && typeof data.disabledPoolReplies === 'object')
+          ? data.disabledPoolReplies : {};
+        homeProfile = Object.assign({}, DEFAULT_HOME, data.homeProfile || {});
+        anniversaries = Array.isArray(data.anniversaries) ? data.anniversaries : [];
+        musicTracks = Array.isArray(data.musicTracks) && data.musicTracks.length
+          ? data.musicTracks : DEFAULT_TRACKS.map(function (t) { return Object.assign({}, t); });
+        photoWall = Array.isArray(data.photoWall) && data.photoWall.length === 6
+          ? data.photoWall : [null, null, null, null, null, null];
+        homeBoxBg = data.homeBoxBg || null;
+        weatherNow = data.weatherNow || null;
+        momentsData = (data.momentsData && typeof data.momentsData === 'object') ? data.momentsData : {};
+        if (!Array.isArray(momentsData.posts)) momentsData.posts = [];
+        if (typeof momentsData.partnerNext === 'undefined') momentsData.partnerNext = null;
+        momentsData.posts.forEach(function (p) {
+          if (!p || typeof p !== 'object') return;
+          if (!Array.isArray(p.comments)) p.comments = [];
+          if (!Array.isArray(p.images)) p.images = [];
+        });
+        momentsCover = data.momentsCover || null;
+        momentsCovers = (data.momentsCovers && typeof data.momentsCovers === 'object')
+          ? data.momentsCovers : {};
+        contactAvatars = (data.contactAvatars && typeof data.contactAvatars === 'object')
+          ? data.contactAvatars : {};
+        contactCovers = (data.contactCovers && typeof data.contactCovers === 'object')
+          ? data.contactCovers : {};
+        contactBubbles = (data.contactBubbles && typeof data.contactBubbles === 'object')
+          ? data.contactBubbles : {};
+        autoSwapNext = (data.autoSwapNext && typeof data.autoSwapNext === 'object')
+          ? data.autoSwapNext : {};
+        partnerActivities = (data.partnerActivities && typeof data.partnerActivities === 'object')
+          ? data.partnerActivities : {};
+        callLogs = (data.callLogs && typeof data.callLogs === 'object')
+          ? data.callLogs : {};
+        contacts.forEach(function (c) {
+          if (!Array.isArray(messagesByContact[c.id])) messagesByContact[c.id] = [];
+          if (!Array.isArray(contactReplyPools[c.id])) contactReplyPools[c.id] = [];
+          if (!Array.isArray(contactAvatars[c.id])) contactAvatars[c.id] = [];
+          if (!Array.isArray(contactCovers[c.id])) contactCovers[c.id] = [];
+          if (!Array.isArray(callLogs[c.id])) callLogs[c.id] = [];
+          if (typeof syncAvatarToLibrary === 'function') syncAvatarToLibrary(c, false);
+        });
+        // 备份里的梦角可能和当前正在聊的不是同一批
+        if (!contacts.some(function (c) { return c.id === activeContactId; })) {
+          activeContactId = contacts[0] ? contacts[0].id : null;
+        }
+        saveData();
+        applyBubbleTheme();
+        if (typeof applyBubbleCss === 'function' && activeContactId) applyBubbleCss(activeContactId);
+        if (typeof refreshActiveStatus === 'function') refreshActiveStatus();
+        if (typeof startAutoSend === 'function') startAutoSend();
+        _resetDreamSign();
+        if (activeContactId) renderAllMessages();
+        renderContactList();
+        renderSettings();
+        renderHome();
+        if (typeof renderMoments === 'function') renderMoments();
+        // 导入时正停在聊天页：整页重开一次，否则标题 / 头像还是旧数据
+        var activeViewEl = document.querySelector('.view.active');
+        var activeView = activeViewEl ? activeViewEl.id.replace('view-', '') : '';
+        if (activeView === 'chat' && activeContactId && typeof openChat === 'function') {
+          openChat(activeContactId);
+        }
+        toast('导入成功');
+      }, { danger: true });
+    }).catch(function (e) {
+      console.warn('[import]', e);
+      toast('备份读取失败：' + ((e && e.message) || '文件格式不对'));
+    });
   };
   input.click();
 }

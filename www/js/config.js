@@ -159,11 +159,7 @@ var WEATHER_ICONS = {
 // 基础字卡库（全员可用）——预定内容待后续指令，暂为空（勿自行预置）
 var BUILTIN_REPLIES = [];
 
-// 默认联系人（对方人格）
-var BUILTIN_CONTACTS = [
-  { id: 'c_xy', name: '小语', avatar: '🌷', signature: '把日子写成诗' },
-  { id: 'c_am', name: '阿墨', avatar: '🌙', signature: '晚安，好梦' }
-];
+// 不预置任何梦角：首次打开是空列表，用户自己新建
 
 // 分享图配色（黑白系）
 var CARD_THEMES = {

@@ -80,9 +80,7 @@ function loadAllData() {
   var savedActs = Storage.get('partnerActivities');
   partnerActivities = (savedActs && typeof savedActs === 'object') ? savedActs : {};
 
-  contacts = Array.isArray(savedContacts) && savedContacts.length
-    ? savedContacts
-    : BUILTIN_CONTACTS.map(function (c) { return Object.assign({ unread: 0, lastTime: 0 }, c); });
+  contacts = Array.isArray(savedContacts) ? savedContacts : [];
 
   messagesByContact = (savedMsgs && typeof savedMsgs === 'object') ? savedMsgs : {};
 

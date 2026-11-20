@@ -263,30 +263,7 @@ function chatInfoAction(act) {
         : '将删除「' + contact.name + '」、其全部聊天记录与专属字卡库，确定吗？',
       function () {
         contacts = contacts.filter(function (c) { return c.id !== contact.id; });
-        delete messagesByContact[contact.id];
-        delete contactReplyPools[contact.id];
-        delete callLogs[contact.id];
-        delete contactAvatars[contact.id];
-        delete contactCovers[contact.id];
-        delete contactBubbles[contact.id];
-        // 表情包 / 语音条 / 拍一拍也是按梦角存的，删干净（含 IndexedDB 里的音频）
-        if (Array.isArray(contactStickers[contact.id])) delete contactStickers[contact.id];
-        if (Array.isArray(voiceLibrary[contact.id])) {
-          (voiceLibrary[contact.id] || []).forEach(function (v) {
-            if (v && v.audioId && typeof AudioStore !== 'undefined' && AudioStore.del) {
-              try { AudioStore.del(v.audioId); } catch (e) {}
-            }
-          });
-        }
-        delete voiceLibrary[contact.id];
-        delete contactPokes[contact.id];
-        delete contactStatusPools[contact.id];
-        delete contactStatus[contact.id];
-        delete envelopeData[contact.id];   // 信箱也是按梦角存的
-        delete autoSwapNext[contact.id];
-        delete partnerActivities[contact.id];
-        delete momentsCovers[contact.id];
-        if (settings.homeContactId === contact.id) { settings.homeContactId = null; }
+        purgeContactData(contact.id);
         saveData();
         activeContactId = null;
         showView('contacts');
@@ -296,4 +273,36 @@ function chatInfoAction(act) {
         toast(group ? '已解散' : '已删除');
       }, { danger: true });
   }
+}
+
+// 删除梦角 / 解散群聊时，清掉所有按会话 id 存的旁路数据。
+// 单独抽出来，方便「清空全部联系人」这类场景复用同一套清理规则。
+function purgeContactData(contactId) {
+  if (!contactId) return;
+  delete messagesByContact[contactId];
+  delete contactReplyPools[contactId];
+  delete callLogs[contactId];
+  delete contactAvatars[contactId];
+  delete contactCovers[contactId];
+  delete contactBubbles[contactId];
+  delete contactStickers[contactId];
+  // 语音条音频在 IndexedDB 里，记录删掉后也把音频清掉，避免越攒越多
+  if (Array.isArray(voiceLibrary[contactId])) {
+    (voiceLibrary[contactId] || []).forEach(function (v) {
+      if (v && v.audioId && typeof AudioStore !== 'undefined' && AudioStore.del) {
+        try { AudioStore.del(v.audioId); } catch (e) {}
+      }
+    });
+  }
+  delete voiceLibrary[contactId];
+  delete contactPokes[contactId];
+  delete contactStatusPools[contactId];
+  delete contactStatus[contactId];
+  delete envelopeData[contactId];   // 信箱也是按梦角存的
+  delete autoSwapNext[contactId];
+  delete partnerActivities[contactId];
+  delete momentsCovers[contactId];
+  if (settings.homeContactId === contactId) settings.homeContactId = null;
+  if (typeof momentsFilterId !== 'undefined' && momentsFilterId === contactId) momentsFilterId = null;
+  if (typeof _poolSelContact !== 'undefined' && _poolSelContact === contactId) _poolSelContact = null;
 }
