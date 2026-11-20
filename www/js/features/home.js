@@ -28,7 +28,7 @@ function initHome() {
     else if (act === 'photo') openPhotoSheet(Number(el.dataset.idx));
     else if (act === 'scDream') {
       var hc = getHomeContact();
-      if (hc) openChat(hc.id); else toast('先新建一位梦角吧');
+      if (hc) openChat(hc.id); else toast('去消息页点右上角＋新建梦角');
     }
     else if (act === 'scMe') openProfileSheet();
     else if (act === 'box') {
@@ -553,6 +553,16 @@ function showcaseHtml() {
         '<div class="sc-info">' +
           '<div class="sc-name">' + escapeHtml(hc.name) + '</div>' +
           '<div class="sc-sign">' + escapeHtml(_dreamSignCache || '专属字卡库空空的，导入字卡后这里随机换一条') + '</div>' +
+        '</div>' +
+      '</div>';
+  } else {
+    // 没有梦角也保留这一栏的位置，避免整个展示栏突然消失
+    html +=
+      '<div class="sc-bar sc-dream sc-empty" data-act="scDream">' +
+        '<div class="sc-avatar">' + avatarHtml(DREAM_AVATAR_PLACEHOLDER) + '</div>' +
+        '<div class="sc-info">' +
+          '<div class="sc-name">还没有梦角</div>' +
+          '<div class="sc-sign">去消息页点右上角＋新建</div>' +
         '</div>' +
       '</div>';
   }

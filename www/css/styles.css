@@ -907,6 +907,9 @@ body.show-nav .empty-state { padding-bottom: 70px; }
   transition: background .2s;
 }
 .sc-bar:active { background: var(--home-card-bg, var(--card-bg)); filter: brightness(.96); }
+/* 没有梦角时的占位条：保留位置，只提示去新建 */
+.sc-bar.sc-empty { border-style: dashed; box-shadow: none; }
+.sc-bar.sc-empty .sc-name { color: var(--ink-3); font-weight: 600; }
 .sc-avatar {
   width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
   background: var(--bg); border: 1px solid var(--line);
