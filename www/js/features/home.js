@@ -183,6 +183,8 @@ function renderHomePage2() {
   var dream = getHomeContact();
   var dreamFace = contactAvatar(dream);
   var handle = p.handle || p.name || '我';
+  var dreamHandle = dream ? (dream.handle || dream.name) : '';
+  var dreamName = dream ? dream.name : '还没有梦角';
   var capA = settings.homeP2CapA || '点这里写一句';
   var capB = settings.homeP2CapB || '点这里写一句';
   var cover = settings.homeP2Cover || '';
@@ -195,9 +197,23 @@ function renderHomePage2() {
             (cover ? ' style="background-image:url(' + escapeHtml(cover) + ')"' : '') + '>' +
           '</button>' +
           '<div class="p2-body" data-act="profile">' +
+            // 两个头像边缘叠一点：左边用户、右边主页梦角
+            '<div class="p2-faces">' +
+              '<div class="p2-ava p2-ava-me" data-act="profile">' + avatarHtml(face) + '</div>' +
+              '<div class="p2-ava p2-ava-dream' + (dream ? '' : ' empty') + '" data-act="scDream">' +
+                avatarHtml(dreamFace) + '</div>' +
+            '</div>' +
+            // 名字和 @ 左右两栏并排
             '<div class="p2-top">' +
-              '<div class="p2-name">' + escapeHtml(p.name || '我') + '</div>' +
-              '<div class="p2-handle">@' + escapeHtml(handle) + '</div>' +
+              '<div class="p2-col">' +
+                '<div class="p2-name">' + escapeHtml(p.name || '我') + '</div>' +
+                '<div class="p2-handle">@' + escapeHtml(handle) + '</div>' +
+              '</div>' +
+              '<div class="p2-col' + (dream ? '' : ' p2-col-empty') + '" data-act="scDream">' +
+                '<div class="p2-name">' + escapeHtml(dreamName) + '</div>' +
+                '<div class="p2-handle">' +
+                  (dream ? '@' + escapeHtml(dreamHandle) : '点这里选一位') + '</div>' +
+              '</div>' +
             '</div>' +
             '<div class="p2-fade">' +
               '<div class="p2-sign">' + escapeHtml(p.signature || '写一句喜欢的话') + '</div>' +
@@ -206,7 +222,6 @@ function renderHomePage2() {
             '</div>' +
           '</div>' +
         '</div>' +
-        '<div class="p2-ava" data-act="profile">' + avatarHtml(face) + '</div>' +
       '</div>' +
       '<div class="p2-lower">' +
         '<div class="p2-caps">' +

@@ -137,6 +137,7 @@ function createNewContact() {
       id: 'c_' + Date.now(),
       type: 'dream',
       name: name,
+      handle: '',              // 第二页资料卡名字下面的 @，空 = 跟随昵称
       avatar: '',              // 头像只认图库，图库空 = 灰色占位图；上传第一张会自动换上
       signature: '',
       unread: 0,
@@ -246,6 +247,16 @@ function chatInfoAction(act) {
       DOMElements.chatHeadName.textContent = v;
       renderContactList();
       refresh();
+      if (typeof renderHome === 'function') renderHome();
+      toast('已修改');
+    });
+  } else if (act === 'handle') {
+    // 第二页资料卡名字下面的 @ 用户名；留空就跟随昵称
+    promptModal('修改用户名', '显示在资料卡名字下面，留空跟随昵称', contact.handle || contact.name, function (v) {
+      contact.handle = String(v || '').trim().replace(/^@+/, '');
+      saveData();
+      refresh();
+      if (typeof renderHome === 'function') renderHome();
       toast('已修改');
     });
   } else if (act === 'clear') {

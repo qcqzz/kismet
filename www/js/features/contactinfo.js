@@ -115,6 +115,7 @@ function renderCiSettings() {
   } else {
     rows.push(sRow({ ico: '<i class="fas fa-book"></i>', label: '专属字卡库', sub: (contactReplyPools[c.id] || []).length + ' 条专属字卡', arrow: true, act: 'ci-pool' }));
     rows.push(sRow({ ico: '<i class="fas fa-pen"></i>', label: '修改昵称', val: c.name, act: 'ci-rename' }));
+    rows.push(sRow({ ico: '<i class="fas fa-at"></i>', label: '修改用户名', val: '@' + (c.handle || c.name), act: 'ci-handle' }));
   }
   rows.push(sRow({ ico: '<i class="fas fa-folder"></i>', label: '收藏的字卡', sub: favCount + ' 条', arrow: true, act: 'ci-favs' }));
   rows.push(sRow({ ico: '<i class="fas fa-broom"></i>', label: '清空此聊天记录', sub: '共 ' + msgs.length + ' 条', arrow: true, act: 'ci-clear' }));
@@ -150,6 +151,7 @@ function handleCiAct(act) {
     // 以下沿用原 ⋯ 弹层的动作
     case 'ci-members': chatInfoAction('members'); break;
     case 'ci-rename':  chatInfoAction('rename'); break;
+    case 'ci-handle':  chatInfoAction('handle'); break;
     case 'ci-pool':    chatInfoAction('pool'); break;
     case 'ci-favs':    chatInfoAction('favs'); break;
     case 'ci-clear':   chatInfoAction('clear'); break;
