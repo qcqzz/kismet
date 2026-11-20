@@ -21,6 +21,7 @@ function initHome() {
     var act = el.dataset.act;
 
     if (act === 'profile') openProfileSheet();
+    else if (act === 'p2sheet') openP2Sheet();
     else if (act === 'weather') refreshWeather(true);
     else if (act === 'anniv') openAnnivSheet();
     else if (act === 'annivNext') { _selAnniv = (_selAnniv + 1) % anniversaries.length; renderHome(); }
@@ -196,7 +197,7 @@ function renderHomePage2() {
           '<button class="p2-cover" type="button" data-act="p2cover" aria-label="更换封面图"' +
             (cover ? ' style="background-image:url(' + escapeHtml(cover) + ')"' : '') + '>' +
           '</button>' +
-          '<div class="p2-body" data-act="profile">' +
+          '<div class="p2-body" data-act="p2sheet">' +
             // 两个头像边缘叠一点：左边用户、右边主页梦角
             '<div class="p2-faces">' +
               '<div class="p2-ava p2-ava-me" data-act="profile">' + avatarHtml(face) + '</div>' +
@@ -740,13 +741,11 @@ function daysSince(dateStr) {
 function openProfileSheet() {
   showSheet('个人资料', [
     { label: '<i class="fas fa-pen"></i> 改昵称', act: 'name' },
-    { label: '<i class="fas fa-at"></i> 改用户名', act: 'handle' },
     { label: '<i class="fas fa-user"></i> 改头像', act: 'avatar' },
     { label: '<i class="fas fa-comment"></i> 改个性签名', act: 'sign' },
     { label: '<i class="fas fa-location-dot"></i> 改位置', act: 'loc' },
     { label: '<i class="fas fa-smile"></i> 改状态', act: 'expr' },
     { label: '<i class="fas fa-image"></i> 桌面背景', act: 'homebg' },
-    { label: '<i class="fas fa-images"></i> 第二页封面', act: 'p2cover' },
     { label: '<i class="fas fa-cloud"></i> 设置天气城市', act: 'city' },
     { label: '取消', act: 'cancel', cancel: true }
   ], function (act) {
@@ -754,11 +753,6 @@ function openProfileSheet() {
       promptModal('昵称', '', homeProfile.name, function (v) {
         homeProfile.name = v; saveData(); renderHome();
       });
-    } else if (act === 'handle') {
-      confirmModal('用户名', '显示在昵称下面', function (v) {
-        homeProfile.handle = (v || '').trim();
-        saveData(); renderHome();
-      }, { input: homeProfile.handle || '' });
     } else if (act === 'avatar') {
       pickMyAvatar(function () { renderHome(); });
     } else if (act === 'sign') {
@@ -777,9 +771,6 @@ function openProfileSheet() {
     } else if (act === 'homebg') {
       closeSheet();
       openHomeBgEditor();
-    } else if (act === 'p2cover') {
-      closeSheet();
-      openP2CoverSheet();
     } else if (act === 'city') {
       promptWeatherCity();
     }
@@ -900,6 +891,36 @@ function pickPhotoFile(slot) {
 }
 
 // ---------- 第二页：胶囊文字 / 封面 / 用户名 ----------
+// 第二页自己的设置弹窗：只放影响第二页的项，不和第一页的个人资料混在一起
+function openP2Sheet() {
+  var p = homeProfile || {};
+  var hc = getHomeContact();
+  showSheet('第二页设置', [
+    { label: '<i class="fas fa-at"></i> 改用户名（@' + escapeHtml(p.handle || p.name || '我') + '）', act: 'handle' },
+    { label: '<i class="fas fa-images"></i> 第二页封面', act: 'p2cover' },
+    { label: '<i class="fas fa-tag"></i> 左边胶囊文字', act: 'cap0' },
+    { label: '<i class="fas fa-tag"></i> 右边胶囊文字', act: 'cap1' },
+    { label: '<i class="fas fa-user"></i> 首页梦角展示（' + escapeHtml(hc ? hc.name : '暂无梦角') + '）', act: 'dream' },
+    { label: '取消', act: 'cancel', cancel: true }
+  ], function (act) {
+    if (act === 'handle') {
+      confirmModal('用户名', '显示在第二页名字下面，留空跟随昵称', function (v) {
+        homeProfile.handle = (v || '').trim().replace(/^@+/, '');
+        saveData();
+        renderHome();
+      }, { input: homeProfile.handle || '' });
+    } else if (act === 'p2cover') {
+      openP2CoverSheet();
+    } else if (act === 'cap0') {
+      editP2Cap(0);
+    } else if (act === 'cap1') {
+      editP2Cap(1);
+    } else if (act === 'dream') {
+      openHomeDreamPicker();
+    }
+  });
+}
+
 function editP2Cap(idx) {
   var key = idx === 1 ? 'homeP2CapB' : 'homeP2CapA';
   confirmModal('胶囊文字', '留空就显示默认提示', function (v) {
