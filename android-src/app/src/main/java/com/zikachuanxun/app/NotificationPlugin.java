@@ -28,8 +28,7 @@ import java.io.BufferedInputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.HashMap;
-import java.util.Map;
+
 
 /**
  * 系统通知插件（字卡传讯版）。
@@ -55,8 +54,6 @@ public class NotificationPlugin extends Plugin {
     private static final String DEFAULT_GROUP = "kismet-partner";
     // 分组汇总通知的 id 区间，与普通消息 id（1e8+）和后台闹钟 id（8823481）完全错开
     private static final int SUMMARY_ID_BASE = 400000000;
-    // 每组已有多少条（用于汇总通知的"N 条新消息"）
-    private static final Map<String, Integer> GROUP_COUNTS = new HashMap<>();
 
     /** 创建/更新"消息通知"频道，供本插件与 MessageAlarmReceiver 复用。 */
     public static void ensureChannel(Context context, String channelId) {
@@ -221,6 +218,28 @@ public class NotificationPlugin extends Plugin {
         }
     }
 
+    /**
+     * 统计通知栏里该分组下仍然存在的消息条数（汇总条本身不计入）。
+     * 不用静态计数器：用户划掉通知或系统回收后计数就错了，直接问系统最准。
+     */
+    private int countActiveInGroup(Context context, String group) {
+        try {
+            NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (manager == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return 1;
+            int count = 0;
+            for (android.service.notification.StatusBarNotification sbn : manager.getActiveNotifications()) {
+                android.app.Notification n = sbn.getNotification();
+                if (n == null) continue;
+                if ((n.flags & android.app.Notification.FLAG_GROUP_SUMMARY) != 0) continue;
+                if (group.equals(n.getGroup())) count++;
+            }
+            return count;
+        } catch (Exception e) {
+            Log.w(TAG, "统计分组条数失败(按1条处理): " + e.getMessage());
+            return 1;
+        }
+    }
+
     @PluginMethod
     public void send(PluginCall call) {
         String title = call.getString("title", "字卡传讯");
@@ -252,16 +271,11 @@ public class NotificationPlugin extends Plugin {
         NotificationCompat.Builder builder = buildNotification(
             context, group, title, body, sender, urgent, icon, pendingIntent);
 
-        int count;
-        synchronized (GROUP_COUNTS) {
-            Integer c = GROUP_COUNTS.get(group);
-            count = (c == null ? 0 : c) + 1;
-            GROUP_COUNTS.put(group, count);
-        }
-
         try {
             NotificationManagerCompat.from(context).notify(id, builder.build());
             Log.i(TAG, "Notification sent: id=" + id + " group=" + group + " urgent=" + urgent + " title=" + title);
+            // 发完再数：刚发的这条已经在通知栏里，汇总条数才对得上
+            int count = countActiveInGroup(context, group);
             postGroupSummary(context, group, sender != null ? sender : title, count, icon);
             call.resolve(new JSObject().put("success", true).put("id", id));
         } catch (SecurityException e) {
@@ -271,6 +285,15 @@ public class NotificationPlugin extends Plugin {
             Log.e(TAG, "Failed to send notification: " + e.getMessage());
             call.reject("Failed: " + e.getMessage());
         }
+    }
+
+    /** 只查权限、不弹窗：启动时用它把设置页状态显示准确。 */
+    @PluginMethod
+    public void checkPermission(PluginCall call) {
+        boolean granted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
+                || getContext().checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                    == PackageManager.PERMISSION_GRANTED;
+        call.resolve(new JSObject().put("granted", granted));
     }
 
     @PluginMethod

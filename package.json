@@ -1,6 +1,6 @@
 {
   "name": "zikachuanxun",
-  "version": "1.0.0",
+  "version": "0.1",
   "private": true,
   "description": "字卡传讯 — 纯本地梦角聊天 Web App（含 Android 通知与保活）",
   "scripts": {

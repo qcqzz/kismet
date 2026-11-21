@@ -10,7 +10,7 @@
 
 - Node.js 20 或更高
 - JDK 21
-- Android SDK（Platform 35 + Build-Tools 35）
+- Android SDK（Platform 36 + Build-Tools 36.0.0）
 - 环境变量 `ANDROID_HOME` 指向 SDK 目录
 
 ## 首次打包
@@ -26,6 +26,14 @@ gradlew.bat assembleDebug   # Windows；macOS/Linux 用 ./gradlew
 ```
 
 产物：`android/app/build/outputs/apk/debug/app-debug.apk`
+
+版本号只改一处：根目录 `package.json` 的 `"version"`（当前 `0.1`）。
+`overlay-android.js` 会把它同步成 `versionName`，并按 `主*10000+次*100+修订`
+算出 `versionCode`（0.1 → 100），不要再手改 `android/app/build.gradle`。
+
+> `android-src/` 里不放 `capacitor.plugins.json`：这个文件由 `npx cap sync android`
+> 按已安装插件自动生成（目前只有 LocalNotifications）。自定义的
+> `NotificationPlugin` / `ForegroundPlugin` 由 `MainActivity.registerPlugin()` 注册。
 
 ## 之后每次改完网页
 

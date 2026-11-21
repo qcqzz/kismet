@@ -78,6 +78,13 @@
             if (global.Capacitor.Plugins.NotificationPlugin) {
                 _notifPlugin = global.Capacitor.Plugins.NotificationPlugin;
                 console.log('[PushBridge] 自定义 NotificationPlugin 已就绪');
+                // 顺带把当前权限状态取回来：设置页据此显示"已授权/尚未授权"，
+                // 也避免启动时明明已授权还弹一次系统对话框。
+                if (typeof _notifPlugin.checkPermission === 'function') {
+                    _notifPlugin.checkPermission().then(function (r) {
+                        if (r && r.granted === true) _permissionGranted = true;
+                    }).catch(function () {});
+                }
             }
         } catch (e) {}
 

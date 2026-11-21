@@ -143,6 +143,19 @@
       try { notifySyncNativeAlarms(); } catch (e) {}
     }, 60000);
 
+    // Android 13+ 通知权限：必须在界面处于前台时申请，否则系统根本不弹窗，
+    // 用户会以为"通知开着却收不到"。首次启动引导一次，之后可在设置里手动开。
+    if (native && !Storage.get('notifyPermAsked')) {
+      setTimeout(function () {
+        try {
+          notifyRequestPermission().then(function (p) {
+            if (p !== 'granted') toast('通知权限未开启，可在设置 → 通知内容里重新授权');
+          });
+        } catch (e) {}
+      }, 1200);
+      Storage.set('notifyPermAsked', true);
+    }
+
     // 原生首次启动：依次引导三个权限，缺一个后台都可能漏消息。
     // 只引导一次，之后在设置页里可以手动再开。
     if (native && !Storage.get('keepAliveGuided')) {

@@ -1,0 +1,13 @@
+# 依赖与构建产物（Android 工程由 npx cap add android 生成，不入库）
+node_modules/
+android/
+android/app/build/
+
+# 本地打包工具链 / SDK（若放在仓库内）
+.android-toolchain/
+.android-sdk/
+
+# 杂项
+.DS_Store
+Thumbs.db
+*.log

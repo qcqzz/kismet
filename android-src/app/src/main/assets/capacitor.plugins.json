@@ -1,7 +1,0 @@
-{
-  "autoload": true,
-  "packageClassList": [
-    "ForegroundPlugin",
-    "NotificationPlugin"
-  ]
-}
