@@ -598,33 +598,87 @@ function _rlShowGroupEditor(ctx, rerender) {
 }
 
 // ---- 文件导入 ----
-function _rlImportJson(data, ctx) {
-  var added = 0;
-  var replies = Array.isArray(data) ? data
-    : (data && typeof data === 'object' && Array.isArray(data.replies) ? data.replies : []);
-  if (data && typeof data === 'object' && Array.isArray(data.groups)) {
-    data.groups.forEach(function (g) {
-      if (!g || typeof g !== 'object' || !g.name) return;
-      var exist = ctx.groups.filter(function (gg) { return gg.name === g.name; })[0];
-      if (!exist) {
-        exist = { id: g.id || ('rg-' + Date.now() + '-' + Math.floor(Math.random() * 1000)), name: g.name, color: g.color || RL_GROUP_COLORS[0], items: [] };
-        ctx.groups.push(exist);
-      }
-      (Array.isArray(g.items) ? g.items : []).forEach(function (it) {
-        if (typeof it === 'string' && it.trim() && exist.items.indexOf(it) === -1) exist.items.push(it);
-      });
-    });
+// chat（ChatApp）自定义回复导出的字卡备份：
+// { appName:'ChatApp', modules:['replies','groups'], customReplies:[...], customReplyGroups:[{name,color,items}] }
+// 旧版 chat-export 也用同样的 customReplies / customReplyGroups 字段，所以一并识别。
+function _rlChatCardsPayload(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
+  if (data.app === 'zikka-chuanxun') return null;   // 本项目完整备份，不当成 chat 字卡
+  var hasReplies = Array.isArray(data.customReplies);
+  var hasGroups = Array.isArray(data.customReplyGroups);
+  if (!hasReplies && !hasGroups) return null;
+  return {
+    replies: hasReplies ? data.customReplies : [],
+    groups: hasGroups ? data.customReplyGroups : []
+  };
+}
+
+// 把各种来源的文件内容统一成 { replies, groups }
+function _rlImportPayload(data) {
+  var chat = _rlChatCardsPayload(data);
+  if (chat) return chat;
+  if (Array.isArray(data)) return { replies: data, groups: [] };
+  if (data && typeof data === 'object') {
+    return {
+      replies: Array.isArray(data.replies) ? data.replies : [],
+      groups: Array.isArray(data.groups) ? data.groups : []
+    };
   }
-  replies.forEach(function (r) {
-    if (typeof r !== 'string') return;
-    var t = r.trim();
-    if (t) { ctx.pool.push(t); added++; }
+  return { replies: [], groups: [] };
+}
+
+function _rlImportJson(data, ctx) {
+  var payload = _rlImportPayload(data);
+  var added = 0;
+  var addedGroups = 0;
+  var seen = Object.create(null);
+  ctx.pool.forEach(function (t) { seen[String(t).trim()] = true; });
+  var push = function (t) {
+    t = String(t).trim();
+    if (!t || seen[t]) return;
+    seen[t] = true;
+    ctx.pool.push(t);
+    added++;
+  };
+  var groupItems = [];
+
+  payload.groups.forEach(function (g, gi) {
+    if (!g || typeof g !== 'object' || !g.name) return;
+    var name = String(g.name).trim();
+    if (!name) return;
+    var exist = ctx.groups.filter(function (gg) { return gg.name === name; })[0];
+    if (!exist) {
+      var id = (typeof g.id === 'string' && g.id &&
+        !ctx.groups.some(function (gg) { return String(gg.id) === String(g.id); }))
+        ? g.id
+        : ('rg-' + Date.now() + '-' + gi + '-' + Math.floor(Math.random() * 1000));
+      exist = {
+        id: id,
+        name: name,
+        color: (typeof g.color === 'string' && g.color) ? g.color : RL_GROUP_COLORS[ctx.groups.length % RL_GROUP_COLORS.length],
+        items: []
+      };
+      ctx.groups.push(exist);
+      addedGroups++;
+    }
+    if (!Array.isArray(exist.items)) exist.items = [];
+    (Array.isArray(g.items) ? g.items : []).forEach(function (it) {
+      if (typeof it !== 'string') return;
+      var t = it.trim();
+      if (!t) return;
+      if (exist.items.indexOf(t) === -1) exist.items.push(t);
+      // 分组里出现、但主字卡列表里没有的条目也补进池，保证可抽取
+      if (groupItems.indexOf(t) === -1) groupItems.push(t);
+    });
   });
-  // 分组里出现、但不在池中的字卡也补进池，保证可抽取
-  ctx.groups.forEach(function (g) {
-    (g.items || []).forEach(function (it) { if (ctx.pool.indexOf(it) === -1) { ctx.pool.push(it); added++; } });
+
+  payload.replies.forEach(function (r) {
+    if (typeof r === 'string') push(r);
   });
-  return added;
+  // 主字卡之后补上只存在于分组里的条目，尽量保持备份里的顺序
+  groupItems.forEach(push);
+
+  return { added: added, groups: addedGroups };
 }
 
 function _rlImportFile(ctx, rerender) {
@@ -635,21 +689,25 @@ function _rlImportFile(ctx, rerender) {
   input.onchange = function () {
     var file = input.files[0];
     if (!file) return;
-    var isJson = /\.json$/i.test(file.name);
     var reader = new FileReader();
     reader.onload = function () {
       try {
-        var added = 0;
+        var text = String(reader.result || '').replace(/^\uFEFF/, '');
+        var head = text.trim().charAt(0);
+        // 不只看扩展名：chat 的字卡备份即使被改名成 .txt，也按 JSON 解析
+        var isJson = /\.json$/i.test(file.name) || head === '{' || head === '[';
+        var result = { added: 0, groups: 0 };
         if (isJson) {
-          added = _rlImportJson(JSON.parse(reader.result), ctx);
+          result = _rlImportJson(JSON.parse(text), ctx);
         } else {
-          String(reader.result || '').split(/\r?\n/).forEach(function (line) {
+          text.split(/\r?\n/).forEach(function (line) {
             var t = line.trim();
-            if (t) { ctx.pool.push(t); added++; }
+            if (t) { ctx.pool.push(t); result.added++; }
           });
         }
         saveData(); rerender();
-        toast('已导入 ' + added + ' 条');
+        if (!result.added && !result.groups) { toast('文件里没有可导入的字卡'); return; }
+        toast('已导入 ' + result.added + ' 条字卡' + (result.groups ? '、' + result.groups + ' 个分组' : ''));
       } catch (e) {
         toast('文件解析失败');
       }
@@ -1672,7 +1730,22 @@ function importData() {
     var file = input.files[0];
     if (!file) return;
     _readBackupFile(file).then(function (data) {
-      if (!data || data.app !== 'zikka-chuanxun') { toast('不是有效的字卡备份'); return; }
+      if (!data || data.app !== 'zikka-chuanxun') {
+        // 也可能是 chat 自定义回复里导出的字卡备份：合并进基础字卡库，而不是整包覆盖
+        if (_rlChatCardsPayload(data)) {
+          confirmModal('导入 chat 字卡', '检测到 chat 字卡备份，将合并到基础字卡库，确定吗？', function () {
+            var ctx = { kind: 'base', contactId: null, pool: replyPool, groups: replyGroups, disabled: disabledReplies };
+            var result = _rlImportJson(data, ctx);
+            saveData();
+            renderSettings();
+            if (!result.added && !result.groups) { toast('文件里没有可导入的字卡'); return; }
+            toast('已导入 ' + result.added + ' 条字卡' + (result.groups ? '、' + result.groups + ' 个分组' : ''));
+          });
+          return;
+        }
+        toast('不是有效的字卡备份');
+        return;
+      }
       confirmModal('导入数据', '将覆盖当前全部数据，确定吗？', function () {
         // 导入会整个换掉会话：先收掉上一位的「正在输入…」和当前聊天对象，
         // 否则旧的定时器会把内容写进新数据里的梦角
