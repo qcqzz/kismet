@@ -251,7 +251,7 @@
          */
         send: function (title, body, options) {
             options = options || {};
-            title = title || '字卡传讯';
+            title = title || '𝓚𝓲𝓼𝓶𝓮𝓽';
             body = body || '';
 
             if (_isNative()) {

@@ -17,7 +17,7 @@
     }
 
     function label() {
-        return '字卡传讯';
+        return '𝓚𝓲𝓼𝓶𝓮𝓽';
     }
 
     var ForegroundBridge = {

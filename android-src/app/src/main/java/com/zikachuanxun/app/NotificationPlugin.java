@@ -31,7 +31,7 @@ import java.net.URL;
 
 
 /**
- * 系统通知插件（字卡传讯版）。
+ * 系统通知插件（𝓚𝓲𝓼𝓶𝓮𝓽版）。
  *
  * 与 chat 版的区别：
  *   - 标题/正文/头像/分组全部由前端按"梦角"传入；
@@ -200,7 +200,7 @@ public class NotificationPlugin extends Plugin {
             int summaryId = SUMMARY_ID_BASE + ((group.hashCode() & 0x7FFFFFFF) % 1000000);
             NotificationCompat.Builder b = new NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_stat_notification)
-                .setContentTitle(title != null && !title.isEmpty() ? title : "字卡传讯")
+                .setContentTitle(title != null && !title.isEmpty() ? title : "𝓚𝓲𝓼𝓶𝓮𝓽")
                 .setContentText(count > 1 ? (count + " 条新消息") : "1 条新消息")
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setCategory(NotificationCompat.CATEGORY_MESSAGE)
@@ -242,7 +242,7 @@ public class NotificationPlugin extends Plugin {
 
     @PluginMethod
     public void send(PluginCall call) {
-        String title = call.getString("title", "字卡传讯");
+        String title = call.getString("title", "𝓚𝓲𝓼𝓶𝓮𝓽");
         String body = call.getString("body", "");
         int id = call.getInt("id", (int) (System.currentTimeMillis() % Integer.MAX_VALUE));
         boolean urgent = call.getBoolean("urgent", false);

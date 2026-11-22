@@ -1,6 +1,6 @@
 {
-  "name": "字卡传讯",
-  "short_name": "字卡传讯",
+  "name": "𝓚𝓲𝓼𝓶𝓮𝓽",
+  "short_name": "𝓚𝓲𝓼𝓶𝓮𝓽",
   "description": "纯本地的梦角聊天、朋友圈与信件",
   "start_url": "./index.html",
   "scope": "./",
@@ -13,6 +13,6 @@
     { "src": "icons/icon-96.png", "sizes": "96x96", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" }
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

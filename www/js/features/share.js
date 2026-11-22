@@ -55,7 +55,7 @@ function shareCardImage(msg) {
   var contact = (typeof getActiveContact === 'function') ? getActiveContact() : null;
   ctx.fillStyle = theme.sub;
   ctx.font = '26px ' + theme.font;
-  var sign = '—— ' + (contact ? contact.name : '字卡传讯');
+  var sign = '—— ' + (contact ? contact.name : '𝓚𝓲𝓼𝓶𝓮𝓽');
   ctx.fillText(sign, padding, y + 24);
 
   // 时间
@@ -68,7 +68,7 @@ function shareCardImage(msg) {
   // 底部
   ctx.fillStyle = theme.accent;
   ctx.font = '20px ' + theme.font;
-  ctx.fillText('✦ 字卡传讯', padding, H - padding + 14);
+  ctx.fillText('✦ 𝓚𝓲𝓼𝓶𝓮𝓽', padding, H - padding + 14);
 
   canvas.toBlob(function (blob) {
     var file = new File([blob], 'zikka-' + msg.id + '.png', { type: 'image/png' });

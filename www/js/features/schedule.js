@@ -239,7 +239,7 @@
   function openAddSheet() {
     var d = _selDate || today0();
     var singles = contacts.filter(function (c) { return !isGroupContact(c); });
-    var contactOpts = '<option value="">字卡传讯</option>' + singles.map(function (c) {
+    var contactOpts = '<option value="">𝓚𝓲𝓼𝓶𝓮𝓽</option>' + singles.map(function (c) {
       return '<option value="' + esc(c.id) + '">' + esc(c.name) + '</option>';
     }).join('');
 

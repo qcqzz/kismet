@@ -23,7 +23,7 @@ public class ForegroundPlugin extends Plugin {
 
     @PluginMethod
     public void start(PluginCall call) {
-        String label = call.getString("label", "字卡传讯");
+        String label = call.getString("label", "𝓚𝓲𝓼𝓶𝓮𝓽");
         // 用户重新开启保活：清掉"主动关闭"标记，允许自愈链路重新拉起服务。
         ForegroundService.setUserStopped(getContext(), false);
         // Android 12+（尤其国内厂商深度后台策略：MIUI/EMUI/ColorOS 等）在 App 处于后台时调用
@@ -64,7 +64,7 @@ public class ForegroundPlugin extends Plugin {
 
     @PluginMethod
     public void updateNotification(PluginCall call) {
-        String label = call.getString("label", "字卡传讯");
+        String label = call.getString("label", "𝓚𝓲𝓼𝓶𝓮𝓽");
         try {
             Intent updateIntent = new Intent(getContext(), ForegroundService.class);
             updateIntent.setAction("UPDATE_NOTIFICATION");

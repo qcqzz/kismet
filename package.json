@@ -2,7 +2,7 @@
   "name": "zikachuanxun",
   "version": "0.1",
   "private": true,
-  "description": "字卡传讯 — 纯本地梦角聊天 Web App（含 Android 通知与保活）",
+  "description": "𝓚𝓲𝓼𝓶𝓮𝓽 — 纯本地梦角聊天 Web App（含 Android 通知与保活）",
   "scripts": {
     "android:init": "npx cap add android",
     "android:overlay": "node scripts/overlay-android.js",

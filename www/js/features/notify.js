@@ -15,7 +15,7 @@ function _nbContact(cid) {
   if (!cid) return null;
   return contacts.find(function (c) { return c.id === cid; }) || null;
 }
-function _nbTitle(c) { return (c && c.name) ? c.name : '字卡传讯'; }
+function _nbTitle(c) { return (c && c.name) ? c.name : '𝓚𝓲𝓼𝓶𝓮𝓽'; }
 function _nbAvatar(c) {
   if (!c) return '';
   var v = '';

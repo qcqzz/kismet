@@ -62,7 +62,7 @@ public class ForegroundService extends Service {
     private static final long WAKELOCK_TIMEOUT_MS = 10 * 60 * 1000L;
 
     private PowerManager.WakeLock wakeLock = null;
-    private String label = "字卡传讯";
+    private String label = "𝓚𝓲𝓼𝓶𝓮𝓽";
     private Handler keepAliveHandler;
     private final Runnable wakelockRenewRunnable = new Runnable() {
         @Override
@@ -93,7 +93,7 @@ public class ForegroundService extends Service {
         createNotificationChannel();
         // 从 SharedPreferences 恢复（防止服务被系统重启后丢失）
         label = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                .getString(KEY_LABEL, "字卡传讯");
+                .getString(KEY_LABEL, "𝓚𝓲𝓼𝓶𝓮𝓽");
         acquireWakeLock();
         startWakelockRenewLoop();
     }
@@ -128,7 +128,7 @@ public class ForegroundService extends Service {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         Notification notification = buildForegroundNotification(
-                label == null || label.isEmpty() ? "字卡传讯" : label, pendingIntent);
+                label == null || label.isEmpty() ? "𝓚𝓲𝓼𝓶𝓮𝓽" : label, pendingIntent);
 
         // Android 14+ 的 specialUse 类型在个别厂商/系统构建上解析或校验权限时可能抛异常；
         // 不捕获会从 onStartCommand 冒出导致进程闪退。失败时降级为普通 START_STICKY，
@@ -197,7 +197,7 @@ public class ForegroundService extends Service {
 
     /** 更新前台通知文字。 */
     public void updateNotification(String name) {
-        label = (name != null && !name.isEmpty()) ? name : "字卡传讯";
+        label = (name != null && !name.isEmpty()) ? name : "𝓚𝓲𝓼𝓶𝓮𝓽";
         getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .edit().putString(KEY_LABEL, label).apply();
 
@@ -297,7 +297,7 @@ public class ForegroundService extends Service {
                     CHANNEL_ID,
                     "后台运行",
                     NotificationManager.IMPORTANCE_LOW);
-            channel.setDescription("字卡传讯后台保活通知");
+            channel.setDescription("𝓚𝓲𝓼𝓶𝓮𝓽 后台保活通知");
             NotificationManager manager = getSystemService(NotificationManager.class);
             if (manager != null) {
                 manager.createNotificationChannel(channel);
