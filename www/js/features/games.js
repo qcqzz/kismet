@@ -252,7 +252,7 @@
         el.id = 'gs-style';
         el.textContent = [
             // ── 游戏室四宫格 ──
-            '.gr-wrap{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 16px calc(24px + env(safe-area-inset-bottom));box-sizing:border-box;}',
+            '.gr-wrap{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 16px calc(24px + var(--safe-bottom));box-sizing:border-box;}',
             '.gr-sub{text-align:center;font-size:12px;color:var(--ink-3);margin-bottom:16px;letter-spacing:.5px;}',
             '.gr-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}',
             '.gr-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:24px 10px 20px;border-radius:18px;background:var(--card-bg);border:1px solid var(--line);box-shadow:var(--shadow);cursor:pointer;color:var(--ink);font-family:inherit;transition:transform .14s,box-shadow .14s;}',

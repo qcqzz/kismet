@@ -67,7 +67,7 @@ html[data-theme="light"] {
    不参与缩放；真正的内容放在 .home-fit 里，放不下时由 fitHomeToScreen() 整体等比缩小。 */
 .home-scroll {
   flex: 1; overflow: hidden;
-  padding: env(safe-area-inset-top) 0 calc(86px + env(safe-area-inset-bottom));
+  padding: var(--safe-top) 0 calc(86px + var(--safe-bottom));
   display: flex; flex-direction: column;
 }
 
@@ -256,7 +256,7 @@ html[data-theme="light"] {
   /* 顶部不再加额外留白，安全区（刘海/状态栏那一段）必须原样保留，
      再减内容会被系统 UI 遮住。上下内边距压到最紧，头部从 53px 收到 45px
      （返回键 38px 不再缩，保住点击区域）。 */
-  padding: env(safe-area-inset-top) 10px 6px;
+  padding: var(--safe-top) 10px 6px;
   background: var(--card-bg); border-bottom: 1px solid var(--line);
 }
 .wx-back {
@@ -621,7 +621,7 @@ html[data-theme="dark"] .bub-err { color: #ff8a80; border-color: rgba(255, 120, 
 /* ============ 输入区（仿 chat 布局） ============ */
 .input-area-wrapper {
   flex-shrink: 0; background: var(--card-bg); border-top: 1px solid var(--line);
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: var(--safe-bottom);
 }
 
 .input-area {
@@ -769,7 +769,7 @@ html[data-theme="dark"] .bub-err { color: #ff8a80; border-color: rgba(255, 120, 
 .action-sheet {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 91;
   background: var(--card-bg); border-radius: 12px 12px 0 0;
-  padding: 8px 12px calc(12px + env(safe-area-inset-bottom));
+  padding: 8px 12px calc(12px + var(--safe-bottom));
   animation: sheetUp 0.22s ease;
 }
 @keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
@@ -811,7 +811,7 @@ html[data-theme="dark"] .bub-err { color: #ff8a80; border-color: rgba(255, 120, 
 .m-btn-danger { background: var(--badge); color: #fff; }
 
 .toast {
-  position: fixed; top: calc(18px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+  position: fixed; top: calc(18px + var(--safe-top)); left: 50%; transform: translateX(-50%);
   background: rgba(0,0,0,0.78); color: #fff; font-size: 13px;
   padding: 9px 18px; border-radius: 6px; z-index: 200; max-width: 80%; text-align: center;
   animation: toastIn 0.25s ease;
@@ -828,7 +828,7 @@ html[data-theme="dark"] .bub-err { color: #ff8a80; border-color: rgba(255, 120, 
 /* ============ 底部导航（悬浮四格，参照图） ============ */
 .bottom-nav {
   position: fixed; left: 16px; right: 16px;
-  bottom: calc(14px + env(safe-area-inset-bottom));
+  bottom: calc(14px + var(--safe-bottom));
   display: none; z-index: 50;
   justify-content: space-evenly;
   /* 与其它桌面组件同用 --home-card-bg，透明度完全跟着滑块走，不再单设 0.62 下限 */
@@ -863,7 +863,7 @@ body.show-nav .bottom-nav { display: flex; }
 
 /* 带导航时各滚动区留出底部空间 */
 body.show-nav .contact-list,
-body.show-nav .settings-body { padding-bottom: calc(86px + env(safe-area-inset-bottom)); }
+body.show-nav .settings-body { padding-bottom: calc(86px + var(--safe-bottom)); }
 body.show-nav .empty-state { padding-bottom: 70px; }
 
 /* ============ 梦角改版：链接状态小组件 / 双展示栏 / 大方框 / 空态字卡 ============ */
@@ -1031,7 +1031,7 @@ body.show-nav .empty-state { padding-bottom: 70px; }
 /* ============ 信箱（见 letters.js） ============ */
 .letters-body {
   flex: 1; display: flex; flex-direction: column; min-height: 0;
-  padding: calc(10px + env(safe-area-inset-top)) 14px 0;
+  padding: calc(10px + var(--safe-top)) 14px 0;
 }
 .env-people {
   display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px;
@@ -1113,7 +1113,7 @@ body.show-nav .empty-state { padding-bottom: 70px; }
 .env-empty-t { font-size: 14px; margin-top: 10px; color: var(--text-primary); }
 .env-empty-s { font-size: 12px; margin-top: 6px; }
 .env-foot {
-  padding: 8px 2px calc(10px + env(safe-area-inset-bottom));
+  padding: 8px 2px calc(10px + var(--safe-bottom));
   font-size: 11px; color: var(--text-secondary); flex-shrink: 0;
 }
 
@@ -1468,9 +1468,14 @@ body.show-nav .empty-state { padding-bottom: 70px; }
   --radius-sm: 14px;
   --radius-xs: 10px;
   --surface-border: rgba(17, 17, 17, 0.18);
-  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
-  --safe-area-inset-left: env(safe-area-inset-left, 0px);
-  --safe-area-inset-right: env(safe-area-inset-right, 0px);
+  /* 安全区：Capacitor 8 的 SystemBars 会按实际系统栏高度把
+     --safe-area-inset-* 写到 <html> 的内联样式上（WebView 的 env() 在部分
+     机型/版本上为 0，顶栏会被状态栏压住）。浏览器里没有这些内联变量，
+     自动退回 CSS env()。 */
+  --safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --safe-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  --safe-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
 }
 
 /* ── 深色主题（html[data-theme="dark"] 覆盖语义变量 + 组件变量） ── */
@@ -2404,7 +2409,7 @@ html[data-theme="dark"] {
 .moments-scroll {
   flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
   background: var(--secondary-bg);
-  padding-bottom: calc(40px + env(safe-area-inset-bottom));
+  padding-bottom: calc(40px + var(--safe-bottom));
 }
 
 /* ── 顶部自定义背景 ── */
@@ -2428,8 +2433,8 @@ html[data-theme="dark"] {
   background: rgba(0, 0, 0, 0.35); color: #fff; cursor: pointer; z-index: 2;
   display: flex; align-items: center; justify-content: center;
 }
-.m-back { top: calc(12px + env(safe-area-inset-top)); left: 12px; font-size: 15px; }
-.m-post-btn { top: calc(12px + env(safe-area-inset-top)); right: 12px; font-size: 16px; }
+.m-back { top: calc(12px + var(--safe-top)); left: 12px; font-size: 15px; }
+.m-post-btn { top: calc(12px + var(--safe-top)); right: 12px; font-size: 16px; }
 .m-back:active, .m-post-btn:active { background: rgba(0, 0, 0, 0.55); }
 /* 名字垂直居中对齐头像：直接用 flex 的 align-items:center，
    不再靠头像 margin-bottom:-20px / 名字 padding-bottom:20px 这对魔法数字互相凑。
@@ -3014,7 +3019,7 @@ html[data-theme="dark"] {
 .notify-banner {
   position: fixed;
   left: 8px; right: 8px;
-  top: calc(8px + env(safe-area-inset-top));
+  top: calc(8px + var(--safe-top));
   z-index: 9200;
   display: flex; align-items: center; gap: 10px;
   padding: 10px 12px;

@@ -368,6 +368,30 @@ window.addEventListener('resize', fitHomeToScreen);
 window.addEventListener('orientationchange', function () { setTimeout(fitHomeToScreen, 120); });
 window.addEventListener('load', fitHomeToScreen);
 
+// 状态栏 / 导航栏高度变化会改变可用高度（Capacitor 的 SystemBars 把值写在
+// <html> 的内联 --safe-area-inset-* 上）。没有现成事件，这里比对这四个值，
+// 变化了才重算一屏适配，避免主题切变量时反复缩放。
+(function () {
+  function safeSig() {
+    var cs = getComputedStyle(document.documentElement);
+    return [
+      cs.getPropertyValue('--safe-area-inset-top'),
+      cs.getPropertyValue('--safe-area-inset-bottom'),
+      cs.getPropertyValue('--safe-area-inset-left'),
+      cs.getPropertyValue('--safe-area-inset-right')
+    ].join('|');
+  }
+  var lastSig = safeSig();
+  try {
+    new MutationObserver(function () {
+      var sig = safeSig();
+      if (sig === lastSig) return;
+      lastSig = sig;
+      fitHomeToScreen();
+    }).observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
+  } catch (e) {}
+})();
+
 function profileCardHtml() {
   var p = homeProfile;
   return '' +

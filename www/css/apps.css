@@ -182,7 +182,7 @@ html[data-theme="dark"] .p2-ava { border-color: rgba(45, 42, 52, .95); }
 /* ── 全屏次级页通用 ── */
 .app-page {
   flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
-  padding: 12px 16px calc(26px + env(safe-area-inset-bottom));
+  padding: 12px 16px calc(26px + var(--safe-bottom));
   background: var(--bg);
 }
 .app-card {
@@ -241,7 +241,7 @@ html[data-theme="dark"] .p2-ava { border-color: rgba(45, 42, 52, .95); }
 .app-sheet {
   width: 100%; max-width: 520px; max-height: 88vh; overflow-y: auto;
   background: var(--card-bg); border-radius: 22px 22px 0 0;
-  padding: 18px 18px calc(18px + env(safe-area-inset-bottom));
+  padding: 18px 18px calc(18px + var(--safe-bottom));
   animation: appSheetIn .22s ease;
 }
 .app-sheet-title { font-size: 16px; font-weight: 700; color: var(--ink); margin-bottom: 14px; }
@@ -441,7 +441,7 @@ html[data-theme="dark"] {
 .ent-msg-b { max-width: 72%; padding: 8px 11px; border-radius: 12px; background: var(--card-bg); color: var(--ink); font-size: 13px; line-height: 1.45; word-break: break-word; }
 .ent-msg.user .ent-msg-b { background: var(--bubble-user); color: #111; }
 .ent-msg-sys { text-align: center; font-size: 11px; color: var(--ink-3); margin: 8px 0; }
-.ent-chat-bar { display: flex; gap: 8px; padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--card-bg); }
+.ent-chat-bar { display: flex; gap: 8px; padding: 8px 12px calc(8px + var(--safe-bottom)); border-top: 1px solid var(--line); background: var(--card-bg); }
 .ent-chat-input {
   flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--bg);
   border-radius: 999px; padding: 9px 14px; font-size: 13px; color: var(--ink);
