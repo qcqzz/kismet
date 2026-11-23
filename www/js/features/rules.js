@@ -846,6 +846,16 @@ function _rlBindListEvents(body, rerender, ctx) {
   }
 }
 
+// 回复等待时间的显示：1 分钟以内按秒，超过按分钟
+function _rlFmtDelay(ms) {
+  var sec = Number(ms) / 1000;
+  if (sec >= 60) {
+    var min = sec / 60;
+    return (min % 1 === 0 ? min.toFixed(0) : min.toFixed(1)) + '分钟';
+  }
+  return sec.toFixed(1) + 's';
+}
+
 // ---------- 二级子页：回复设置（chat 功能 + 节奏，去除真实语音） ----------
 function renderReplySettings() {
   _settingsSub = 'reply';
@@ -884,12 +894,12 @@ function renderReplySettings() {
     sGroup('回复速度', [
       '<div class="set-row slider-row"><span class="row-ico"><i class="fas fa-bolt"></i></span>' +
         '<span class="row-txt"><span class="row-label">最短等待</span></span>' +
-        '<input type="range" min="1000" max="30000" step="500" value="' + settings.replyDelayMin + '" id="dly-min">' +
-        '<span class="slider-val" id="dly-min-val">' + (settings.replyDelayMin / 1000).toFixed(1) + 's</span></div>',
+        '<input type="range" min="1000" max="900000" step="1000" value="' + settings.replyDelayMin + '" id="dly-min">' +
+        '<span class="slider-val" id="dly-min-val">' + _rlFmtDelay(settings.replyDelayMin) + '</span></div>',
       '<div class="set-row slider-row"><span class="row-ico"><i class="fas fa-tachometer-alt"></i></span>' +
         '<span class="row-txt"><span class="row-label">最长等待</span></span>' +
-        '<input type="range" min="1000" max="60000" step="500" value="' + settings.replyDelayMax + '" id="dly-max">' +
-        '<span class="slider-val" id="dly-max-val">' + (settings.replyDelayMax / 1000).toFixed(1) + 's</span></div>'
+        '<input type="range" min="1000" max="1800000" step="1000" value="' + settings.replyDelayMax + '" id="dly-max">' +
+        '<span class="slider-val" id="dly-max-val">' + _rlFmtDelay(settings.replyDelayMax) + '</span></div>'
     ].join('')) +
 
     sGroup('主动发送', [
@@ -1473,8 +1483,8 @@ function bindReplySettingsEvents() {
       }
       settings.replyDelayMin = mn;
       settings.replyDelayMax = mx;
-      body.querySelector('#dly-min-val').textContent = (mn / 1000).toFixed(1) + 's';
-      body.querySelector('#dly-max-val').textContent = (mx / 1000).toFixed(1) + 's';
+      body.querySelector('#dly-min-val').textContent = _rlFmtDelay(mn);
+      body.querySelector('#dly-max-val').textContent = _rlFmtDelay(mx);
       saveData();
     };
     dMin.addEventListener('input', function () { syncDelay('min'); });
