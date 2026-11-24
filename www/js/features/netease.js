@@ -31,6 +31,10 @@
 
   function base() { return global.__NETEASE_BASE__ || 'https://music.163.com'; }
 
+  function delay(ms) {
+    return new Promise(function (resolve) { setTimeout(resolve, ms); });
+  }
+
   // ---------- 原生请求 ----------
   function nativeHttp() {
     try {
@@ -85,7 +89,11 @@
 
   function cookieValue(name) { return _cookies[name] || ''; }
 
-  function httpPost(path, body) {
+  // 只要拿到 MUSIC_U 就说明账号已经登上了，昵称头像属于「资料」，可以慢慢补
+  function loggedIn() { return !!_cookies.MUSIC_U; }
+
+  // ---------- 请求 ----------
+  function httpRequest(method, path, body) {
     var b = base();
     var headers = {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -98,13 +106,16 @@
 
     var ch = nativeHttp();
     if (ch) {
-      return Promise.resolve(ch.post({
+      var opts = {
         url: b + path,
         headers: headers,
-        data: body,
         connectTimeout: 15000,
         readTimeout: 15000
-      })).then(function (res) {
+      };
+      if (body != null) opts.data = body;
+      var fn = method === 'GET' ? ch.get : ch.post;
+      if (typeof fn !== 'function') { opts.method = method; fn = ch.request; }
+      return Promise.resolve(fn.call(ch, opts)).then(function (res) {
         absorbCookies(headerGet(res && res.headers, 'set-cookie'));
         var data = res && res.data;
         if (typeof data === 'string') {
@@ -116,9 +127,12 @@
 
     // 浏览器预览：仅用于开发期验证协议，登录态拿不到
     if (!global.__NETEASE_ALLOW_WEB__) return Promise.reject(new Error('native only'));
-    return fetch(b + path, { method: 'POST', headers: headers, body: body, credentials: 'omit' })
-      .then(function (r) { return r.json(); });
+    var init = { method: method, headers: headers, credentials: 'omit' };
+    if (body != null) init.body = body;
+    return fetch(b + path, init).then(function (r) { return r.json(); });
   }
+
+  function httpPost(path, body) { return httpRequest('POST', path, body); }
 
   // ---------- weapi 加密 ----------
   var SECRET_CHARS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -179,7 +193,14 @@
 
   function api(path, data) {
     var csrf = cookieValue('__csrf') || '';
-    return weapiBody(data || {}).then(function (body) {
+    var payload = {};
+    var src = data || {};
+    for (var k in src) {
+      if (Object.prototype.hasOwnProperty.call(src, k)) payload[k] = src[k];
+    }
+    // csrf_token 要放进加密后的 body，放 query 网易云读不到，会被当成没有校验令牌
+    if (csrf) payload.csrf_token = csrf;
+    return weapiBody(payload).then(function (body) {
       var sep = path.indexOf('?') >= 0 ? '&' : '?';
       return httpPost(path + sep + 'csrf_token=' + encodeURIComponent(csrf), body);
     });
@@ -196,8 +217,17 @@
     });
   }
 
-  function pollQr(key) {
+  // 个别接口会把 cookie 一并塞进响应体
+  function absorbCookieField(d) {
+    if (!d || typeof d !== 'object') return;
+    var raw = d.cookie || d.cookies || '';
+    if (typeof raw === 'string' && raw) absorbCookies(raw);
+    if (Array.isArray(raw)) absorbCookies(raw);
+  }
+
+  function pollQrOnce(key) {
     return api('/weapi/login/qrcode/client/login', { key: key, type: 1 }).then(function (d) {
+      absorbCookieField(d);
       var code = d && d.code;
       if (code === 803) return 'ok';
       if (code === 802) return 'scanned';
@@ -206,19 +236,110 @@
     });
   }
 
-  function fetchProfile() {
-    return api('/weapi/w/nuser/account/get', {}).then(function (d) {
-      var p = (d && (d.profile || (d.account && d.account.profile))) || null;
+  function pollQr(key) {
+    return pollQrOnce(key).then(function (st) {
+      // 803 之后再补一次，有的账号 MUSIC_U 会晚一拍才下发
+      if (st === 'ok' && !loggedIn()) {
+        return delay(600).then(function () {
+          return pollQrOnce(key).then(function () { return 'ok'; }, function () { return 'ok'; });
+        });
+      }
+      return st;
+    });
+  }
+
+  // ---------- 账号资料 ----------
+  function saveAcc(acc) {
+    if (!acc) return null;
+    // 昵称/头像拿不到时别把上一条可用资料冲掉
+    if (!acc.nickname && _acc && _acc.nickname) acc.nickname = _acc.nickname;
+    if (!acc.avatar && _acc && _acc.avatar) acc.avatar = _acc.avatar;
+    if (!acc.userId && _acc && _acc.userId) acc.userId = _acc.userId;
+    _acc = acc;
+    Storage.set(KEY_ACC, _acc);
+    return _acc;
+  }
+
+  function accFrom(d) {
+    if (!d || typeof d !== 'object') return null;
+    var p = d.profile || (d.account && d.account.profile) || null;
+    if (!p) return null;
+    return {
+      nickname: p.nickname || '',
+      avatar: p.avatarUrl || p.avatar || '',
+      userId: p.userId || (d.account && d.account.id) || '',
+      vipType: p.vipType || 0
+    };
+  }
+
+  function userDetail(id) {
+    if (!id) return Promise.resolve(null);
+    return httpRequest('GET', '/api/v1/user/detail/' + encodeURIComponent(id)).then(function (d) {
+      var p = d && d.profile;
       if (!p) return null;
-      _acc = {
+      return saveAcc({
         nickname: p.nickname || '',
         avatar: p.avatarUrl || '',
-        userId: p.userId || '',
+        userId: p.userId || id,
         vipType: p.vipType || 0
-      };
-      Storage.set(KEY_ACC, _acc);
-      return _acc;
+      });
+    }).catch(function () { return null; });
+  }
+
+  // 明文接口：不做 weapi 加密和 csrf 校验，作为加密接口的兜底
+  function fetchProfilePlain() {
+    return httpRequest('GET', '/api/nuser/account/get').then(function (d) {
+      var acc = accFrom(d);
+      if (acc && acc.nickname) return saveAcc(acc);
+      var id = (acc && acc.userId) || (d && d.account && d.account.id);
+      if (id) {
+        return userDetail(id).then(function (full) { return full || (acc ? saveAcc(acc) : null); });
+      }
+      return acc ? saveAcc(acc) : null;
+    }).catch(function () { return null; });
+  }
+
+  function fetchProfile() {
+    return api('/weapi/w/nuser/account/get', {}).then(function (d) {
+      var acc = accFrom(d);
+      if (acc) return saveAcc(acc);
+      return fetchProfilePlain();
+    }).catch(function () { return fetchProfilePlain(); });
+  }
+
+  // 刚登录时资料接口偶尔要等一会儿才认这个 session，失败就隔一会儿再试
+  var _syncing = null;
+  var _profileStale = false;
+  function syncProfile(tries) {
+    if (_syncing) return _syncing;
+    if (!loggedIn()) return Promise.resolve(null);
+    var left = typeof tries === 'number' ? tries : 3;
+    function attempt(n) {
+      return fetchProfile().then(function (acc) {
+        if (acc) return acc;
+        if (n <= 1 || !loggedIn()) return null;
+        return delay(1200).then(function () { return attempt(n - 1); });
+      });
+    }
+    _syncing = attempt(left).then(function (acc) {
+      _syncing = null;
+      _profileStale = !acc && loggedIn();
+      return acc;
+    }, function () {
+      _syncing = null;
+      _profileStale = loggedIn();
+      return null;
     });
+    return _syncing;
+  }
+
+  function profileStale() { return _profileStale; }
+
+  // 已经登录但还没昵称头像时，静默补一次资料
+  function warmProfile() {
+    if (!loggedIn()) return Promise.resolve(null);
+    if (_acc && _acc.nickname) return Promise.resolve(_acc);
+    return syncProfile(1);
   }
 
   function logout() {
@@ -267,10 +388,14 @@
   global.NeteaseAccount = {
     available: available,
     account: function () { return _acc; },
+    loggedIn: loggedIn,
     cookie: function () { return cookieHeader(); },
     startQr: startQr,
     pollQr: pollQr,
     fetchProfile: fetchProfile,
+    syncProfile: syncProfile,
+    warmProfile: warmProfile,
+    profileStale: profileStale,
     logout: logout,
     songUrl: songUrl,
     qrSvg: qrSvg

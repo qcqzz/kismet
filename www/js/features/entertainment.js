@@ -632,7 +632,8 @@
     }
     // 登录了网易云账号就先走账号接口，能播会员歌，音质也更高
     var N = window.NeteaseAccount;
-    if (N && N.cookie && N.cookie()) {
+    var nmLogged = !!(N && ((N.loggedIn && N.loggedIn()) || (N.cookie && N.cookie())));
+    if (nmLogged) {
       return N.songUrl(id).catch(function () { return ''; }).then(function (u) {
         if (u) { _nmCache[id] = { url: u, ts: Date.now() }; return u; }
         return ask(1);
@@ -1160,14 +1161,20 @@
     var N = window.NeteaseAccount;
     var acc = N ? N.account() : null;
     var usable = !!(N && N.available());
+    var hasName = !!(acc && acc.nickname);
+    // 登录态以 MUSIC_U 为准：拿到 cookie 就算登录成功，昵称头像只是资料，可以稍后补
+    var logged = !!(N && ((N.loggedIn && N.loggedIn()) || acc));
     var av = acc && acc.avatar
       ? '<img class="nm-acc-av" src="' + esc(acc.avatar) + '" alt="" referrerpolicy="no-referrer">'
       : '<span class="nm-acc-av nm-acc-av--ph"><i class="fas fa-music"></i></span>';
-    var name = acc ? (acc.nickname || '网易云用户') : '未登录';
-    var sub = acc
-      ? (usable ? (acc.vipType ? '会员账号，会员歌曲可直接播放' : '已登录，会员歌曲取决于账号权益') : '登录仅在 APP 内生效')
-      : (usable ? '登录后可播放会员歌曲' : '登录仅支持在 APP 内使用');
-    var btn = acc
+    var name = logged ? (hasName ? acc.nickname : '网易云用户') : '未登录';
+    var sub;
+    if (!logged) sub = usable ? '登录后可播放会员歌曲' : '登录仅支持在 APP 内使用';
+    else if (!usable) sub = '登录仅在 APP 内生效';
+    else if (hasName) sub = acc.vipType ? '会员账号，会员歌曲可直接播放' : '已登录，会员歌曲取决于账号权益';
+    else if (N && N.profileStale && N.profileStale()) sub = '已登录，账号资料暂未同步';
+    else sub = '已登录，正在同步账号资料…';
+    var btn = logged
       ? '<button class="app-btn sm" data-mp="nmLogout">退出</button>'
       : '<button class="app-btn sm' + (usable ? ' primary' : '') + '" data-mp="nmLogin"' + (usable ? '' : ' disabled') + '>扫码登录</button>';
     return '<div class="nm-acc-row">' +
@@ -1244,16 +1251,18 @@
             }
             if (st === 'ok') {
               stop();
-              tipEl.textContent = '登录成功';
-              N.fetchProfile().then(function (acc) {
+              tipEl.textContent = '登录成功，正在同步资料…';
+              N.syncProfile(4).then(function (acc) {
+                var logged = !!(acc || (N.loggedIn && N.loggedIn()));
                 close();
                 refreshNmAccount();
-                if (acc) toastMsg(acc.nickname ? '已登录：' + acc.nickname : '网易云登录成功');
-                else toastMsg('登录状态获取失败，请重试');
+                if (acc && acc.nickname) toastMsg('已登录：' + acc.nickname);
+                else if (logged) toastMsg('已登录，账号资料稍后自动同步');
+                else toastMsg('登录未完成，请重新扫码');
               }).catch(function () {
                 close();
                 refreshNmAccount();
-                toastMsg('登录状态获取失败，请重试');
+                toastMsg('登录未完成，请重新扫码');
               });
             }
           }).catch(function () {});
@@ -1330,6 +1339,12 @@
       '<div class="app-actions"><button class="app-btn primary" data-mp="close">完成</button></div>';
 
     openSheet('播放器自定义', html, function (wrap) {
+      // 打开面板时顺手把没同步到的账号资料补一次
+      if (window.NeteaseAccount && NeteaseAccount.warmProfile) {
+        NeteaseAccount.warmProfile().then(function (acc) {
+          refreshNmAccount();
+        }).catch(function () {});
+      }
       var prev = wrap.querySelector('#mp-vinyl-preview');
       function setPreview(url) {
         if (!prev) return;
