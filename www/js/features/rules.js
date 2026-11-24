@@ -401,6 +401,7 @@ function _rlToolbarHtml(ctx) {
   var batchBar = _rlBatchMode
     ? '<div class="rl-batch-bar">' +
         '<span class="rl-batch-count">已选 ' + _rlBatchSelected.length + ' 条</span>' +
+        '<button class="rl-tool-btn" data-batch="group"><i class="fas fa-folder-plus"></i> 批量分组</button>' +
         '<button class="rl-tool-btn danger" data-batch="disable"><i class="fas fa-eye-slash"></i> 批量屏蔽</button>' +
         '<button class="rl-tool-btn danger" data-batch="delete"><i class="fas fa-trash-alt"></i> 批量删除</button>' +
         '<button class="rl-tool-btn" data-batch="cancel">取消</button>' +
@@ -529,6 +530,60 @@ function _rlOpenItemGroupPicker(item, ctx, rerender) {
     saveData(); rerender();
     toast('已更新分组');
   });
+}
+
+// 批量分组：把选中的所有字卡移到同一分组（或取消分组）
+function _rlBatchGroup(ctx, rerender) {
+  var count = _rlBatchSelected.length;
+  if (!count) { toast('请先选择字卡'); return; }
+  var items = [{ label: '未分组', act: 'grp_none' }];
+  ctx.groups.forEach(function (g) {
+    items.push({
+      label: '<span class="rl-dot" style="background:' + g.color + ';"></span> ' + escapeHtml(g.name),
+      act: 'grp_' + g.id
+    });
+  });
+  items.push({ label: '＋ 新建分组…', act: 'grp_new' });
+  items.push({ label: '取消', act: 'cancel', cancel: true });
+  showSheet('批量分组（已选 ' + count + ' 条）', items, function (act) {
+    if (act === 'cancel') return;
+    if (act === 'grp_new') {
+      promptModal('新建分组', '分组名', '', function (name) {
+        name = (name || '').trim();
+        if (!name) return;
+        var color = RL_GROUP_COLORS[Math.floor(Math.random() * RL_GROUP_COLORS.length)];
+        var group = { id: 'rg-' + Date.now(), name: name, color: color, items: [] };
+        ctx.groups.push(group);
+        _rlApplyBatchGroup(ctx, group, rerender);
+      });
+      return;
+    }
+    var group = null;
+    if (act !== 'grp_none') {
+      var gid = act.slice(4);
+      group = ctx.groups.filter(function (g) { return String(g.id) === String(gid); })[0] || null;
+    }
+    _rlApplyBatchGroup(ctx, group, rerender);
+  });
+}
+
+// 逐条从所有分组里摘出，再放进目标分组，保证一条字卡最多属于一个分组
+function _rlApplyBatchGroup(ctx, group, rerender) {
+  var sel = _rlBatchSelected.slice();
+  if (!sel.length) return;
+  sel.forEach(function (t) {
+    ctx.groups.forEach(function (g) {
+      if (g.items) g.items = g.items.filter(function (x) { return x !== t; });
+    });
+    if (group) {
+      if (!group.items) group.items = [];
+      group.items.push(t);
+    }
+  });
+  _rlBatchSelected = [];
+  _rlBatchMode = false;
+  saveData(); rerender();
+  toast(group ? '已把 ' + sel.length + ' 条移到「' + group.name + '」' : '已取消 ' + sel.length + ' 条的分组');
 }
 
 // ---- 分组管理 ----
@@ -819,6 +874,8 @@ function _rlBindListEvents(body, rerender, ctx) {
           _rlBatchMode = false;
           saveData(); rerender();
         }, { danger: true });
+      } else if (act === 'group') {
+        _rlBatchGroup(ctx, rerender);
       }
     });
   });
