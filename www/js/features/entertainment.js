@@ -26,6 +26,8 @@
   var _lastPosSave = 0;
   var _vinylUrl = null;
   var _playSeq = 0;
+  var _tryId = null;   // 正在尝试播放的歌曲：失败时「下一首」也能越过它继续往后走
+  var _audioTimer = null;
 
   // ---------- 工具 ----------
   function esc(s) {
@@ -324,6 +326,7 @@
     return wrap;
   }
   function toastMsg(t) { if (typeof toast === 'function') toast(t); }
+  function toastMsgLong(t) { if (typeof toast === 'function') toast(t, 3400); else toastMsg(t); }
 
   function invNego(kind, cid) {
     try {
@@ -617,6 +620,7 @@
   }
 
   function stopAudio() {
+    if (_audioTimer) { clearTimeout(_audioTimer); _audioTimer = null; }
     if (_audio) {
       _audio.pause();
       _audio.onended = null;
@@ -642,13 +646,36 @@
   function startAudio(src, song, blobUrl, onFail) {
     _audioUrl = blobUrl || null;
     _audio = new Audio(src);
+    var self = _audio;
     _audioSongId = song.id;
-    var c = currentContact();
-    if (c) { stateFor(c.id).music.currentId = song.id; save(); }
-    _audio.play().catch(function () { if (onFail) onFail(); });
+    // 只有真正开始出声才把「当前歌曲」写进去：
+    // 解析失败 / 会员歌 / 网络错误时，标题不会先跳过去再卡成一个没声音的歌。
+    var started = false;
+    function clearTimer() { if (_audioTimer) { clearTimeout(_audioTimer); _audioTimer = null; } }
+    clearTimer();
+    _audio.onplaying = function () {
+      if (started) return;
+      started = true;
+      clearTimer();
+      var c = currentContact();
+      if (c) { stateFor(c.id).music.currentId = song.id; save(); }
+      _tryId = null;
+      syncMusicUI();
+    };
     _audio.ontimeupdate = updateProgress;
     _audio.onended = function () { onTrackEnded(); };
-    if (onFail) _audio.onerror = function () { onFail(); };
+    if (onFail) _audio.onerror = function () { clearTimer(); onFail(); };
+    var p = _audio.play();
+    if (p && p.catch) p.catch(function () { if (!started && onFail) { clearTimer(); onFail(); } });
+    // 有的镜像会一直挂着不报错，兜一个超时，避免卡住不切下一首
+    if (onFail) {
+      _audioTimer = setTimeout(function () {
+        _audioTimer = null;
+        if (started || _audio !== self) return;
+        try { self.pause(); } catch (e) {}
+        onFail();
+      }, 10000);
+    }
     bindProgressBar();
     syncMusicUI();
   }
@@ -656,8 +683,10 @@
   // 网易云歌曲：先向解析接口要一条新鲜的直链，失败再依次试镜像端点
   function nmMirrorUrls(song) {
     var id = song.neteaseId;
-    if (!id) return song.url ? [song.url] : [];
-    return NM_URL_APIS.map(function (base) { return base + encodeURIComponent(id); });
+    var arr = [];
+    if (id) arr = NM_URL_APIS.map(function (base) { return base + encodeURIComponent(id); });
+    if (song.url && arr.indexOf(song.url) < 0) arr.push(song.url);
+    return arr;
   }
 
   var _nmCache = {};
@@ -667,32 +696,42 @@
     var id = song.neteaseId;
     var hit = _nmCache[id];
     if (hit && Date.now() - hit.ts < 10 * 60 * 1000) return Promise.resolve(hit.url);
-    function ask(round) {
+    function ask(br, round) {
       var url = 'https://music-api.gdstudio.xyz/api.php?types=url&source=netease&id=' +
-        encodeURIComponent(id) + '&br=320&r=' + Math.random();
+        encodeURIComponent(id) + '&br=' + br + '&r=' + Math.random();
       return nmJson(url).then(function (d) {
-        var u = (d && typeof d.url === 'string' && /^https?:/i.test(d.url)) ? d.url : '';
-        if (u) _nmCache[id] = { url: u, ts: Date.now() };
-        return u;
+        return (d && typeof d.url === 'string' && /^https?:/i.test(d.url)) ? d.url : '';
       }).catch(function () {
-        return round > 0 ? ask(round - 1) : '';
+        return round > 0 ? ask(br, round - 1) : '';
       });
+    }
+    function remember(u) {
+      if (u) _nmCache[id] = { url: u, ts: Date.now() };
+      return u;
     }
     // 登录了网易云账号就先走账号接口，能播会员歌，音质也更高
     var N = window.NeteaseAccount;
     var nmLogged = !!(N && ((N.loggedIn && N.loggedIn()) || (N.cookie && N.cookie())));
-    if (nmLogged) {
-      return N.songUrl(id).catch(function () { return ''; }).then(function (u) {
-        if (u) { _nmCache[id] = { url: u, ts: Date.now() }; return u; }
-        return ask(1);
-      });
-    }
-    return ask(1);
+    var fromAccount = nmLogged
+      ? N.songUrl(id).catch(function () { return ''; })
+      : Promise.resolve('');
+    return fromAccount.then(function (u) {
+      if (u) return remember(u);
+      // 320 拿不到就退 128，两档都重试一次，尽量避开接口偶发 503
+      return ask(320, 1).then(function (u2) {
+        return u2 || ask(128, 0);
+      }).then(remember);
+    });
   }
 
   function playSourceAt(song, list, idx, seq) {
     if (seq !== _playSeq) return;
-    if (idx >= list.length) { toastMsg('这首歌暂时播不了，可能需要会员'); return; }
+    if (idx >= list.length) {
+      stopAudio();
+      syncMusicUI();
+      toastMsgLong('「' + song.name + '」暂时播不了（可能是会员歌），登录网易云或换一首试试');
+      return;
+    }
     stopAudio();
     var advanced = false;
     var next = function () {
@@ -706,7 +745,9 @@
   function playRemote(song, seq) {
     nmResolveDirect(song).then(function (direct) {
       if (seq !== _playSeq) return;
-      var list = direct ? [direct].concat(nmMirrorUrls(song)) : nmMirrorUrls(song);
+      var list = [];
+      if (direct) list.push(direct);
+      nmMirrorUrls(song).forEach(function (u) { if (u && list.indexOf(u) < 0) list.push(u); });
       playSourceAt(song, list, 0, seq);
     });
   }
@@ -718,8 +759,13 @@
     var m = st.music;
     var song = m.songs.find(function (s) { return s.id === id; }) || currentSong(m);
     if (!song) { toastMsg('先添加一首歌'); return; }
-    if (_audio && _audioSongId === song.id && !_audio.paused) { _audio.pause(); syncMusicUI(); return; }
-    if (_audio && _audioSongId === song.id && _audio.paused) { _audio.play().catch(function () {}); syncMusicUI(); return; }
+    _tryId = { cid: c.id, id: song.id };
+    if (_audio && _audioSongId === song.id && !_audio.error) {
+      if (!_audio.paused) { _audio.pause(); syncMusicUI(); return; }
+      _audio.play().catch(function () {});
+      syncMusicUI();
+      return;
+    }
 
     var seq = ++_playSeq;
     stopAudio();
@@ -739,15 +785,16 @@
     if (!c) return;
     var m = stateFor(c.id).music;
     if (!m.songs.length) return;
+    var baseId = (_tryId && _tryId.cid === c.id) ? _tryId.id : m.currentId;
     var pc = playerConf(c.id);
     if (pc.mode === 'shuffle' && (dir || 1) > 0) {
       if (m.songs.length === 1) { playSong(m.songs[0].id); return; }
-      var pool = m.songs.filter(function (s) { return s.id !== m.currentId; });
+      var pool = m.songs.filter(function (s) { return s.id !== baseId; });
       var pick = pool[Math.floor(Math.random() * pool.length)] || m.songs[0];
       playSong(pick.id);
       return;
     }
-    var idx = m.songs.findIndex(function (s) { return s.id === m.currentId; });
+    var idx = m.songs.findIndex(function (s) { return s.id === baseId; });
     if (idx < 0) idx = 0;
     var next = m.songs[(idx + (dir || 1) + m.songs.length) % m.songs.length];
     playSong(next.id);
@@ -1584,7 +1631,7 @@
         if (!cm) return;
         var song = currentSong(stateFor(cm.id).music);
         if (!song) { toastMsg('先添加一首歌'); return; }
-        if (_audio && _audioSongId === song.id) {
+        if (_audio && _audioSongId === song.id && !_audio.error) {
           if (_audio.paused) _audio.play().catch(function () {}); else _audio.pause();
           syncMusicUI();
         } else playSong(song.id);
