@@ -439,7 +439,7 @@ html[data-theme="dark"] {
 .ent-msg-av { width: 26px; height: 26px; border-radius: 50%; overflow: hidden; flex-shrink: 0; background: var(--line); }
 .ent-msg-av img { width: 100%; height: 100%; object-fit: cover; }
 .ent-msg-b { max-width: 72%; padding: 8px 11px; border-radius: 12px; background: var(--card-bg); color: var(--ink); font-size: 13px; line-height: 1.45; word-break: break-word; }
-.ent-msg.user .ent-msg-b { background: var(--bubble-user); color: #111; }
+.ent-msg.user .ent-msg-b { background: var(--bubble-user); color: var(--bubble-user-ink, var(--ink)); }
 .ent-msg-sys { text-align: center; font-size: 11px; color: var(--ink-3); margin: 8px 0; }
 .ent-chat-bar { display: flex; gap: 8px; padding: 8px 12px calc(8px + var(--safe-bottom)); border-top: 1px solid var(--line); background: var(--card-bg); }
 .ent-chat-input {
@@ -468,8 +468,8 @@ html[data-theme="dark"] {
 }
 .mh-vinyl.playing { animation: mhSpin 6s linear infinite; }
 .mh-vinyl::after {
-  content: ''; width: 42px; height: 42px; border-radius: 50%;
-  background: linear-gradient(145deg, #e6c489, #a8752f);
+  content: ''; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--mh-vinyl-dot, #bf9a63);
 }
 @keyframes mhSpin { to { transform: rotate(360deg); } }
 .mh-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
@@ -556,7 +556,7 @@ html[data-theme="dark"] {
 .mp-vinyl-preview::after {
   content: ''; position: absolute; left: 50%; top: 50%; width: 22px; height: 22px;
   margin: -11px 0 0 -11px; border-radius: 50%;
-  background: linear-gradient(145deg, #e6c489, #a8752f);
+  background: var(--mh-vinyl-dot, #bf9a63);
 }
 .mp-swatches { display: flex; flex-wrap: wrap; gap: 9px; margin-bottom: 10px; }
 .mp-swatch {

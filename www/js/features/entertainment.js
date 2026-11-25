@@ -123,13 +123,14 @@
 
   // ---------- 音乐厅播放器自定义 ----------
   var MP_SWATCHES = ['#e87f7c', '#ffb36b', '#a8e6cf', '#7fc8f8', '#c5b8e6', '#f9c6d0', '#8ed1c0', '#f6c177', '#b39ddb', '#bf9a63', '#5f8fc9'];
-  var MP_VAR = { hb: '--mh-hb-c', prog: '--mh-prog-c', ctrl: '--mh-ctrl-c' };
+  var MP_VAR = { hb: '--mh-hb-c', prog: '--mh-prog-c', ctrl: '--mh-ctrl-c', dot: '--mh-vinyl-dot' };
   var HB_PATH = 'M0,82 L16,82 L18,82 L26,40 L34,124 L42,48 L50,84 L58,82 L98,82 L104,40 L110,124 L116,44 L124,84 L132,82 L170,82 L176,38 L182,124 L190,40 L198,84 L206,82 L246,82 L252,38 L258,124 L264,48 L272,84 L280,82 L320,82 L326,40 L332,124 L338,50 L346,84 L354,82 L372,82';
 
   // 播放框是浅色底，默认线条用同色系深一档，保证看得清
   var MP_DEF_HB = '#e87f7c';
   var MP_DEF_PROG = '#bf9a63';
   var MP_DEF_CTRL = '#5f8fc9';
+  var MP_DEF_DOT = '#bf9a63';
 
   function playerConf(cid) {
     var m = stateFor(cid).music;
@@ -140,6 +141,7 @@
     if (!pc.hbColor || pc.hbColor === '#ff9f9d') pc.hbColor = MP_DEF_HB;
     if (!pc.progColor || pc.progColor === '#c5a47e' || pc.progColor === '#f0dcc0') pc.progColor = MP_DEF_PROG;
     if (!pc.ctrlColor || pc.ctrlColor === '#7a9cc6' || pc.ctrlColor === '#cfe3f7') pc.ctrlColor = MP_DEF_CTRL;
+    if (!/^#[0-9a-fA-F]{6}$/.test(String(pc.vinylDotColor || ''))) pc.vinylDotColor = MP_DEF_DOT;
     if (['standard', 'rounded', 'rounded-large', 'square'].indexOf(pc.bubbleStyle) < 0) pc.bubbleStyle = 'standard';
     if (typeof pc.customCss !== 'string') pc.customCss = '';
     return pc;
@@ -161,6 +163,49 @@
     var withWhite = 1.05 / (lum + 0.05);
     var withBlack = (lum + 0.05) / 0.05;
     return withBlack >= withWhite ? '#111' : '#fff';
+  }
+
+  // 气泡底色可能被主题、自定义颜色或手写 CSS 改成任意颜色，文字颜色跟不上就会看不见。
+  // 渲染完按实际底色算一次对比度，只有真的看不清时才把文字换成白/黑。
+  function parseColor(str) {
+    var m = /^rgba?\(([^)]+)\)$/.exec(String(str || '').replace(/\s+/g, ''));
+    if (!m) return null;
+    var p = m[1].split(',');
+    var out = {
+      r: parseFloat(p[0]), g: parseFloat(p[1]), b: parseFloat(p[2]),
+      a: p.length > 3 ? parseFloat(p[3]) : 1
+    };
+    if (isNaN(out.r) || isNaN(out.g) || isNaN(out.b)) return null;
+    if (isNaN(out.a)) out.a = 1;
+    return out;
+  }
+
+  function relLum(c) {
+    function ch(v) {
+      v = v / 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    }
+    return 0.2126 * ch(c.r) + 0.7152 * ch(c.g) + 0.0722 * ch(c.b);
+  }
+
+  function entBubbleInk(list) {
+    if (!list) return;
+    var bubbles = list.querySelectorAll('.ent-msg-b');
+    for (var i = 0; i < bubbles.length; i++) {
+      var el = bubbles[i];
+      // 先清掉上次的判定结果，再按样式表算出来的真实底色重新判断
+      el.style.removeProperty('color');
+      var cs = getComputedStyle(el);
+      var fg = parseColor(cs.color);
+      var bg = parseColor(cs.backgroundColor);
+      if (!fg || !bg || bg.a < 1) continue;
+      var lumBg = relLum(bg);
+      var lumFg = relLum(fg);
+      var hi = Math.max(lumBg, lumFg) + 0.05;
+      var lo = Math.min(lumBg, lumFg) + 0.05;
+      if (hi / lo >= 3) continue;
+      el.style.color = lumBg > 0.5 ? '#111111' : '#ffffff';
+    }
   }
 
   function mountVinylArt(cid) {
@@ -185,12 +230,15 @@
     var old = document.getElementById('ent-mh-user-css');
     if (old) old.remove();
     css = String(css || '').trim();
-    if (!css) return;
-    var el = document.createElement('style');
-    el.id = 'ent-mh-user-css';
-    el.setAttribute('type', 'text/css');
-    el.textContent = '@scope (#ent-panel-music) {\n' + css + '\n}';
-    document.head.appendChild(el);
+    if (css) {
+      var el = document.createElement('style');
+      el.id = 'ent-mh-user-css';
+      el.setAttribute('type', 'text/css');
+      el.textContent = '@scope (#ent-panel-music) {\n' + css + '\n}';
+      document.head.appendChild(el);
+    }
+    // 手写 CSS 可能把气泡改成深色，重新按实际底色校正文字颜色
+    entBubbleInk(document.getElementById('ent-chat-list-music'));
   }
 
   function currentContact() {
@@ -471,7 +519,7 @@
     var ing = invNego('music', c.id);
     var html = '<div class="ent-scroll" id="music-scroll">';
 
-    html += '<div class="mh-card" id="mh-card" style="--mh-hb-c:' + esc(pc.hbColor) + ';--mh-prog-c:' + esc(pc.progColor) + ';--mh-ctrl-c:' + esc(pc.ctrlColor) + ';--mh-ctrl-ink:' + esc(inkFor(pc.ctrlColor)) + '">' +
+    html += '<div class="mh-card" id="mh-card" style="--mh-hb-c:' + esc(pc.hbColor) + ';--mh-prog-c:' + esc(pc.progColor) + ';--mh-ctrl-c:' + esc(pc.ctrlColor) + ';--mh-ctrl-ink:' + esc(inkFor(pc.ctrlColor)) + ';--mh-vinyl-dot:' + esc(pc.vinylDotColor) + '">' +
       '<button class="mh-set-btn" data-act="musicSettings" title="播放器自定义"><i class="fas fa-sliders-h"></i></button>' +
       '<div class="mh-top">' +
         '<div class="mh-vinyl-wrap">' +
@@ -976,6 +1024,7 @@
         '<div class="ent-msg-b bubble-' + esc(bs) + '">' + esc(m.text) + '</div>' +
       '</div>';
     }).join('');
+    entBubbleInk(list);
   }
   function scrollChat(kind) {
     var list = document.getElementById('ent-chat-list-' + kind);
@@ -1321,6 +1370,7 @@
       '<div class="mp-section"><div class="mp-section-title">心跳线颜色</div>' + mpSwatches('hb', pc.hbColor) + '</div>' +
       '<div class="mp-section"><div class="mp-section-title">播放进度线颜色</div>' + mpSwatches('prog', pc.progColor) + '</div>' +
       '<div class="mp-section"><div class="mp-section-title">控制按钮颜色</div>' + mpSwatches('ctrl', pc.ctrlColor) + '</div>' +
+      '<div class="mp-section"><div class="mp-section-title">唱片圆心颜色</div>' + mpSwatches('dot', pc.vinylDotColor) + '</div>' +
 
       '<div class="mp-section"><div class="mp-section-title">气泡样式</div><div class="mp-mode-row">' +
         bubbleOpts.map(function (o) {
@@ -1346,6 +1396,7 @@
         }).catch(function () {});
       }
       var prev = wrap.querySelector('#mp-vinyl-preview');
+      if (prev) prev.style.setProperty('--mh-vinyl-dot', pc.vinylDotColor);
       function setPreview(url) {
         if (!prev) return;
         prev.style.backgroundImage = url ? 'url("' + url + '")' : '';
@@ -1377,13 +1428,16 @@
       });
 
       function setColor(key, color) {
-        pc[key === 'hb' ? 'hbColor' : (key === 'prog' ? 'progColor' : 'ctrlColor')] = color;
+        var field = { hb: 'hbColor', prog: 'progColor', ctrl: 'ctrlColor', dot: 'vinylDotColor' }[key];
+        if (!field) return;
+        pc[field] = color;
         save();
         var card = document.getElementById('mh-card');
         if (card) {
           card.style.setProperty(MP_VAR[key], color);
           if (key === 'ctrl') card.style.setProperty('--mh-ctrl-ink', inkFor(color));
         }
+        if (key === 'dot' && prev) prev.style.setProperty('--mh-vinyl-dot', color);
         wrap.querySelectorAll('.mp-swatch[data-key="' + key + '"][data-color]').forEach(function (s) {
           s.classList.toggle('on', s.getAttribute('data-color') === color);
         });
@@ -1391,7 +1445,7 @@
         if (custom) custom.classList.toggle('on', MP_SWATCHES.indexOf(color) < 0);
       }
 
-      ['hb', 'prog', 'ctrl'].forEach(function (key) {
+      ['hb', 'prog', 'ctrl', 'dot'].forEach(function (key) {
         var wheel = wrap.querySelector('#mp-wheel-' + key);
         if (wheel) wheel.addEventListener('input', function () { setColor(key, wheel.value); });
       });
