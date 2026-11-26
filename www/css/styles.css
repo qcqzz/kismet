@@ -441,6 +441,22 @@ body.no-chat-avatar .msg-avatar { display: none; }
 :where(.msg-row.user) .bubble { background: var(--bubble-user); color: var(--bubble-user-ink, var(--ink)); }
 /* 小三角不再由基础样式提供；想要的话由「经典尖角」预设自己画。 */
 .bubble img.chat-img { max-width: 100%; border-radius: 6px; display: block; }
+/* 表情包：和微信一样不套气泡外框，按图片原始比例显示，最大边 120px。
+   用 !important 压过气泡预设和自定义 CSS，免得又被加回底色/边框/投影。 */
+.bubble.sticker-bubble {
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+.bubble.sticker-bubble::before,
+.bubble.sticker-bubble::after { display: none !important; }
+.bubble.sticker-bubble img.chat-img {
+  max-width: 120px; max-height: 120px;
+  width: auto; height: auto;
+  border-radius: 8px;
+}
 
 /* 气泡样式由「修改聊天气泡」的 CSS 画廊接管，见 bubblecss.js */
 

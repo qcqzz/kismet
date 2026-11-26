@@ -495,6 +495,8 @@ function buildMsgRow(msg) {
     if (msg.type === 'redpacket') bubbleCls += ' rp-card-bubble';
     else if (msg.type === 'question') bubbleCls += ' question-bubble';
     else if (msg.type === 'invite') bubbleCls += ' invite-card-bubble';
+    // 表情包：微信式，不要气泡外框（见 styles.css 的 .sticker-bubble）
+    else if (msg.image && msg.isSticker) bubbleCls += ' sticker-bubble';
     else {
       // 兼容别名：外面抄来的 / AI 生成的 CSS 常用 .message-sent / .message-received
       // 指代"我发的""对方发的"，而本项目的叫法是 .msg-row.user / .msg-row.partner。
@@ -892,6 +894,7 @@ function deliverPartnerSticker(sticker, senderId, contactId) {
     senderId: senderId || null,
     text: '',
     image: sticker.url || sticker.dataUrl || '',
+    isSticker: true,
     voice: null,
     timestamp: Date.now(),
     status: 'read',

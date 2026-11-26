@@ -158,7 +158,7 @@ function _sendStickerById(id) {
     id: newId(), contactId: activeContactId, sender: 'user',
     text: '', image: s.src, voice: null,
     timestamp: Date.now(), status: 'sent', favorited: false, recalled: false,
-    replyTo: null, type: 'normal'
+    replyTo: null, type: 'normal', isSticker: true
   });
   playSound('my_send');
   triggerDelayedReply(true);
