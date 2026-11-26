@@ -68,6 +68,7 @@ function _saveStickers() {
   Storage.set('myStickerGroups', myStickerGroups);
   window.myStickerLibrary = myStickerLibrary;
   window.myStickerGroups = myStickerGroups;
+  if (typeof resetStickerSrcCache === 'function') resetStickerSrcCache();
 }
 
 // ── 渲染我的表情面板 ─────────────────────────────────────

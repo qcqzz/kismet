@@ -46,6 +46,7 @@ function stickerPoolOf(contactId) {
 function setStickerPool(contactId, list) {
   if (contactId) contactStickers[contactId] = list;
   else stickerLibrary = list;
+  if (typeof resetStickerSrcCache === 'function') resetStickerSrcCache();
 }
 
 function stickerTabHtml(contactId) {

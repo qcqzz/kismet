@@ -1824,6 +1824,7 @@ function importData() {
         stickerLibrary = Array.isArray(data.stickerLibrary) ? data.stickerLibrary : [];
         contactStickers = (data.contactStickers && typeof data.contactStickers === 'object')
           ? data.contactStickers : {};
+        if (typeof resetStickerSrcCache === 'function') resetStickerSrcCache();
         voiceLibrary = (data.voiceLibrary && typeof data.voiceLibrary === 'object')
           ? data.voiceLibrary : {};
         partnerPokes = Array.isArray(data.partnerPokes) ? data.partnerPokes : [];

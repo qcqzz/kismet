@@ -349,6 +349,36 @@ function addMessage(msg, opts) {
 }
 
 // ---------- 渲染（微信式） ----------
+// 旧版本的表情包消息没有 isSticker 标记（在数据里和普通照片一样只有 image），
+// 渲染时拿表情库反查一次，历史消息也能按表情包样式显示。
+// 结果缓存起来，避免每条消息都重新遍历上百张图片的 dataURL。
+var _stickerSrcSet = null;
+function resetStickerSrcCache() { _stickerSrcSet = null; }
+function _stickerSrcMap() {
+  if (_stickerSrcSet) return _stickerSrcSet;
+  _stickerSrcSet = Object.create(null);
+  function add(list) {
+    (list || []).forEach(function (s) {
+      if (!s) return;
+      var src = s.src || s.url || s.dataUrl;
+      if (src) _stickerSrcSet[src] = 1;
+    });
+  }
+  if (typeof myStickerLibrary !== 'undefined') add(myStickerLibrary);
+  if (typeof stickerLibrary !== 'undefined') add(stickerLibrary);
+  if (typeof contactStickers !== 'undefined' && contactStickers) {
+    Object.keys(contactStickers).forEach(function (k) { add(contactStickers[k]); });
+  }
+  return _stickerSrcSet;
+}
+function isStickerMsg(msg) {
+  if (!msg || !msg.image) return false;
+  if (msg.isSticker) return true;
+  // 纯图片才可能是表情包；带文字的是"图 + 说明"，保持普通图片气泡
+  if (msg.text) return false;
+  return !!_stickerSrcMap()[msg.image];
+}
+
 function _envelopeSVG() {
   return '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7.5l9 6 9-6"/></svg>';
 }
@@ -496,7 +526,7 @@ function buildMsgRow(msg) {
     else if (msg.type === 'question') bubbleCls += ' question-bubble';
     else if (msg.type === 'invite') bubbleCls += ' invite-card-bubble';
     // 表情包：微信式，不要气泡外框（见 styles.css 的 .sticker-bubble）
-    else if (msg.image && msg.isSticker) bubbleCls += ' sticker-bubble';
+    else if (msg.image && isStickerMsg(msg)) bubbleCls += ' sticker-bubble';
     else {
       // 兼容别名：外面抄来的 / AI 生成的 CSS 常用 .message-sent / .message-received
       // 指代"我发的""对方发的"，而本项目的叫法是 .msg-row.user / .msg-row.partner。
