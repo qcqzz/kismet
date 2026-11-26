@@ -161,7 +161,7 @@
       this.value = '';
       if (!f) return;
       if (typeof MAX_IMAGE_SIZE !== 'undefined' && f.size > MAX_IMAGE_SIZE) { toast('图片请小于 5MB'); return; }
-      openCropper(f, 'bg', function (url) {
+      openCropper(f, 'chatbg', function (url) {
         settings.callBgImage = url;
         saveData();
         applyBg();

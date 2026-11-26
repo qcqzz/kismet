@@ -505,7 +505,7 @@ function renderCiBg(kind) {
     input.value = '';
     if (!file) return;
     if (file.size > MAX_IMAGE_SIZE) { toast('图片请小于 5MB'); return; }
-    openCropper(file, 'bg', function (dataUrl) {
+    openCropper(file, 'chatbg', function (dataUrl) {
       settings[key] = dataUrl;
       saveData();
       if (isChat) applyAppearance();          // 聊天背景立刻生效
