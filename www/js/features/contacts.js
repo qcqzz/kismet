@@ -134,7 +134,7 @@ function createNewContact() {
   promptModal('新建梦角', '给对方起个名字', '', function (name) {
     if (!name) return;
     var c = {
-      id: 'c_' + Date.now(),
+      id: 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
       type: 'dream',
       name: name,
       handle: '',              // 第二页资料卡名字下面的 @，空 = 跟随昵称
@@ -149,9 +149,13 @@ function createNewContact() {
     // 同步在字卡库生成该梦角的专属分区（初始为空，由用户自定义导入）
     contactReplyPools[c.id] = [];
     saveData();
+    // 清掉列表搜索词，否则新梦角可能被过滤掉，看着像没建成
+    if (DOMElements.contactSearch) DOMElements.contactSearch.value = '';
     renderContactList();
     if (typeof _resetDreamSign === 'function') _resetDreamSign();
-    toast('已创建梦角「' + name + '」，专属字卡库分区已生成');
+    toast('已创建梦角「' + name + '」');
+    // 直接进入新梦角的聊天：有明确的界面变化，也不会在长列表里找不到新建的那一位
+    openChat(c.id);
   });
 }
 

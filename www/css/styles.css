@@ -1,6 +1,8 @@
 /* ============ 字卡传讯 · 黑白系 · 微信式 ============ */
 
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+/* 去掉老 WebView 的 300ms 双击缩放等待，点按跟手，也少一次“补发 click” */
+button, .sheet-item, .contact-row { touch-action: manipulation; }
 
 :root {
   --bg: #ededed;            /* 微信聊天页灰底 */
@@ -803,12 +805,27 @@ html[data-theme="dark"] .bub-err { color: #ff8a80; border-color: rgba(255, 120, 
 .sheet-item.cancel { color: var(--ink-2); margin-top: 4px; border-top: 1px solid var(--line); }
 
 .modal-mask {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100;
-  display: flex; align-items: center; justify-content: center;
+  position: fixed; left: 0; right: 0;
+  top: var(--app-vv-top, 0px);
+  height: var(--app-vv-height, 100%);
+  background: rgba(0,0,0,0.4); z-index: 100;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 12px 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
 }
 .modal-box {
   width: 82%; max-width: 340px; background: var(--card-bg);
   border-radius: 12px; padding: 20px; animation: popIn 0.2s ease;
+  margin: auto 0;   /* 空间够时垂直居中，内容超高时可以滚 */
+  max-height: calc(var(--app-vv-height, 100vh) - 24px);
+  overflow-y: auto;
+}
+.modal-box.shake { animation: mShake 0.32s ease; }
+@keyframes mShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-7px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(2px); }
 }
 @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 .modal-box .m-title { font-size: 15px; font-weight: 700; margin-bottom: 6px; }

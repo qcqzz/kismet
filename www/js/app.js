@@ -3,7 +3,29 @@
 (function () {
   'use strict';
 
+  // 键盘弹出时 visualViewport 会比布局视口矮。Android 15+ 强制边到边布局后，
+  // 部分机型 WebView 不再跟着键盘缩小，固定定位的弹窗（包括「新建梦角」的取名框）
+  // 会被键盘整个盖住，看起来就像点了没反应。把可见区域写进 CSS 变量，
+  // 弹窗和遮罩按可见区域居中，键盘再高也能点到按钮。
+  function syncAppViewport() {
+    var root = document.documentElement;
+    var vv = window.visualViewport;
+    var h = vv && vv.height > 50 ? vv.height : window.innerHeight;
+    var top = vv && vv.height > 50 ? (vv.offsetTop || 0) : 0;
+    root.style.setProperty('--app-vv-top', top + 'px');
+    root.style.setProperty('--app-vv-height', h + 'px');
+  }
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', syncAppViewport);
+    window.visualViewport.addEventListener('scroll', syncAppViewport);
+  }
+  window.addEventListener('resize', syncAppViewport);
+  window.addEventListener('orientationchange', syncAppViewport);
+  syncAppViewport();
+  window.syncAppViewport = syncAppViewport;
+
   document.addEventListener('DOMContentLoaded', function () {
+    syncAppViewport();
     // 缓存 DOM
     DOMElements = {
       chatStream: document.getElementById('chat-stream'),
