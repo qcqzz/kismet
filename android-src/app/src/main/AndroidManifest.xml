@@ -94,4 +94,6 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <!-- 悬浮窗：豁免 Android 12+ 后台启动前台服务限制，提升"进程被回收后重新拉起"的成功率 -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- 导出备份写入公共下载目录（仅 Android 9 及以下需要运行时申请） -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
 </manifest>

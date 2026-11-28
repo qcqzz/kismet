@@ -1684,12 +1684,109 @@ function applyBubbleTheme() {
 
 // ---- 导出 / 导入 ----
 // 导出 / 导入共用的下载动作
+// 注意：Android WebView 里 <a download href="blob:..."> 不会真的下载，点击只会被静默丢弃，
+// 界面却提示“已导出”，文件管理器里什么也没有。安装包里自带原生 ExportPlugin：
+// 通过 MediaStore 直接写入「下载/Kismet」，文件管理器立即可见，Android 10+ 还不需要存储权限。
+// 浏览器环境仍走普通下载。
+function _exportPlugin() {
+  return (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.ExportPlugin) || null;
+}
+
 function _downloadBlob(blob, filename) {
   var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
   setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+}
+
+// 分块读成 base64：大备份一次性转码会在低内存机型上直接闪退
+var _EXPORT_CHUNK_BYTES = 256 * 1024;
+function _blobSliceToBase64(slice) {
+  return new Promise(function (resolve, reject) {
+    var r = new FileReader();
+    r.onload = function () {
+      try { resolve(String(r.result).split(',')[1] || ''); }
+      catch (e) { reject(e); }
+    };
+    r.onerror = function () { reject(r.error || new Error('读取分块失败')); };
+    r.readAsDataURL(slice);
+  });
+}
+
+// 一次性整写（Android 9- 的写权限申请 / 分块不可用时的回退）
+function _saveViaPluginBase64(blob, filename) {
+  var plugin = _exportPlugin();
+  if (!plugin) return Promise.resolve(false);
+  return new Promise(function (resolve) {
+    var r = new FileReader();
+    r.onload = function () {
+      plugin.saveBase64({
+        data: String(r.result).split(',')[1] || '',
+        fileName: filename,
+        mimeType: blob.type || 'application/octet-stream'
+      }).then(function () { resolve(true); })
+        .catch(function (e) { console.warn('[export] saveBase64 失败:', e); resolve(false); });
+    };
+    r.onerror = function () { resolve(false); };
+    r.readAsDataURL(blob);
+  });
+}
+
+// 分块流式写入：openSave → writeChunk × N → finishSave，峰值内存 ≈ 一块
+function _saveViaPluginStreaming(blob, filename) {
+  var plugin = _exportPlugin();
+  if (!plugin) return Promise.resolve(false);
+  var token = null;
+  var mimeType = blob.type || 'application/octet-stream';
+  return plugin.openSave({ fileName: filename, mimeType: mimeType }).then(function (res) {
+    token = res && res.token;
+    if (!token) throw new Error('openSave 未返回 token');
+    var offset = 0;
+    function writeNext() {
+      if (offset >= blob.size) return Promise.resolve();
+      var end = Math.min(blob.size, offset + _EXPORT_CHUNK_BYTES);
+      var slice = blob.slice(offset, end);
+      offset = end;
+      return _blobSliceToBase64(slice).then(function (b64) {
+        return plugin.writeChunk({ token: token, data: b64 });
+      }).then(writeNext);
+    }
+    return writeNext().then(function () {
+      return plugin.finishSave({ token: token });
+    });
+  }).then(function () {
+    token = null;
+    return true;
+  }).catch(function (e) {
+    console.warn('[export] 分块保存失败:', e);
+    if (token) {
+      try { plugin.abortSave({ token: token }); } catch (e2) {}
+    }
+    return _saveViaPluginBase64(blob, filename);
+  });
+}
+
+// 统一落盘入口：有原生插件就写「下载/Kismet」，否则走浏览器下载。
+// 只有真正成功才提示「已保存」，失败会明确报错，不再出现“提示已导出但没文件”。
+function _saveExportBlob(blob, filename, onDone) {
+  if (!_exportPlugin()) {
+    var ok = true;
+    try { _downloadBlob(blob, filename); }
+    catch (e) { console.warn('[export] 浏览器下载失败:', e); ok = false; }
+    if (!ok) toast('导出失败');
+    if (onDone) onDone(ok);
+    return ok;
+  }
+  toast('正在保存…');
+  _saveViaPluginStreaming(blob, filename).then(function (ok) {
+    if (ok) toast('已保存到「下载/Kismet」');
+    else toast('保存失败，请检查手机存储空间后重试');
+    if (onDone) onDone(ok);
+  });
 }
 
 function exportData() {
@@ -1732,7 +1829,7 @@ function exportData() {
     partnerActivities: partnerActivities,
     callLogs: callLogs
   };
-  var base = 'zikka-backup-' + new Date().toISOString().slice(0, 10);
+  var base = 'Kismet-backup-' + new Date().toISOString().slice(0, 10);
 
   // 首选 zip：里面放一份 backup.json，方便和其他资料一起归档
   if (typeof JSZip !== 'undefined') {
@@ -1742,13 +1839,12 @@ function exportData() {
       zip.file('backup.json', JSON.stringify(data));
       zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } })
         .then(function (blob) {
-          _downloadBlob(blob, base + '.zip');
-          toast('已导出');
+          _saveExportBlob(blob, base + '.zip');
         })
         .catch(function (e) {
           console.warn('[export zip]', e);
-          _downloadBlob(new Blob([JSON.stringify(data)], { type: 'application/json' }), base + '.json');
-          toast('打包失败，已导出 JSON');
+          toast('打包失败，改为导出 JSON');
+          _saveExportBlob(new Blob([JSON.stringify(data)], { type: 'application/json' }), base + '.json');
         });
       return;
     } catch (e) {
@@ -1756,8 +1852,7 @@ function exportData() {
     }
   }
   // 环境里没有 JSZip 就退回单文件 JSON
-  _downloadBlob(new Blob([JSON.stringify(data)], { type: 'application/json' }), base + '.json');
-  toast('已导出');
+  _saveExportBlob(new Blob([JSON.stringify(data)], { type: 'application/json' }), base + '.json');
 }
 
 // 读取备份文件：.json 直接解析；.zip 取里面的 backup.json（找不到就取第一个 .json）
