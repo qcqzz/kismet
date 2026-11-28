@@ -24,7 +24,7 @@
   syncAppViewport();
   window.syncAppViewport = syncAppViewport;
 
-  document.addEventListener('DOMContentLoaded', function () {
+  document.addEventListener('DOMContentLoaded', async function () {
     syncAppViewport();
     // 缓存 DOM
     DOMElements = {
@@ -60,6 +60,14 @@
 
     // 加载数据 + 主题
     loadAllData();
+    // 图片本体存在 IndexedDB，启动时先把存档里的引用换回 dataURL，
+    // 否则头像 / 表情包 / 朋友圈配图都会显示成一串 idbimg:// 文本。
+    if (typeof hydrateAllImages === 'function') {
+      try {
+        var imgStat = await hydrateAllImages();
+        if (imgStat && imgStat.missing) console.warn('[storage] 有 ' + imgStat.missing + ' 张图片未能恢复');
+      } catch (e) { console.warn('[storage] 图片恢复失败:', e); }
+    }
     applyBubbleTheme();
     if (typeof applyAppearance === 'function') applyAppearance();
     if (typeof partnerActivityTick === 'function') partnerActivityTick();
@@ -81,6 +89,16 @@
 
     // 通知与后台保活
     initNotifyKeepAlive();
+
+    // 历史版本把图片直接存在 localStorage 里，这里统一迁移到 IndexedDB。
+    // 放到下一轮事件循环：先让界面渲染出来，再在后台慢慢搬。
+    setTimeout(function () {
+      try { Storage.repersistAll(); } catch (e) { console.warn('[storage] 迁移图片失败:', e); }
+    }, 0);
+    // 清理删除内容后遗留的图片，避免图库越用越大（不阻塞启动）
+    setTimeout(function () {
+      try { Storage.gcImages(); } catch (e) {}
+    }, 15000);
 
     // 设置页返回：子页先回主设置，否则回主页
     document.getElementById('btn-settings-back').addEventListener('click', function () {

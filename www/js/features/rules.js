@@ -1799,6 +1799,8 @@ function exportData() {
     settings: settings,
     stickerLibrary: stickerLibrary,
     contactStickers: contactStickers,
+    myStickerLibrary: myStickerLibrary,
+    myStickerGroups: myStickerGroups,
     voiceLibrary: voiceLibrary,
     partnerPokes: partnerPokes,
     myPokes: myPokes,
@@ -1919,6 +1921,8 @@ function importData() {
         stickerLibrary = Array.isArray(data.stickerLibrary) ? data.stickerLibrary : [];
         contactStickers = (data.contactStickers && typeof data.contactStickers === 'object')
           ? data.contactStickers : {};
+        myStickerLibrary = Array.isArray(data.myStickerLibrary) ? data.myStickerLibrary : [];
+        myStickerGroups = Array.isArray(data.myStickerGroups) ? data.myStickerGroups : [];
         if (typeof resetStickerSrcCache === 'function') resetStickerSrcCache();
         voiceLibrary = (data.voiceLibrary && typeof data.voiceLibrary === 'object')
           ? data.voiceLibrary : {};
@@ -1985,6 +1989,7 @@ function importData() {
           activeContactId = contacts[0] ? contacts[0].id : null;
         }
         saveData();
+        if (typeof _saveStickers === 'function') _saveStickers();
         applyBubbleTheme();
         if (typeof applyBubbleCss === 'function' && activeContactId) applyBubbleCss(activeContactId);
         if (typeof refreshActiveStatus === 'function') refreshActiveStatus();
